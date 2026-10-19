@@ -1,0 +1,58 @@
+name: Bootstrap FIBRE OPS
+
+on:
+  push:
+    paths:
+      - '.github/workflows/bootstrap-fibre-ops.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  import-current-production:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Import current Netlify production
+        run: |
+          curl --fail --location --silent --show-error \
+            https://willowy-semolina-3a4a6e.netlify.app/ \
+            --output index.html
+          test -s index.html
+          grep -qi '<html' index.html
+
+      - name: Apply intervention deletion fix
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('index.html')
+          t = p.read_text(encoding='utf-8')
+
+          old1 = """    if(!confirm('Supprimer cette intervention ?'))return;\n    const {error}=await supabase.from('interventions').delete().eq('id',id);\n    if(error)return toast('Erreur : '+error.message);\n    interventions=interventions.filter(x=>x.id!==id);\n    renderAll();\n    return toast('🗑️ Intervention supprimée');"""
+          new1 = """    if(!confirm('Supprimer cette intervention ?'))return;\n    const {data:deleted,error}=await supabase.rpc('delete_my_intervention',{p_intervention_id:id});\n    if(error)return toast('Erreur : '+error.message);\n    if(deleted!==true)return toast('Suppression refusée par le serveur');\n    await loadAll();\n    renderAll();\n    return toast('🗑️ Intervention supprimée');"""
+
+          old2 = """};$('m-del-btn').onclick=async()=>{const item=interventions.find(x=>x.id===editId);if(item?.readOnlyHistory)return toast('Historique société conservé en lecture seule');if(!editId||!confirm('Supprimer cette intervention ?'))return;const {error}=await supabase.from('interventions').delete().eq('id',editId);if(error)return toast('Erreur : '+error.message);interventions=interventions.filter(x=>x.id!==editId);$('detailModal').classList.remove('active');renderAll();toast('🗑️ Intervention supprimée')};"""
+          new2 = """};$('m-del-btn').onclick=async()=>{\n  const item=interventions.find(x=>x.id===editId);\n  if(item?.readOnlyHistory)return toast('Historique société conservé en lecture seule');\n  if(!editId||!confirm('Supprimer cette intervention ?'))return;\n  const btn=$('m-del-btn'),original=btn.textContent,targetId=editId;\n  btn.disabled=true;btn.textContent='Suppression…';\n  const {data:deleted,error}=await supabase.rpc('delete_my_intervention',{p_intervention_id:targetId});\n  btn.disabled=false;btn.textContent=original;\n  if(error)return toast('Erreur : '+error.message);\n  if(deleted!==true)return toast('Suppression refusée par le serveur');\n  $('detailModal').classList.remove('active');\n  await loadAll();renderAll();\n  if(interventions.some(x=>x.id===targetId))return toast('La suppression n’a pas été confirmée par le serveur');\n  toast('🗑️ Intervention supprimée');\n};"""
+
+          if old1 in t:
+              t = t.replace(old1, new1, 1)
+          if old2 in t:
+              t = t.replace(old2, new2, 1)
+
+          # Never keep the temporary redirect placeholder.
+          if 'http-equiv="refresh"' in t and len(t) < 5000:
+              raise SystemExit('Refusing to commit placeholder index')
+
+          p.write_text(t, encoding='utf-8')
+          PY
+
+      - name: Commit imported production
+        run: |
+          git config user.name 'FIBRE OPS Deploy Bot'
+          git config user.email 'actions@users.noreply.github.com'
+          git add index.html
+          git commit -m 'Importe la production FIBRE OPS et corrige la suppression' || exit 0
+          git push

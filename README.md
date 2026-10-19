@@ -1,17 +1,14 @@
-# FIBRE OPS — Production
+# FIBRE OPS
 
-Dépôt officiel de production de FIBRE OPS.
+Dépôt de production de FIBRE OPS.
 
-- Branche de production : `main`
-- Hébergement : Netlify
-- Dossier publié : racine du dépôt (`.`)
-- Point d’entrée : `index.html`
-- Supabase reste le backend de l’application.
+## Production
+- Application principale : `index.html`
+- Branche Netlify : `main`
+- Publication : racine du dépôt (`.`)
+- Configuration : `netlify.toml`
+- PWA : `manifest.webmanifest`, `sw.js`, `icons/`
 
-## Déploiement
+Le site Netlify existant doit être relié à ce dépôt. Chaque commit sur `main` déclenchera ensuite un nouveau déploiement automatique.
 
-Une fois ce dépôt relié au site Netlify existant, chaque commit sur `main` déclenche automatiquement un nouveau déploiement.
-
-## Règle de travail
-
-`main` doit toujours rester déployable. Pour une grosse évolution, on privilégie une branche de travail puis une validation avant fusion.
+Ne pas remettre les anciens bots de test dans cette branche de production.

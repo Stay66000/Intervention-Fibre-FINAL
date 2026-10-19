@@ -19,6 +19,18 @@ const frame=document.getElementById('app');
 frame.addEventListener('load',()=>{
   try{
     const d=frame.contentDocument;
+    if(!d.getElementById('fibreAppHotfixScript')){
+      const h=d.createElement('script');
+      h.id='fibreAppHotfixScript';
+      h.src='./app-hotfix.js?v=2';
+      d.head.appendChild(h);
+    }
+    if(!d.getElementById('fibreSheetsPullScript')){
+      const p=d.createElement('script');
+      p.id='fibreSheetsPullScript';
+      p.src='./sheets-pull.js?v=2';
+      d.head.appendChild(p);
+    }
     if(!d.getElementById('fibreSheetsBridgeScript')){
       const s=d.createElement('script');
       s.id='fibreSheetsBridgeScript';

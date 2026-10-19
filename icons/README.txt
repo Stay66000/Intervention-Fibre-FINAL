@@ -1,0 +1,1 @@
+Les fichiers .png de ce dossier sont les icônes PWA utilisées par FIBRE OPS.

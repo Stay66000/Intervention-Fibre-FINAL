@@ -233,6 +233,8 @@
 
   function start(){
     if(!ensureUI()){setTimeout(start,400);return}
+    let ready=false;try{ready=!!profile&&!!user}catch{}
+    if(!ready){render('Attente de la connexion FIBRE OPS…');setTimeout(start,500);return}
     render('Connexion au Google Sheet…');
     flush();
     setTimeout(()=>check(false),500);

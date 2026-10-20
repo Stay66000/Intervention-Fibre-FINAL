@@ -1,4 +1,4 @@
-const CACHE='fibre-ops-v3-production-1.2';
+const CACHE='fibre-ops-v3-production-1.3';
 const CORE=['./','./index.html','./manifest.webmanifest','./icons/icon-192.png','./icons/icon-512.png','./app-hotfix.js'];
 
 self.addEventListener('install',event=>{
@@ -14,7 +14,7 @@ async function patchAppHtml(response){
   const type=response.headers.get('content-type')||'';
   if(!type.includes('text/html'))return response;
   const html=await response.text();
-  const tag='<script src="./app-hotfix.js?v=2"></script>';
+  const tag='<script src="./app-hotfix.js?v=3"></script>';
   const patched=html.includes('app-hotfix.js')?html:html.replace('</body>',tag+'</body>');
   const headers=new Headers(response.headers);
   headers.delete('content-length');

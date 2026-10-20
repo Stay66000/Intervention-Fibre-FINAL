@@ -4,33 +4,13 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0f141b">
-<title>FIBRE OPS — Test Google Sheets</title>
+<title>FIBRE OPS</title>
 <style>
 html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#0f141b}
 #app{position:fixed;inset:0;width:100%;height:100%;border:0;background:#0f141b}
-#boot{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;color:#eef2f7;font:600 14px system-ui;background:#0f141b;z-index:2}
 </style>
 </head>
 <body>
-<div id="boot">Chargement FIBRE OPS · test Sheets…</div>
-<iframe id="app" src="./index.html?sheets-test=3" title="FIBRE OPS"></iframe>
-<script>
-const frame=document.getElementById('app');
-frame.addEventListener('load',()=>{
-  try{
-    const d=frame.contentDocument;
-    if(!d.getElementById('fibreAppHotfixScript')){
-      const h=d.createElement('script');h.id='fibreAppHotfixScript';h.src='./app-hotfix.js?v=3';d.head.appendChild(h);
-    }
-    if(!d.getElementById('fibreSheetsPullScript')){
-      const p=d.createElement('script');p.id='fibreSheetsPullScript';p.src='./sheets-pull.js?v=3';d.head.appendChild(p);
-    }
-    if(!d.getElementById('fibreSheetsBridgeScript')){
-      const s=d.createElement('script');s.id='fibreSheetsBridgeScript';s.src='./sheets-bridge.js?v=1';d.head.appendChild(s);
-    }
-    document.getElementById('boot').style.display='none';
-  }catch(e){document.getElementById('boot').textContent='Impossible de charger le mode test Sheets.'}
-});
-</script>
+<iframe id="app" src="./index.html?sheets-disabled=1" title="FIBRE OPS"></iframe>
 </body>
 </html>

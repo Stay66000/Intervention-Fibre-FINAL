@@ -3,172 +3,129 @@
 
   const SHEETS_URL='https://script.google.com/macros/s/AKfycbxyJrikE3tF9uaiuMmJtGq8OafETWuLX354Zv6gufGWKX26NXxPNMMFX7p--rlIMWak1Q/exec';
   const TECH='Brendan';
-  const nativeFetch=window.fetch.bind(window);
   let running=false,lastRun=0,timer=null,uiBtn=null,uiStatus=null;
 
-  function normText(v){return String(v||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim().toLowerCase()}
+  const normText=v=>String(v||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim().toLowerCase();
+  const normRef=v=>String(v||'').replace(/\D/g,'').replace(/^0+(?=\d)/,'');
   function normDate(v){
     const s=String(v||'').trim();
     if(/^\d{4}-\d{2}-\d{2}/.test(s))return s.slice(0,10);
     const m=s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
     if(m)return `${m[3]}-${String(m[2]).padStart(2,'0')}-${String(m[1]).padStart(2,'0')}`;
-    const d=new Date(s);
-    return Number.isNaN(d.getTime())?'':`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    const d=new Date(s);if(Number.isNaN(d.getTime()))return '';
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
   }
-  function normRef(v){return String(v||'').replace(/\D/g,'').replace(/^0+(?=\d)/,'')}
   function resultValue(v){return /echec|échec/i.test(String(v||''))?'Échec':'Réussite'}
-  function techOk(row){return !row?.tech||normText(row.tech)===normText(profile?.first_name||TECH)}
   function operatorLabel(op){try{return typeof opLabel==='function'?opLabel(op):String(op||'')}catch{return String(op||'')}}
   function resolveOperator(v){
     const n=normText(v);
-    return (operators||[]).find(o=>normText(o.operator)===n||normText(operatorLabel(o.operator))===n)?.operator||'';
+    try{return (operators||[]).find(o=>normText(o.operator)===n||normText(operatorLabel(o.operator))===n)?.operator||''}catch{return ''}
   }
   function resolveType(op,name){
     const n=normText(name);
-    return (types||[]).find(t=>t.operator===op&&normText(t.name)===n)||null;
+    try{return (types||[]).find(t=>t.operator===op&&normText(t.name)===n&&t.active!==false)||null}catch{return null}
   }
-  function interventionKey(x,op){
-    return `${normDate(x.date||x.intervention_date)}|${normRef(x.num||x.reference)}|${normText(operatorLabel(op||x.op||x.operator))}`;
-  }
-  function legacyFuelId(row){
-    const m=String(row?.notes||'').match(/\[FIBRE_OPS_SHEET_ID:([^\]]+)\]/);
-    return m?m[1]:'';
-  }
-  function fuelMarker(id){return id?`[FIBRE_OPS_SHEET_ID:${String(id)}]`:''}
   function canSync(){
     try{return !!user&&!!profile&&['admin','platform_admin'].includes(profile.role)&&!currentCompanyId()&&!hasTeam()}catch{return false}
   }
-  function setStatus(text){
-    if(uiStatus)uiStatus.textContent=text;
-  }
+  function setStatus(text){if(uiStatus)uiStatus.textContent=text}
+  function techOk(row){try{return !row?.tech||normText(row.tech)===normText(profile?.first_name||TECH)}catch{return true}}
+  function fuelMarker(id){return id?`[FIBRE_OPS_SHEET_ID:${String(id)}]`:''}
+  function legacyFuelId(row){const m=String(row?.notes||'').match(/\[FIBRE_OPS_SHEET_ID:([^\]]+)\]/);return m?m[1]:''}
 
   async function getSheet(query){
-    const ctl=new AbortController();
-    const to=setTimeout(()=>ctl.abort(),15000);
+    const ctl=new AbortController(),to=setTimeout(()=>ctl.abort(),15000);
     try{
-      const r=await nativeFetch(SHEETS_URL+'?'+query+'&_t='+Date.now(),{cache:'no-store',signal:ctl.signal});
-      if(!r.ok)throw new Error('HTTP '+r.status);
+      const r=await fetch(SHEETS_URL+'?'+query+'&_t='+Date.now(),{cache:'no-store',signal:ctl.signal});
+      if(!r.ok)throw new Error('Sheets HTTP '+r.status);
       const data=await r.json();
       if(!Array.isArray(data))throw new Error('Format Sheets invalide');
       return data;
     }finally{clearTimeout(to)}
   }
 
-  async function authHeaders(){
-    const {data,error}=await supabase.auth.getSession();
-    if(error||!data?.session?.access_token)throw new Error('Session Supabase introuvable');
-    return {
-      'apikey':SUPABASE_KEY,
-      'Authorization':'Bearer '+data.session.access_token,
-      'Content-Type':'application/json'
-    };
+  function personalInterventions(){
+    try{return (interventions||[]).filter(e=>!e.companyId&&!e.readOnlyHistory&&!e.teamId)}catch{return []}
+  }
+  function personalFuel(){
+    try{return (fuel||[]).filter(f=>!f.companyId&&!f.teamId)}catch{return []}
   }
 
-  async function rest(path,{method='GET',body=null,prefer='return=representation'}={}){
-    const headers=await authHeaders();
-    if(prefer)headers['Prefer']=prefer;
-    const r=await nativeFetch(SUPABASE_URL+'/rest/v1/'+path,{
-      method,headers,cache:'no-store',body:body===null?undefined:JSON.stringify(body)
-    });
-    const text=await r.text();
-    let data=null;
-    if(text){try{data=JSON.parse(text)}catch{data=text}}
-    if(!r.ok)throw new Error(typeof data==='object'&&(data?.message||data?.details)?(data.message||data.details):('HTTP '+r.status));
-    return data;
-  }
-
-  async function loadPersonal(){
-    const uid=encodeURIComponent(user.id);
-    const intSelect=encodeURIComponent('id,user_id,company_id,team_id,intervention_date,operator,intervention_type_id,intervention_type_name,result,reference,address,notes,operator_data,created_at');
-    const fuelSelect=encodeURIComponent('id,user_id,company_id,team_id,paid_by_user_id,expense_date,amount,station,notes,created_at');
-    const [ints,fuels]=await Promise.all([
-      rest(`interventions?select=${intSelect}&user_id=eq.${uid}&company_id=is.null&team_id=is.null`,{prefer:''}),
-      rest(`fuel_expenses?select=${fuelSelect}&user_id=eq.${uid}&company_id=is.null&team_id=is.null`,{prefer:''})
-    ]);
-    return {ints:Array.isArray(ints)?ints:[],fuels:Array.isArray(fuels)?fuels:[]};
-  }
-
-  async function syncInterventions(sheetRows,localRows){
-    const byId=new Map(localRows.map(r=>[String(r.id),r])),byLegacy=new Map(),byKey=new Map();
-    localRows.forEach(r=>{
-      const legacy=r.operator_data&&typeof r.operator_data==='object'?String(r.operator_data.legacy_sheet_id||''):'';
-      if(legacy)byLegacy.set(legacy,r);
-      byKey.set(interventionKey({date:r.intervention_date,num:r.reference,operator:r.operator},r.operator),r);
-    });
+  async function syncInterventions(rows){
+    const locals=personalInterventions();
+    const exact=new Map(),byRefOp=new Map(),byRefCandidates=new Map();
+    for(const e of locals){
+      const ref=normRef(e.num),op=normText(operatorLabel(e.op));
+      exact.set(`${normDate(e.date)}|${ref}|${op}`,e);
+      if(ref)byRefOp.set(`${ref}|${op}`,e);
+      if(ref){const a=byRefCandidates.get(ref)||[];a.push(e);byRefCandidates.set(ref,a)}
+    }
     let added=0,updated=0,skipped=0;
-    for(const raw of sheetRows){
-      const date=normDate(raw.date),op=resolveOperator(raw.op),type=resolveType(op,raw.typo),legacyId=String(raw.id||'');
+    for(const raw of rows){
+      const date=normDate(raw.date),op=resolveOperator(raw.op),type=resolveType(op,raw.typo),ref=normRef(raw.num);
       if(!date||!op||!type){skipped++;continue}
-      const key=interventionKey({date,num:raw.num,op},op);
-      let local=(legacyId&&byId.get(legacyId))||(legacyId&&byLegacy.get(legacyId))||byKey.get(key)||null;
+      const opN=normText(operatorLabel(op));
+      let local=exact.get(`${date}|${ref}|${opN}`)||byRefOp.get(`${ref}|${opN}`)||null;
+      if(!local&&ref&&(byRefCandidates.get(ref)||[]).length===1)local=byRefCandidates.get(ref)[0];
+      const desired={
+        intervention_date:date,
+        operator:op,
+        intervention_type_id:type.id,
+        result:resultValue(raw.statut),
+        reference:String(raw.num||'').trim()||null,
+        address:String(raw.addr||'').trim()||null,
+        notes:String(raw.comment||'').trim()||null
+      };
       if(!local){
-        const rows=await rest('interventions',{
-          method:'POST',
-          body:{
-            user_id:user.id,company_id:null,team_id:null,work_mode:'Personal',solo_user_id:user.id,
-            intervention_date:date,operator:op,intervention_type_id:type.id,result:resultValue(raw.statut),
-            reference:String(raw.num||'').trim()||null,address:String(raw.addr||'').trim()||null,
-            notes:String(raw.comment||'').trim()||null,
-            operator_data:{legacy_sheet_id:legacyId||null,legacy_sheet_sync:true}
-          }
-        });
-        local=Array.isArray(rows)?rows[0]:rows;
-        if(local){localRows.push(local);byId.set(String(local.id),local);if(legacyId)byLegacy.set(legacyId,local);byKey.set(key,local)}
-        added++;
-        continue;
+        const payload={user_id:user.id,company_id:null,team_id:null,work_mode:'Personal',solo_user_id:user.id,...desired,operator_data:{legacy_sheet_id:String(raw.id||'')||null,legacy_sheet_sync:true}};
+        const {data,error}=await supabase.from('interventions').insert(payload).select('id').single();
+        if(error)throw error;
+        const shadow={id:data?.id||'',date,op,typeId:type.id,statut:desired.result,num:String(raw.num||''),addr:String(raw.addr||''),comment:String(raw.comment||''),companyId:null,teamId:null,readOnlyHistory:false};
+        exact.set(`${date}|${ref}|${opN}`,shadow);if(ref)byRefOp.set(`${ref}|${opN}`,shadow);
+        added++;continue;
       }
-
       const patch={};
-      if(String(local.intervention_date||'')!==date)patch.intervention_date=date;
-      if(String(local.reference||'')!==String(raw.num||''))patch.reference=String(raw.num||'').trim()||null;
-      if(String(local.address||'')!==String(raw.addr||''))patch.address=String(raw.addr||'').trim()||null;
-      if(String(local.notes||'')!==String(raw.comment||''))patch.notes=String(raw.comment||'').trim()||null;
-      if(legacyId&&String(local.id)!==legacyId){
-        const meta=local.operator_data&&typeof local.operator_data==='object'?local.operator_data:{};
-        if(String(meta.legacy_sheet_id||'')!==legacyId)patch.operator_data={...meta,legacy_sheet_id:legacyId,legacy_sheet_sync:true};
-      }
+      if(normDate(local.date)!==date)patch.intervention_date=date;
+      if(local.op!==op)patch.operator=op;
+      if(String(local.typeId||'')!==String(type.id))patch.intervention_type_id=type.id;
+      if(String(local.statut||'Réussite')!==desired.result)patch.result=desired.result;
+      if(String(local.num||'')!==String(raw.num||''))patch.reference=desired.reference;
+      if(String(local.addr||'')!==String(raw.addr||''))patch.address=desired.address;
+      if(String(local.comment||'')!==String(raw.comment||''))patch.notes=desired.notes;
       if(Object.keys(patch).length){
-        const rows=await rest(`interventions?id=eq.${encodeURIComponent(local.id)}`,{method:'PATCH',body:patch});
-        const fresh=Array.isArray(rows)?rows[0]:rows;if(fresh)Object.assign(local,fresh);
+        const {error}=await supabase.from('interventions').update(patch).eq('id',local.id);
+        if(error)throw error;
         updated++;
       }
     }
     return {added,updated,skipped};
   }
 
-  async function syncFuel(sheetRows,localRows){
-    const rowsWanted=sheetRows.filter(techOk),byId=new Map(localRows.map(r=>[String(r.id),r])),byLegacy=new Map(),byKey=new Map();
-    localRows.forEach(r=>{
-      const legacy=legacyFuelId(r);if(legacy)byLegacy.set(legacy,r);
-      byKey.set(`${normDate(r.expense_date)}|${Number(r.amount)||0}|${normText(r.station||'')}`,r);
-    });
+  async function syncFuel(rows){
+    const wanted=rows.filter(techOk),locals=personalFuel(),byLegacy=new Map(),byKey=new Map();
+    for(const f of locals){
+      const legacy=legacyFuelId(f);if(legacy)byLegacy.set(legacy,f);
+      byKey.set(`${normDate(f.date)}|${Number(f.montant)||0}|${normText(f.station||f.comment||'')}`,f);
+    }
     let added=0,updated=0,skipped=0;
-    for(const raw of rowsWanted){
-      const date=normDate(raw.date),amount=Number(raw.montant)||0,legacyId=String(raw.id||''),comment=String(raw.comment||'').trim();
+    for(const raw of wanted){
+      const date=normDate(raw.date),amount=Number(raw.montant)||0,comment=String(raw.comment||'').trim(),legacy=String(raw.id||'');
       if(!date||amount<=0){skipped++;continue}
-      const key=`${date}|${amount}|${normText(comment)}`;
-      let local=(legacyId&&byId.get(legacyId))||(legacyId&&byLegacy.get(legacyId))||byKey.get(key)||null;
+      let local=(legacy&&byLegacy.get(legacy))||byKey.get(`${date}|${amount}|${normText(comment)}`)||null;
       if(!local){
-        const rows=await rest('fuel_expenses',{
-          method:'POST',
-          body:{
-            user_id:user.id,company_id:null,team_id:null,paid_by_user_id:user.id,
-            expense_date:date,amount,station:comment||'Import Google Sheets',notes:fuelMarker(legacyId)||null
-          }
-        });
-        local=Array.isArray(rows)?rows[0]:rows;
-        if(local){localRows.push(local);byId.set(String(local.id),local);if(legacyId)byLegacy.set(legacyId,local);byKey.set(key,local)}
-        added++;
-        continue;
+        const {data,error}=await supabase.from('fuel_expenses').insert({user_id:user.id,company_id:null,team_id:null,paid_by_user_id:user.id,expense_date:date,amount,station:comment||'Import Google Sheets',notes:fuelMarker(legacy)||null}).select('id').single();
+        if(error)throw error;
+        local={id:data?.id||'',date,montant:amount,station:comment||'Import Google Sheets',comment:comment||'Import Google Sheets',notes:fuelMarker(legacy),companyId:null,teamId:null};
+        if(legacy)byLegacy.set(legacy,local);byKey.set(`${date}|${amount}|${normText(comment)}`,local);added++;continue;
       }
       const patch={};
-      if(String(local.expense_date||'')!==date)patch.expense_date=date;
-      if(Number(local.amount)!==amount)patch.amount=amount;
-      if(String(local.station||'')!==(comment||'Import Google Sheets'))patch.station=comment||'Import Google Sheets';
-      if(legacyId&&String(local.id)!==legacyId&&legacyFuelId(local)!==legacyId)patch.notes=fuelMarker(legacyId);
+      if(normDate(local.date)!==date)patch.expense_date=date;
+      if(Number(local.montant)!==amount)patch.amount=amount;
+      if(String(local.station||local.comment||'')!==(comment||'Import Google Sheets'))patch.station=comment||'Import Google Sheets';
+      if(legacy&&legacyFuelId(local)!==legacy)patch.notes=fuelMarker(legacy);
       if(Object.keys(patch).length){
-        const rows=await rest(`fuel_expenses?id=eq.${encodeURIComponent(local.id)}`,{method:'PATCH',body:patch});
-        const fresh=Array.isArray(rows)?rows[0]:rows;if(fresh)Object.assign(local,fresh);
+        const {error}=await supabase.from('fuel_expenses').update(patch).eq('id',local.id);
+        if(error)throw error;
         updated++;
       }
     }
@@ -179,62 +136,44 @@
     if(running||!navigator.onLine||!canSync())return;
     running=true;lastRun=Date.now();
     if(uiBtn){uiBtn.disabled=true;uiBtn.textContent='Synchronisation…'}
-    setStatus('Lecture du Sheet et comparaison avec Supabase…');
+    setStatus('Lecture de Google Sheets…');
     try{
-      const [sheetInts,sheetFuel,local]=await Promise.all([
-        getSheet('tech='+encodeURIComponent(TECH)),
-        getSheet('type=fuel'),
-        loadPersonal()
-      ]);
-      const ints=await syncInterventions(sheetInts,local.ints);
-      const fuels=await syncFuel(sheetFuel,local.fuels);
-      const changes=ints.added+ints.updated+fuels.added+fuels.updated;
-      const skipped=ints.skipped+fuels.skipped;
-      if(changes){
-        await loadAll();
-        renderAll();
-      }
-      const text=changes
+      const [sheetInts,sheetFuel]=await Promise.all([getSheet('tech='+encodeURIComponent(TECH)),getSheet('type=fuel')]);
+      const ints=await syncInterventions(sheetInts),fuels=await syncFuel(sheetFuel);
+      const changes=ints.added+ints.updated+fuels.added+fuels.updated,skipped=ints.skipped+fuels.skipped;
+      if(changes){await loadAll();renderAll()}
+      setStatus(changes
         ? `Sheets → FIBRE OPS : +${ints.added} inter, ${ints.updated} maj, +${fuels.added} plein, ${fuels.updated} maj${skipped?` · ${skipped} ignoré(s)`:''}`
-        : `Sheets → FIBRE OPS : déjà à jour${skipped?` · ${skipped} ligne(s) non compatible(s)`:''}`;
-      setStatus(text);
+        : `Sheets → FIBRE OPS : déjà à jour${skipped?` · ${skipped} ligne(s) incompatible(s)`:''}`);
       if(showToast&&typeof toast==='function')toast(changes?'✅ Import Sheets terminé':'✅ Sheets déjà synchronisé');
     }catch(e){
       console.warn('[Sheets pull]',e);
-      setStatus('Sheets → FIBRE OPS indisponible pour le moment.');
-      if(showToast&&typeof toast==='function')toast('Erreur import Sheets → FIBRE OPS');
+      const msg=String(e?.message||e||'Erreur inconnue').slice(0,150);
+      setStatus('Erreur Sheets → FIBRE OPS : '+msg);
+      if(showToast&&typeof toast==='function')toast('Erreur import Sheets : '+msg);
     }finally{
-      running=false;
-      if(uiBtn){uiBtn.disabled=false;uiBtn.textContent='↩ Importer Sheets → FIBRE OPS'}
+      running=false;if(uiBtn){uiBtn.disabled=false;uiBtn.textContent='↩ Importer Sheets → FIBRE OPS'}
     }
   }
 
   function ensureUi(){
-    const block=document.getElementById('legacySheetsTestBlock');
-    if(!block)return false;
+    const block=document.getElementById('legacySheetsTestBlock');if(!block)return false;
     const h=block.querySelector('h4');if(h)h.textContent='🧪 Google Sheets secours · TEST BIDIRECTIONNEL';
-    const p=block.querySelector('p');if(p)p.textContent='Netlify envoie vers Supabase + Sheets, et le mode test récupère aussi automatiquement les ajouts/modifications du Sheet vers ton espace personnel.';
+    const p=block.querySelector('p');if(p)p.textContent='FIBRE OPS envoie vers Supabase + Sheets. Cette version récupère aussi les ajouts/modifications du Sheet vers ton espace personnel.';
     let box=document.getElementById('legacySheetsPullBox');
-    if(!box){
-      box=document.createElement('div');box.id='legacySheetsPullBox';box.style.marginTop='10px';
-      box.innerHTML='<button class="btn-primary" id="legacySheetsPullBtn" type="button" style="width:100%">↩ Importer Sheets → FIBRE OPS</button><div class="field-hint" id="legacySheetsPullStatus" style="margin-top:7px">Import automatique au démarrage et toutes les 60 s. Les suppressions depuis Sheets restent désactivées pendant le test.</div>';
-      block.appendChild(box);
-    }
-    uiBtn=document.getElementById('legacySheetsPullBtn');
-    uiStatus=document.getElementById('legacySheetsPullStatus');
-    uiBtn.onclick=()=>sync(true);
-    return true;
+    if(!box){box=document.createElement('div');box.id='legacySheetsPullBox';box.style.marginTop='10px';box.innerHTML='<button class="btn-primary" id="legacySheetsPullBtn" type="button" style="width:100%">↩ Importer Sheets → FIBRE OPS</button><div class="field-hint" id="legacySheetsPullStatus" style="margin-top:7px"></div>';block.appendChild(box)}
+    uiBtn=document.getElementById('legacySheetsPullBtn');uiStatus=document.getElementById('legacySheetsPullStatus');uiBtn.onclick=()=>sync(true);return true;
   }
 
   function start(){
-    if(!ensureUi()){setTimeout(start,350);return}
-    if(!canSync()){setStatus('Import Sheets → Supabase réservé au compte principal dans son espace personnel solo.');setTimeout(start,700);return}
-    setStatus('Synchronisation automatique Sheets → FIBRE OPS active.');
-    setTimeout(()=>sync(false),500);
-    if(!timer)timer=setInterval(()=>{if(!document.hidden&&Date.now()-lastRun>45000)sync(false)},60000);
+    if(!ensureUi()){setTimeout(start,400);return}
+    if(!canSync()){setStatus('Import réservé au compte principal dans son espace personnel solo.');setTimeout(start,900);return}
+    setStatus('Synchro automatique active · contrôle toutes les 2 min · aucune requête Supabase si rien ne change.');
+    setTimeout(()=>sync(false),700);
+    if(!timer)timer=setInterval(()=>{if(!document.hidden&&Date.now()-lastRun>90000)sync(false)},120000);
   }
 
   window.addEventListener('online',()=>sync(false));
-  document.addEventListener('visibilitychange',()=>{if(!document.hidden&&Date.now()-lastRun>15000)sync(false)});
+  document.addEventListener('visibilitychange',()=>{if(!document.hidden&&Date.now()-lastRun>60000)sync(false)});
   start();
 })();

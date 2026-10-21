@@ -70,7 +70,7 @@
     finally{window.__FIBRE_SHEETS_REMOTE_APPLY__=false;running=false;if(ui?.sync){ui.sync.disabled=false;ui.sync.textContent='↔ Synchroniser maintenant'}}
   }
 
-  async function compare(){try{const rows=await getRows(),list=locals(),lk=new Set(list.map(keyLocal)),sk=new Set(rows.map(keySheet));let so=0,ao=0;for(const k of sk)if(!lk.has(k))so++;for(const k of lk)if(!sk.has(k))ao++;setStatus(`Comparaison seule · ${rows.length} lignes Sheets · ${list.length} app · ${so} seulement Sheets · ${ao} seulement app`)}catch(e){setStatus('Comparaison impossible : '+String(e?.message||e).slice(0,120))}}
+  async function compare(){try{const rows=await getRows(),list=locals(),lk=new Set(list.map(keyLocal)),sk=new Set(rows.map(keySheet)),counts=new Map();for(const r of rows){const k=normRef(r.num);if(k)counts.set(k,(counts.get(k)||0)+1)}const doubles=[...counts].filter(([k,n])=>n>1);const missing=rows.filter(r=>!lk.has(keySheet(r)));const onlyApp=list.filter(e=>!sk.has(keyLocal(e)));const amount=missing.reduce((s,r)=>s+(Number(r.montant)||0),0);setStatus(`Audit · Sheets ${rows.length} / App ${list.length} · ${missing.length} non rapprochées (${amount.toFixed(2)} €) · ${onlyApp.length} seulement app · ${doubles.length} numéro(s) répété(s) · aucune écriture`);console.info('[Sandbox audit] Numéros répétés (typologie à vérifier)',doubles,'Lignes à examiner',missing.map(r=>({num:r.num,typo:r.typo,montant:r.montant})));}catch(e){setStatus('Comparaison impossible : '+String(e?.message||e).slice(0,120))}}
   function setStatus(t){if(ui?.status)ui.status.textContent=t}
 
   function ensureUi(){

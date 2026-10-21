@@ -1,0 +1,57 @@
+name: One-time PWA cleanup
+
+on:
+  push:
+    branches:
+      - chore/pwa-cache-cleanup
+    paths:
+      - scripts/migrate_pwa_cleanup.py
+      - .github/workflows/pwa-cleanup.yml
+
+permissions:
+  contents: write
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: chore/pwa-cache-cleanup
+
+      - name: Apply targeted migration
+        run: python3 scripts/migrate_pwa_cleanup.py
+
+      - name: Validate service worker
+        run: node --check sw.js
+
+      - name: Validate inline JavaScript
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import re, pathlib
+          text = pathlib.Path('index.html').read_text(encoding='utf-8')
+          scripts = re.findall(r'<script(?:\s[^>]*)?>(.*?)</script>', text, re.S | re.I)
+          for i, script in enumerate(scripts, 1):
+              pathlib.Path(f'/tmp/fibreops-inline-{i}.js').write_text(script, encoding='utf-8')
+          print(f'{len(scripts)} inline script(s) extracted')
+          PY
+          for f in /tmp/fibreops-inline-*.js; do node --check "$f"; done
+
+      - name: Validate cleanup
+        shell: bash
+        run: |
+          if grep -R "app-hotfix.js\|patchAppHtml" index.html sw.js _headers; then
+            echo "Obsolete hotfix reference still present"
+            exit 1
+          fi
+          git diff --check
+
+      - name: Commit migration
+        shell: bash
+        run: |
+          git config user.name "FIBRE OPS migration"
+          git config user.email "actions@users.noreply.github.com"
+          git add -A
+          git commit -m "Intègre le hotfix et simplifie la PWA"
+          git push

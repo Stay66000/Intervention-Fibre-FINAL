@@ -18,20 +18,27 @@
   }
   function resultValue(v){return /echec|échec/i.test(String(v||''))?'Échec':'Réussite'}
   function operatorLabel(op){try{return typeof opLabel==='function'?opLabel(op):String(op||'')}catch{return String(op||'')}}
-  function resolveOperator(v){
-    const n=normText(v);
-    try{return (operators||[]).find(o=>normText(o.operator)===n||normText(operatorLabel(o.operator))===n)?.operator||''}catch{return ''}
-  }
-  function resolveType(op,name){
-    const n=normText(name);
-    try{return (types||[]).find(t=>t.operator===op&&normText(t.name)===n&&t.active!==false)||null}catch{return null}
-  }
+  function resolveOperator(v){const n=normText(v);try{return (operators||[]).find(o=>normText(o.operator)===n||normText(operatorLabel(o.operator))===n)?.operator||''}catch{return ''}}
+  function resolveType(op,name){const n=normText(name);try{return (types||[]).find(t=>t.operator===op&&normText(t.name)===n&&t.active!==false)||null}catch{return null}}
   function canUse(){try{return !!user&&!!profile&&['admin','platform_admin'].includes(profile.role)&&!currentCompanyId()&&!hasTeam()}catch{return false}}
   function locals(){try{return (interventions||[]).filter(e=>!e.companyId&&!e.readOnlyHistory&&!e.teamId)}catch{return []}}
   function key(ref,typo){return `${normRef(ref)}|${normText(typo)}`}
   function sheetKey(r){return key(r?.num,r?.typo)}
   function localKey(e){return key(e?.num,e?.typo)}
   function setStatus(t){if(ui?.status)ui.status.textContent=t}
+
+  function cleanAddress(v){
+    let s=String(v||'');
+    s=s.replace(/[\u0000-\u001F\u007F]/g,' ');
+    s=s.replace(/\bIE\b/gi,' ');
+    s=s.replace(/\s*,\s*,+/g,', ');
+    s=s.replace(/\s+([,;])/g,'$1');
+    s=s.replace(/([,;])(?=\S)/g,'$1 ');
+    s=s.replace(/\s{2,}/g,' ').trim();
+    s=s.replace(/^\s*[,;\-]+\s*/,'').replace(/\s*[,;\-]+\s*$/,'');
+    return s.trim();
+  }
+  function cleaningEnabled(){return !!ui?.clean?.checked}
 
   async function getRows(){
     const ctl=new AbortController(),timer=setTimeout(()=>ctl.abort(),15000);
@@ -75,7 +82,7 @@
       const rows=await getRows(),list=locals(),a=analyse(rows,list);lastAudit=a;
       const amount=a.candidates.reduce((s,x)=>s+(Number(x.raw.montant)||0),0);
       setStatus(`Audit · Sheets ${rows.length} / App ${list.length} · ${a.candidates.length} à importer (${amount.toFixed(2)} € Sheets) · ${a.existing.length} déjà présentes · ${a.conflicts.length} conflit(s) · ${a.invalid.length} invalide(s) · aucune suppression`);
-      console.info('[Sandbox import audit] Candidats',a.candidates.map(x=>({num:x.raw.num,typo:x.raw.typo,montant:x.raw.montant,date:x.raw.date})), 'Conflits',a.conflicts.map(x=>({num:x.raw.num,typo:x.raw.typo,raison:x.reason})));
+      console.info('[Sandbox import audit] Candidats',a.candidates.map(x=>({num:x.raw.num,typo:x.raw.typo,montant:x.raw.montant,date:x.raw.date,adresse:x.raw.addr})), 'Conflits',a.conflicts.map(x=>({num:x.raw.num,typo:x.raw.typo,raison:x.reason})));
       if(showToast&&typeof toast==='function')toast(`Audit : ${a.candidates.length} inter à importer · ${a.conflicts.length} conflit(s)`);
       return a;
     }catch(e){setStatus('Audit impossible : '+String(e?.message||e).slice(0,160));if(showToast&&typeof toast==='function')toast('Erreur audit Sheets');return null}
@@ -87,23 +94,25 @@
     const a=await audit(false);if(!a)return;
     if(!a.candidates.length){if(typeof toast==='function')toast('✅ Aucune intervention sûre à importer');return}
     const sheetAmount=a.candidates.reduce((s,x)=>s+(Number(x.raw.montant)||0),0);
-    const ok=confirm(`Importer ${a.candidates.length} intervention(s) sûres depuis le duplicata TEST vers FIBRE OPS ?\n\nTotal affiché dans Sheets : ${sheetAmount.toFixed(2)} €\n\nLes conflits seront ignorés. Aucune intervention existante ne sera supprimée ni écrasée.`);
+    const clean=cleaningEnabled();
+    const ok=confirm(`Importer ${a.candidates.length} intervention(s) sûres depuis le duplicata TEST vers FIBRE OPS ?\n\nTotal affiché dans Sheets : ${sheetAmount.toFixed(2)} €\nNettoyage adresses : ${clean?'ACTIVÉ':'désactivé'}\n\nLes conflits seront ignorés. Aucune intervention existante ne sera supprimée ni écrasée.`);
     if(!ok)return;
 
     busy=true;toggleBusy(true,'Import…');let added=0,failed=[];
     try{
       window.__FIBRE_SHEETS_REMOTE_APPLY__=true;
       for(const x of a.candidates){
-        // Re-vérification juste avant chaque insert pour empêcher un doublon si les données ont changé entre-temps.
         const current=locals();
         const ref=normRef(x.raw.num),k=sheetKey(x.raw);
         if(current.some(e=>localKey(e)===k)||current.some(e=>normRef(e.num)===ref)){failed.push({raw:x.raw,reason:'conflit apparu avant insertion'});continue}
+        const rawAddress=String(x.raw.addr||'').trim();
+        const finalAddress=clean?cleanAddress(rawAddress):rawAddress;
         const payload={
           user_id:user.id,company_id:null,team_id:null,work_mode:'Personal',solo_user_id:user.id,
           intervention_date:x.date,operator:x.op,intervention_type_id:x.type.id,
           result:resultValue(x.raw.statut),reference:String(x.raw.num||'').trim()||null,
-          address:String(x.raw.addr||'').trim()||null,notes:String(x.raw.comment||'').trim()||null,
-          operator_data:{legacy_sheet_id:String(x.raw.id||'')||null,legacy_sheet_sync:true,sandbox_sheet_sync:true,sandbox_sheet_amount:Number(x.raw.montant)||0}
+          address:finalAddress||null,notes:String(x.raw.comment||'').trim()||null,
+          operator_data:{legacy_sheet_id:String(x.raw.id||'')||null,legacy_sheet_sync:true,sandbox_sheet_sync:true,sandbox_sheet_amount:Number(x.raw.montant)||0,address_cleaned:clean}
         };
         const {error}=await supabase.from('interventions').insert(payload);
         if(error)failed.push({raw:x.raw,reason:error.message});else added++;
@@ -111,7 +120,7 @@
       if(added){await loadAll();renderAll()}
       const after=await audit(false);
       const appTotal=locals().reduce((s,e)=>s+(Number(e.montant)||0),0);
-      setStatus(`Import terminé · +${added} intervention(s) · ${failed.length} bloquée(s) · App actuelle ${appTotal.toFixed(2)} € · aucune suppression`);
+      setStatus(`Import terminé · +${added} intervention(s) · ${failed.length} bloquée(s) · App actuelle ${appTotal.toFixed(2)} € · nettoyage adresse ${clean?'ON':'OFF'} · aucune suppression`);
       console.info('[Sandbox import] Bloquées',failed);
       if(typeof toast==='function')toast(`✅ ${added} intervention(s) importée(s)${failed.length?` · ${failed.length} bloquée(s)`:''}`);
       return after;
@@ -122,6 +131,7 @@
   function toggleBusy(v,label){
     if(!ui)return;
     for(const b of [ui.audit,ui.import])if(b)b.disabled=v;
+    if(ui.clean)ui.clean.disabled=v;
     if(v&&ui.import)ui.import.textContent=label||'Traitement…';
     else if(ui.import)ui.import.textContent='⬇ Importer les manquantes';
   }
@@ -130,11 +140,11 @@
     if(document.getElementById('sheetsSandboxBlock'))return bindUi();
     const grid=document.querySelector('#settingsOverlay .settings-grid');if(!grid)return false;
     const b=document.createElement('div');b.className='setting-block wide';b.id='sheetsSandboxBlock';
-    b.innerHTML=`<h4>🧪 Google Sheets · SANDBOX BRENDAN</h4><p>Import manuel depuis le duplicata TEST uniquement. Règle anti-doublon : numéro d’intervention + typologie.</p><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px"><button class="btn-ghost" id="sheetsSandboxAudit" type="button">🔎 Comparer sans modifier</button><button class="btn-primary" id="sheetsSandboxImport" type="button">⬇ Importer les manquantes</button></div><div class="field-hint" id="sheetsSandboxStatus" style="margin-top:8px">Aucune suppression automatique. Aucun polling Supabase.</div><div class="field-hint" style="margin-top:6px">Si un numéro existe déjà avec une autre typologie, ou si le même numéro + typologie apparaît plusieurs fois, la ligne est bloquée en conflit et n’est pas importée.</div>`;
+    b.innerHTML=`<h4>🧪 Google Sheets · SANDBOX BRENDAN</h4><p>Import manuel depuis le duplicata TEST uniquement. Règle anti-doublon : numéro d’intervention + typologie.</p><label style="display:flex;align-items:flex-start;gap:8px;margin:10px 0"><input id="sheetsSandboxCleanAddr" type="checkbox" checked style="margin-top:3px"><span><b>Nettoyer les adresses à l’import</b><br><small>Supprime les marqueurs parasites évidents comme « IE », les caractères invisibles et les espaces/virgules en double. Ne modifie pas automatiquement les noms de rues mal encodés.</small></span></label><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px"><button class="btn-ghost" id="sheetsSandboxAudit" type="button">🔎 Comparer sans modifier</button><button class="btn-primary" id="sheetsSandboxImport" type="button">⬇ Importer les manquantes</button></div><div class="field-hint" id="sheetsSandboxStatus" style="margin-top:8px">Aucune suppression automatique. Aucun polling Supabase.</div><div class="field-hint" style="margin-top:6px">Si un numéro existe déjà avec une autre typologie, ou si le même numéro + typologie apparaît plusieurs fois, la ligne est bloquée en conflit et n’est pas importée.</div>`;
     grid.appendChild(b);return bindUi();
   }
   function bindUi(){
-    ui={audit:document.getElementById('sheetsSandboxAudit'),import:document.getElementById('sheetsSandboxImport'),status:document.getElementById('sheetsSandboxStatus')};
+    ui={audit:document.getElementById('sheetsSandboxAudit'),import:document.getElementById('sheetsSandboxImport'),clean:document.getElementById('sheetsSandboxCleanAddr'),status:document.getElementById('sheetsSandboxStatus')};
     if(!ui.audit||!ui.import)return false;
     ui.audit.onclick=()=>audit(true);ui.import.onclick=importMissing;return true;
   }

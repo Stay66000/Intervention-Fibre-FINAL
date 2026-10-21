@@ -4,13 +4,28 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0f141b">
-<title>FIBRE OPS</title>
+<title>FIBRE OPS — Sandbox Sheets</title>
 <style>
 html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#0f141b}
 #app{position:fixed;inset:0;width:100%;height:100%;border:0;background:#0f141b}
+#boot{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;color:#eef2f7;font:600 14px system-ui;background:#0f141b;z-index:2}
 </style>
 </head>
 <body>
-<iframe id="app" src="./index.html?sheets-disabled=1" title="FIBRE OPS"></iframe>
+<div id="boot">Chargement FIBRE OPS · sandbox Sheets…</div>
+<iframe id="app" src="./index.html?sheets-sandbox=1" title="FIBRE OPS"></iframe>
+<script>
+const frame=document.getElementById('app');
+frame.addEventListener('load',()=>{
+  try{
+    const d=frame.contentDocument;
+    const add=(id,src)=>{if(d.getElementById(id))return;const s=d.createElement('script');s.id=id;s.src=src;d.head.appendChild(s)};
+    add('fibreAppHotfixScript','./app-hotfix.js?v=3');
+    add('fibreSheetsBridgeScript','./sheets-bridge.js?v=2');
+    add('fibreSheetsPullScript','./sheets-pull.js?v=4');
+    document.getElementById('boot').style.display='none';
+  }catch(e){document.getElementById('boot').textContent='Impossible de charger le mode sandbox Sheets.'}
+});
+</script>
 </body>
 </html>

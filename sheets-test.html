@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0f141b">
-<title>FIBRE OPS — Sandbox Sheets v9</title>
+<title>FIBRE OPS — Sandbox Sheets v10</title>
 <style>
 html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#0f141b}
 #app{position:fixed;inset:0;width:100%;height:100%;border:0;background:#0f141b}
@@ -13,9 +13,9 @@ html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#0f141b}
 </style>
 </head>
 <body>
-<div id="version">SANDBOX v9</div>
-<div id="boot">Chargement FIBRE OPS · sandbox Sheets v9…</div>
-<iframe id="app" src="./index.html?sheets-sandbox=1&build=9" title="FIBRE OPS"></iframe>
+<div id="version">SANDBOX v10</div>
+<div id="boot">Chargement FIBRE OPS · sandbox Sheets v10…</div>
+<iframe id="app" src="./index.html?sheets-sandbox=1&build=10" title="FIBRE OPS"></iframe>
 <script>
 const frame=document.getElementById('app');
 frame.addEventListener('load',()=>{
@@ -26,12 +26,12 @@ frame.addEventListener('load',()=>{
       const s=d.createElement('script');s.id=id;s.src=src;s.async=false;s.onload=resolve;s.onerror=reject;d.head.appendChild(s);
     });
     (async()=>{
-      await add('fibreAppHotfixScript','./app-hotfix.js?v=3&build=9');
-      await add('fibreSandboxAddressFix','./sandbox-address-fix.js?v=1&build=9');
-      await add('fibreSheetsPullScript','./sheets-pull.js?v=8&build=9');
+      await add('fibreAppHotfixScript','./app-hotfix.js?v=3&build=10');
+      await add('fibreSandboxAddressFix','./sandbox-address-fix.js?v=2&build=10');
+      await add('fibreSheetsPullScript','./sheets-pull.js?v=8&build=10');
       document.getElementById('boot').style.display='none';
-    })().catch(()=>{document.getElementById('boot').textContent='Impossible de charger le mode sandbox Sheets v9.'});
-  }catch(e){document.getElementById('boot').textContent='Impossible de charger le mode sandbox Sheets v9.'}
+    })().catch(()=>{document.getElementById('boot').textContent='Impossible de charger le mode sandbox Sheets v10.'});
+  }catch(e){document.getElementById('boot').textContent='Impossible de charger le mode sandbox Sheets v10.'}
 });
 </script>
 </body>

@@ -58,7 +58,7 @@
       let map=read(MAP_KEY,{}),snap=read(SNAP_KEY,null),rows=await getRows(),list=locals(),idx=buildIndex(list),add=0,upd=0,skip=0;
       window.__FIBRE_SHEETS_REMOTE_APPLY__=true;
       for(const raw of rows){const r=await applyRow(raw,match(raw,list,idx,map),map);if(r==='add')add++;else if(r==='update')upd++;else if(r==='skip')skip++}
-      const del=await deleteMissing(rows,list,map,snap);
+      const del=0; // Suppressions suspendues jusqu'à accord explicite.
       if(add||upd||del){await loadAll();renderAll();list=locals()}
       const pushed=await pushLocalOnly(rows,list,map);
       if(pushed)rows=await getRows();
@@ -77,7 +77,7 @@
     if(document.getElementById('sheetsSandboxBlock'))return bindUi();const grid=document.querySelector('#settingsOverlay .settings-grid');if(!grid)return false;
     const b=document.createElement('div');b.className='setting-block wide';b.id='sheetsSandboxBlock';b.innerHTML=`<h4>🧪 Google Sheets · SANDBOX BRENDAN</h4><p>Bidirectionnel uniquement avec le duplicata TEST. Le vrai « Suivis octobre » n’est jamais ciblé.</p><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px"><button class="btn-primary" id="sheetsSandboxSync" type="button">↔ Synchroniser maintenant</button><button class="btn-ghost" id="sheetsSandboxCompare" type="button">Comparer sans modifier</button></div><button class="btn-ghost" id="sheetsSandboxAuto" type="button" style="width:100%;margin-top:8px"></button><div class="field-hint" id="sheetsSandboxStatus" style="margin-top:8px"></div><div class="field-hint" style="margin-top:6px">Auto : contrôle toutes les 5 min pendant que la page test est ouverte. Aucune écriture Supabase si rien ne change. La toute première synchro ne propage aucune suppression Sheets→App.</div>`;grid.appendChild(b);return bindUi();
   }
-  function bindUi(){ui={sync:document.getElementById('sheetsSandboxSync'),compare:document.getElementById('sheetsSandboxCompare'),auto:document.getElementById('sheetsSandboxAuto'),status:document.getElementById('sheetsSandboxStatus')};if(!ui.sync)return false;ui.sync.onclick=()=>sync(true);ui.compare.onclick=compare;ui.auto.onclick=()=>{setEnabled(!enabled());renderAuto();if(enabled())sync(false)};renderAuto();if(!read(SNAP_KEY,null))setStatus('Première synchro = création de la base de sécurité, sans suppression.');return true}
+  function bindUi(){ui={sync:document.getElementById('sheetsSandboxSync'),compare:document.getElementById('sheetsSandboxCompare'),auto:document.getElementById('sheetsSandboxAuto'),status:document.getElementById('sheetsSandboxStatus')};if(!ui.sync)return false;ui.sync.onclick=()=>sync(true);ui.compare.onclick=compare;ui.auto.onclick=()=>{setEnabled(!enabled());renderAuto();/* synchro automatique suspendue */};renderAuto();if(!read(SNAP_KEY,null))setStatus('Première synchro = création de la base de sécurité, sans suppression.');return true}
   function renderAuto(){if(ui?.auto)ui.auto.textContent=enabled()?'Auto 5 min : ACTIVÉ':'Auto 5 min : désactivé'}
 
   function start(){if(!ensureUi()){setTimeout(start,400);return}if(!canSync()){setStatus('Sandbox réservé au compte principal dans son espace personnel solo.');setTimeout(start,900);return}renderAuto();if(!timer)timer=setInterval(()=>{if(enabled()&&!document.hidden&&Date.now()-lastRun>AUTO_MS-5000)sync(false)},AUTO_MS)}

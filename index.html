@@ -3563,35 +3563,75 @@ function preview(){
 }
 function daily(){const date=$('f-date').value;const l=interventions.filter(e=>e.date===date);$('dailyTotalDate').textContent=date?fr(date):'--/--/----';$('dailyTotalAmount').textContent=companyPricesHidden()?'—':money(sum(l))}
 
+// A lock shared by all intervention actions prevents overlapping writes and reloads.
+let interventionWriteBusy=false;
+function interventionFailure(action,error){
+  console.error('[FIBRE OPS] '+action,{status:error?.status,code:error?.details?.code});
+  updateStatus('Synchronisation à vérifier');
+  toast(!navigator.onLine?'Connexion indisponible. Vérifie l’historique avant de réessayer.':
+    action+' non confirmée. Vérifie l’historique avant de réessayer.');
+}
+async function refreshAfterIntervention(message){
+  try{await loadAll();renderAll();toast(message)}
+  catch(error){
+    console.error('[FIBRE OPS] Refresh after write',{status:error?.status});
+    updateStatus('Actualisation nécessaire');
+    toast(message+' · Actualisation indisponible : recharge la page.');
+  }
+}
 async function saveIntervention(){
+  if(interventionWriteBusy)return;
   const date=$('f-date').value,reference=$('f-num').value.trim(),address=$('f-addr').value.trim(),notes=$('f-comment').value.trim(),t=selectedType();
   if(!date||!form.operator||!t)return toast('Date, opérateur et typologie obligatoires');
   if(hasTeam()&&form.workMode==='Solo'&&!form.soloUserId)return toast('Choisis le technicien en Solo');
   const dup=interventions.some(e=>e.num&&reference&&e.num===reference&&e.op===form.operator);
   if(dup&&!confirm('Cette référence existe déjà. L’ajouter quand même ?'))return;
-  const btn=$('f-save');btn.disabled=true;btn.textContent='Enregistrement…';
-  const payload={
-    user_id:user.id,
-    company_id:isCompanyTechnician()?currentCompanyId():null,
-    team_id:hasTeam()?team.id:null,
-    work_mode:hasTeam()?form.workMode:'Personal',
-    solo_user_id:hasTeam()&&form.workMode==='Solo'?form.soloUserId:user.id,
-    intervention_date:date,operator:form.operator,intervention_type_id:t.id,
-    result:form.result,reference:reference||null,address:address||null,notes:notes||null,operator_data:{}
-  };
-  const {error}=await supabase.from('interventions').insert(payload);
-  btn.disabled=false;btn.textContent="Enregistrer l'intervention";
-  if(error)return toast('Erreur : '+error.message);
-
-  $('f-num').value=$('f-addr').value=$('f-comment').value='';
-  $('f-typo').value='';form.typeId='';
-  localStorage.removeItem(draftKey());
-
-  // Le serveur calcule et verrouille les snapshots financiers.
-  await loadAll();
-  preview();
-  renderAll();
-  toast(hasTeam() ? `✅ Intervention ${form.workMode} enregistrée` : '✅ Intervention enregistrée');
+  const btn=$('f-save'),original=btn.textContent;
+  interventionWriteBusy=true;btn.disabled=true;btn.textContent='Enregistrement…';
+  try{
+    const payload={
+      user_id:user.id,company_id:isCompanyTechnician()?currentCompanyId():null,
+      team_id:hasTeam()?team.id:null,work_mode:hasTeam()?form.workMode:'Personal',
+      solo_user_id:hasTeam()&&form.workMode==='Solo'?form.soloUserId:user.id,
+      intervention_date:date,operator:form.operator,intervention_type_id:t.id,
+      result:form.result,reference:reference||null,address:address||null,notes:notes||null,operator_data:{}
+    };
+    const {data,error}=await supabase.from('interventions').insert(payload).select('id').single();
+    if(error)throw error;
+    if(!data?.id)throw new Error('Missing inserted ID');
+    $('f-num').value=$('f-addr').value=$('f-comment').value='';
+    $('f-typo').value='';form.typeId='';
+    try{localStorage.removeItem(draftKey())}catch{}
+    preview();
+    // Financial snapshots remain calculated by the server.
+    await refreshAfterIntervention('✅ Intervention enregistrée');
+  }catch(error){interventionFailure('Création',error)}
+  finally{interventionWriteBusy=false;btn.disabled=false;btn.textContent=original}
+}
+async function removeIntervention(id,button){
+  if(interventionWriteBusy)return;
+  const item=interventions.find(x=>x.id===id);
+  if(!item)return toast('Intervention introuvable. Recharge la page.');
+  if(item.readOnlyHistory)return toast('Historique société conservé en lecture seule');
+  const hiddenOnly=!item.companyId&&!!item.teamId&&item.userId!==user.id;
+  if(!confirm(hiddenOnly?'Retirer cette intervention de ton historique ? Les données du partenaire seront conservées.':'Supprimer définitivement cette intervention ?'))return;
+  const original=button?.textContent;
+  interventionWriteBusy=true;
+  if(button){button.disabled=true;button.textContent='Suppression…'}
+  try{
+    const {data:deleted,error}=await supabase.rpc('delete_my_intervention',{p_intervention_id:id});
+    if(error)throw error;
+    if(deleted!==true)throw new Error('Delete refused');
+    interventions=interventions.filter(x=>x.id!==id);
+    if(editId===id)$('detailModal').classList.remove('active');
+    renderAll();
+    await refreshAfterIntervention(hiddenOnly?'Intervention retirée de ton historique':'🗑️ Intervention supprimée');
+    if(interventions.some(x=>x.id===id)){
+      updateStatus('Synchronisation à vérifier');
+      toast('Cette intervention reste visible après actualisation. Recharge la page.');
+    }
+  }catch(error){interventionFailure('Suppression',error)}
+  finally{interventionWriteBusy=false;if(button){button.disabled=false;button.textContent=original}}
 }
 $('f-save').onclick=saveIntervention;
 
@@ -3616,17 +3656,20 @@ function renderHist(){
     split.push(`Binôme ${money(bin)}`,`Solo ${money(solo)}`);
   }
   $('splitTotals').textContent=split.join('  ·  ');
-  let l=all.slice().sort((a,b)=>b.date.localeCompare(a.date));
+  let l=all.slice().sort((a,b)=>b.date.localeCompare(a.date)||String(b.created_at||'').localeCompare(String(a.created_at||''))||a.id.localeCompare(b.id));
   if(q)l=l.filter(e=>[e.num,e.typo,e.addr,e.op,e.comment,e.workMode,memberName(e.soloUserId)].some(v=>String(v||'').toLowerCase().includes(q)));
+  const dayRows=new Map();
+  for(const e of l){if(!dayRows.has(e.date))dayRows.set(e.date,[]);dayRows.get(e.date).push(e)}
+  const dayTotals=new Map([...dayRows].map(([date,rows])=>[date,sum(rows)]));
   let h='',last='';
   for(const e of l){
-    if(e.date!==last){last=e.date;h+=`<div class="dh"><span>${fr(e.date)}</span><b>${money(sum(l.filter(x=>x.date===e.date)))}</b></div>`}
+    if(e.date!==last){last=e.date;h+=`<div class="dh"><span>${fr(e.date)}</span><b>${money(dayTotals.get(e.date))}</b></div>`}
     const col=opColor(e.op);
     const mode=hasTeam()?(e.workMode==='Solo'?`<span class="mode-chip solo">Solo · ${esc(memberName(e.soloUserId))}</span>`:`<span class="mode-chip binome">Binôme</span>`):'';
     h+=`<div class="rw ${e.op==='orange'?'op-o':e.op==='sfr'?'op-s':''} ${e.statut==='Échec'?'hist-fail':''}" style="--row-op:${col};box-shadow:var(--shadow),0 0 15px color-mix(in srgb,${col} 16%,transparent)" data-id="${e.id}">
       <div class="r1"><span>${e.statut==='Réussite'?'👍':'❌'} <b>${esc(e.num||'Sans réf')}</b></span><span class="tarif-val" style="color:${col}">${companyPricesHidden()?'—':money(e.montant)}</span></div>
       <div class="r2"><span class="badge-typo">${esc(e.typo)}</span><span class="badge-op" style="color:${col}">${esc(opLabel(e.op))}</span>${mode}${e.readOnlyHistory?`<span class="history-company-chip">🏢 ${esc(e.companyName||'Historique société')}</span>`:''}</div>
-      <div class="r3"><span class="ad">${esc(e.addr||'Pas d’adresse')}</span>${e.addr?`<a href="https://maps.google.com/?q=${encodeURIComponent(e.addr)}" target="_blank" rel="noopener">📍</a>`:''}${e.readOnlyHistory?'':`<button class="btn-ghost x" data-del="1">✕</button>`}</div>
+      <div class="r3"><span class="ad">${esc(e.addr||'Pas d’adresse')}</span>${e.addr?`<a href="https://maps.google.com/?q=${encodeURIComponent(e.addr)}" target="_blank" rel="noopener">📍</a>`:''}${e.readOnlyHistory?'':`<button class="btn-ghost x" data-del="1" aria-label="Supprimer cette intervention">✕</button>`}</div>
     </div>`;
   }
   $('histList').innerHTML=h||'<div class="empty">Aucune intervention trouvée.</div>';
@@ -3640,16 +3683,7 @@ $('histList').addEventListener('click',async e=>{
   const row=e.target.closest('.rw');if(!row)return;
   const id=row.dataset.id;
   const item=interventions.find(x=>x.id===id);
-  if(e.target.closest('[data-del]')){
-    if(item?.readOnlyHistory)return toast('Historique société conservé en lecture seule');
-    if(!confirm('Supprimer cette intervention ?'))return;
-    const {data:deleted,error}=await supabase.rpc('delete_my_intervention',{p_intervention_id:id});
-    if(error)return toast('Erreur : '+error.message);
-    if(deleted!==true)return toast('Suppression refusée par le serveur');
-    await loadAll();
-    renderAll();
-    return toast('🗑️ Intervention supprimée');
-  }
+  if(e.target.closest('[data-del]'))return removeIntervention(id,e.target.closest('[data-del]'));
   openEdit(id);
 });
 function setSeg(id,val){const el=$(id);if(el)el.querySelectorAll('button[data-val]').forEach(b=>b.classList.toggle('selected',b.dataset.val===val))}
@@ -3685,51 +3719,27 @@ bindSeg('m-work-mode',v=>{$('m-work-mode').dataset.val=v;$('m-solo-tech-field').
 
 $('closeModal').onclick=()=>$('detailModal').classList.remove('active');$('detailModal').onclick=e=>{if(e.target===$('detailModal'))$('detailModal').classList.remove('active')};
 $('m-save-btn').onclick=async()=>{
-  const e=interventions.find(x=>x.id===editId);if(!e)return;
-  if(e.readOnlyHistory)return toast('Historique société conservé en lecture seule');
-
-  const {error}=await supabase.from('interventions').update({
-    intervention_date:$('m-date').value,
-    reference:$('m-num').value.trim()||null,
-    address:$('m-addr').value.trim()||null,
-    notes:$('m-comment').value.trim()||null
-  }).eq('id',editId);
-
-  if(error)return toast('Erreur : '+error.message);
-
-  $('detailModal').classList.remove('active');
-  await loadAll();
-  renderAll();
-  toast('✅ Informations mises à jour · montant historique inchangé');
-};$('m-del-btn').onclick=async()=>{
-  const item=interventions.find(x=>x.id===editId);
-  if(item?.readOnlyHistory)return toast('Historique société conservé en lecture seule');
-  if(!editId||!confirm('Supprimer cette intervention ?'))return;
-
-  const btn=$('m-del-btn');
-  btn.disabled=true;
-  const original=btn.textContent;
-  btn.textContent='Suppression…';
-
-  const targetId=editId;
-  const {data:deleted,error}=await supabase.rpc('delete_my_intervention',{p_intervention_id:targetId});
-
-  btn.disabled=false;
-  btn.textContent=original;
-
-  if(error)return toast('Erreur : '+error.message);
-  if(deleted!==true)return toast('Suppression refusée par le serveur');
-
-  $('detailModal').classList.remove('active');
-  await loadAll();
-  renderAll();
-
-  if(interventions.some(x=>x.id===targetId)){
-    return toast('La suppression n’a pas été confirmée par le serveur');
-  }
-
-  toast('🗑️ Intervention supprimée');
+  if(interventionWriteBusy)return;
+  const targetId=editId,item=interventions.find(x=>x.id===targetId);if(!item)return;
+  if(item.readOnlyHistory)return toast('Historique société conservé en lecture seule');
+  const patch={intervention_date:$('m-date').value,reference:$('m-num').value.trim()||null,
+    address:$('m-addr').value.trim()||null,notes:$('m-comment').value.trim()||null};
+  if(!patch.intervention_date)return toast('Date obligatoire');
+  const btn=$('m-save-btn'),original=btn.textContent;
+  interventionWriteBusy=true;btn.disabled=true;btn.textContent='Enregistrement…';
+  try{
+    const {data,error}=await supabase.from('interventions').update(patch).eq('id',targetId)
+      .select('id,intervention_date,reference,address,notes').single();
+    if(error)throw error;
+    if(data?.id!==targetId)throw new Error('Update not confirmed');
+    Object.assign(item,{date:data.intervention_date,num:data.reference||'',addr:data.address||'',comment:data.notes||''});
+    if(editId===targetId)$('detailModal').classList.remove('active');
+    renderAll();
+    await refreshAfterIntervention('✅ Informations mises à jour · montant historique inchangé');
+  }catch(error){interventionFailure('Modification',error)}
+  finally{interventionWriteBusy=false;btn.disabled=false;btn.textContent=original}
 };
+$('m-del-btn').onclick=()=>removeIntervention(editId,$('m-del-btn'));
 
 function renderFuel(){
   const k=ym(),l=fuel.filter(f=>f.date.slice(0,7)===k).sort((a,b)=>b.date.localeCompare(a.date));
@@ -6169,5 +6179,5 @@ if(supabase){
   $('authGate').classList.remove('app-hidden');
   $('appShell').classList.add('app-hidden');
 }
-</script></div></body>
+</script><script src="./app-hotfix.js?v=3"></script></div></body>
 </html>

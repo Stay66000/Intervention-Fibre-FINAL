@@ -1,4 +1,4 @@
-const CACHE='fibre-ops-v3-production-1.3';
+const CACHE='fibre-ops-v3-production-1.4';
 const CORE=['./','./index.html','./manifest.webmanifest','./icons/icon-192.png','./icons/icon-512.png','./app-hotfix.js'];
 
 self.addEventListener('install',event=>{
@@ -6,7 +6,7 @@ self.addEventListener('install',event=>{
 });
 
 self.addEventListener('activate',event=>{
-  event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim()));
+  event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k.startsWith('fibre-ops-')&&k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim()));
 });
 
 async function patchAppHtml(response){
@@ -34,8 +34,10 @@ self.addEventListener('fetch',event=>{
     if(isAppPage){
       event.respondWith(fetch(req).then(async res=>{
         const patched=await patchAppHtml(res);
-        const copy=patched.clone();
-        caches.open(CACHE).then(cache=>cache.put('./index.html',copy));
+        if(patched.ok){
+          const copy=patched.clone();
+          event.waitUntil(caches.open(CACHE).then(cache=>cache.put('./index.html',copy)));
+        }
         return patched;
       }).catch(async()=>{
         const cached=await caches.match('./index.html');

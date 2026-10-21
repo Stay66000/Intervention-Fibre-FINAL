@@ -4,34 +4,52 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0f141b">
-<title>FIBRE OPS — Sandbox Sheets v10</title>
+<title>FIBRE OPS — Sandbox Sheets v11</title>
 <style>
 html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#0f141b}
 #app{position:fixed;inset:0;width:100%;height:100%;border:0;background:#0f141b}
-#boot{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;color:#eef2f7;font:600 14px system-ui;background:#0f141b;z-index:2}
+#boot{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;color:#eef2f7;font:600 14px system-ui;background:#0f141b;z-index:2;padding:24px;text-align:center}
 #version{position:fixed;top:8px;right:8px;z-index:9;background:#35d0e0;color:#052a31;padding:5px 8px;border-radius:8px;font:700 11px system-ui;box-shadow:0 2px 8px #0005}
 </style>
 </head>
 <body>
-<div id="version">SANDBOX v10</div>
-<div id="boot">Chargement FIBRE OPS · sandbox Sheets v10…</div>
-<iframe id="app" src="./index.html?sheets-sandbox=1&build=10" title="FIBRE OPS"></iframe>
+<div id="version">SANDBOX v11 · Sheets</div>
+<div id="boot">Chargement FIBRE OPS · synchronisation Sheets TEST…</div>
+<iframe id="app" src="./index.html?sheets-sandbox=1&build=11" title="FIBRE OPS"></iframe>
 <script>
 const frame=document.getElementById('app');
 frame.addEventListener('load',()=>{
   try{
     const d=frame.contentDocument;
+    const w=frame.contentWindow;
     const add=(id,src)=>new Promise((resolve,reject)=>{
       if(d.getElementById(id)){resolve();return}
-      const s=d.createElement('script');s.id=id;s.src=src;s.async=false;s.onload=resolve;s.onerror=reject;d.head.appendChild(s);
+      const s=d.createElement('script');
+      s.id=id;
+      s.src=src;
+      s.async=false;
+      s.onload=resolve;
+      s.onerror=()=>reject(new Error('Chargement impossible : '+src));
+      d.head.appendChild(s);
     });
     (async()=>{
-      await add('fibreAppHotfixScript','./app-hotfix.js?v=3&build=10');
-      await add('fibreSandboxAddressFix','./sandbox-address-fix.js?v=2&build=10');
-      await add('fibreSheetsPullScript','./sheets-pull.js?v=8&build=10');
+      // Cette page est explicitement le sandbox Sheets : on active le pont uniquement ici.
+      w.localStorage.setItem('fibre_ops_sheets_sandbox_enabled_v2','1');
+
+      // Le hotfix PWA a été supprimé de l'application : ne plus tenter de le charger ici.
+      await add('fibreSandboxAddressFix','./sandbox-address-fix.js?v=2&build=11');
+      await add('fibreSheetsBridgeScript','./sheets-bridge.js?v=2&build=11');
+      await add('fibreSheetsPullScript','./sheets-pull.js?v=8&build=11');
+
       document.getElementById('boot').style.display='none';
-    })().catch(()=>{document.getElementById('boot').textContent='Impossible de charger le mode sandbox Sheets v10.'});
-  }catch(e){document.getElementById('boot').textContent='Impossible de charger le mode sandbox Sheets v10.'}
+    })().catch(err=>{
+      console.error('[Sheets sandbox boot]',err);
+      document.getElementById('boot').textContent='Impossible de charger la synchronisation Sheets TEST. Recharge la page ou vérifie la connexion.';
+    });
+  }catch(e){
+    console.error('[Sheets sandbox]',e);
+    document.getElementById('boot').textContent='Impossible de charger le mode sandbox Sheets v11.';
+  }
 });
 </script>
 </body>

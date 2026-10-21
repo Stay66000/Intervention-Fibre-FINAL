@@ -17,20 +17,66 @@
   function operatorLabel(op){try{return typeof opLabel==='function'?opLabel(op):String(op||'')}catch{return String(op||'')}}
   function canUse(){try{return !!user&&!!profile&&['admin','platform_admin'].includes(profile.role)&&!currentCompanyId()}catch{return false}}
   function personal(e){return !!e&&!e.companyId&&!e.readOnlyHistory&&!e.teamId}
+  function normText(v){return String(v||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim().toLowerCase()}
+  function normRef(v){return String(v||'').replace(/\D/g,'').replace(/^0+(?=\d)/,'')}
 
-  async function sheetIdForLocal(localId){
-    const m=mapping();
-    for(const sid of Object.keys(m))if(m[sid]===localId)return sid;
+  async function getSheetRows(){
+    const ctl=new AbortController(),timer=setTimeout(()=>ctl.abort(),12000);
+    try{
+      const r=await nativeFetch(SHEETS_URL+'?tech='+encodeURIComponent(TECH)+'&_t='+Date.now(),{cache:'no-store',signal:ctl.signal});
+      if(!r.ok)throw new Error('Sheets HTTP '+r.status);
+      const data=await r.json();
+      if(!Array.isArray(data))throw new Error('Format Sheets invalide');
+      return data;
+    }finally{clearTimeout(timer)}
+  }
+
+  async function resolveExistingSheetId(e,oldNum=''){
+    if(!e)return '';
+
+    // 1) Ancien mapping local : on ne lui fait confiance que pour un ID historique INT-…
+    try{
+      const m=mapping();
+      for(const sid of Object.keys(m)){
+        if(m[sid]===e.id&&String(sid).startsWith('INT-'))return sid;
+      }
+    }catch{}
+
+    // 2) Source de vérité pour l'update : retrouver la ligne déjà présente dans le Sheet.
+    // On préfère explicitement un ID historique INT-… lorsqu'un ancien doublon UUID existe encore.
+    try{
+      const rows=await getSheetRows();
+      const refs=new Set([normRef(oldNum),normRef(e.num)].filter(Boolean));
+      const wantedType=normText(e.typo),wantedOp=normText(operatorLabel(e.op));
+      const matches=rows.filter(r=>{
+        if(!refs.has(normRef(r?.num)))return false;
+        if(wantedType&&normText(r?.typo)!==wantedType)return false;
+        const rop=normText(r?.op);
+        if(wantedOp&&rop&&rop!==wantedOp)return false;
+        return !!String(r?.id||'').trim();
+      });
+      const legacy=matches.filter(r=>String(r?.id||'').trim().startsWith('INT-'));
+      if(legacy.length===1)return String(legacy[0].id).trim();
+      if(matches.length===1)return String(matches[0].id).trim();
+      if(matches.length>1){
+        console.warn('[Sheets sandbox] Update bloqué : plusieurs lignes correspondent',matches.map(r=>({id:r.id,num:r.num,typo:r.typo,op:r.op})));
+        return '';
+      }
+    }catch(e2){console.warn('[Sheets sandbox lookup]',e2)}
+
+    // 3) Fallback Supabase : utile si la lecture Sheets est momentanément indisponible.
     try{
       if(typeof supabase!=='undefined'&&supabase){
-        const {data,error}=await supabase.from('interventions').select('operator_data').eq('id',localId).maybeSingle();
+        const {data,error}=await supabase.from('interventions').select('operator_data').eq('id',e.id).maybeSingle();
         if(!error){
           const legacy=String(data?.operator_data?.legacy_sheet_id||'').trim();
           if(legacy)return legacy;
         }
       }
-    }catch(e){console.warn('[Sheets sandbox legacy id]',e)}
-    return localId;
+    }catch(e2){console.warn('[Sheets sandbox legacy id]',e2)}
+
+    // Sécurité : un UPDATE/DELETE ne doit jamais retomber automatiquement sur l'UUID local.
+    return '';
   }
 
   function bodyFor(e,action='',oldNum='',idOverride=''){
@@ -77,15 +123,24 @@
 
     try{
       if(url.includes('/rest/v1/rpc/delete_my_intervention')&&method==='POST'&&personal(before)){
-        const sheetId=await sheetIdForLocal(before.id);
-        queue(bodyFor(before,'delete','',sheetId));
+        const sheetId=await resolveExistingSheetId(before,before.num||'');
+        if(!sheetId){
+          console.warn('[Sheets sandbox] Suppression non envoyée : ligne Sheets introuvable ou ambiguë',before.id);
+        }else{
+          queue(bodyFor(before,'delete','',sheetId));
+        }
       }else if(url.includes('/rest/v1/interventions')&&method==='POST'&&body&&!body.company_id&&!body.team_id){
         const sig={date:body.intervention_date||'',num:body.reference||'',op:body.operator||''};
         setTimeout(()=>{try{const e=(interventions||[]).filter(personal).filter(x=>x.date===sig.date&&(x.num||'')===sig.num&&x.op===sig.op).sort((a,b)=>String(b.created_at||'').localeCompare(String(a.created_at||'')))[0];if(e)queue(bodyFor(e))}catch{}},900);
       }else if(url.includes('/rest/v1/interventions')&&(method==='PATCH'||method==='PUT')&&personal(before)){
         const oldNum=before.num||'';
-        const sheetId=await sheetIdForLocal(before.id);
-        setTimeout(()=>{try{const e=(interventions||[]).find(x=>x.id===before.id);if(e)queue(bodyFor(e,'update',oldNum,sheetId))}catch{}},800);
+        const sheetId=await resolveExistingSheetId(before,oldNum);
+        if(!sheetId){
+          console.warn('[Sheets sandbox] Modification non envoyée : ligne Sheets introuvable ou ambiguë',before.id);
+          try{if(typeof toast==='function')toast('Sheets TEST : ligne ambiguë, modification non envoyée')}catch{}
+        }else{
+          setTimeout(()=>{try{const e=(interventions||[]).find(x=>x.id===before.id);if(e)queue(bodyFor(e,'update',oldNum,sheetId))}catch{}},800);
+        }
       }
     }catch(e){console.warn('[Sheets sandbox outbound]',e)}
     return response;

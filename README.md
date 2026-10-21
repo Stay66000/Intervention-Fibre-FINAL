@@ -29,5 +29,6 @@ Les données de production sont stockées dans Supabase et ne doivent jamais êt
 ## Règles de maintenance
 - Ne jamais exposer de clé `service_role` dans le front-end.
 - Ne pas remettre d’anciens bots, hotfix injectés ou scripts de test dans le parcours de production.
-- Tester ajout, modification et suppression d’une intervention avant toute mise en production importante.
+- Avant une modification importante, valider la preview Cloudflare et la syntaxe JavaScript.
+- Tester ajout, modification et suppression d’une intervention après mise en production.
 - Conserver la compatibilité mobile et PWA.

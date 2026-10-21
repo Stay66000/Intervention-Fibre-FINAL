@@ -2251,7 +2251,7 @@ body.is-offline .sync-pill{border-color:color-mix(in srgb,var(--danger) 45%,var(
 <div class="setting-block"><h4>📐 Mode compact</h4><p>Réduis l'espace occupé par les cartes et les champs.</p><div class="display-toggle-row"><div class="display-toggle-copy"><b id="compactStateLabel">Affichage normal</b><small>Modifiable à tout moment</small></div><label class="display-switch" aria-label="Mode compact"><input id="compactToggle" type="checkbox"/><span aria-hidden="true"></span></label></div></div>
 <div class="setting-block"><h4>⚫ Fond noir</h4><p>Mode noir absolu sans grille ni halo d'arrière-plan.</p><div class="display-toggle-row"><div class="display-toggle-copy"><b id="pureBlackStateLabel">Fond animé</b><small>Les couleurs des interventions restent visibles</small></div><label class="display-switch" aria-label="Fond noir absolu"><input id="pureBlackToggle" type="checkbox"/><span aria-hidden="true"></span></label></div></div>
 <div class="setting-block wide install-app-block" id="installAppBlock"><h4>📲 Installer FIBRE OPS</h4><p>Ajoute FIBRE OPS à ton écran d’accueil pour l’ouvrir comme une application.</p><button class="btn-ghost" id="installAppBtn" type="button" style="width:100%">Installer l’application</button><div class="install-app-status" id="installAppStatus"></div></div>
-<div class="setting-block"><h4>ℹ️ Version</h4><p>Version de production actuellement chargée.</p><div class="app-version" id="appVersionLabel">V3 Production 1.2</div></div>
+<div class="setting-block"><h4>ℹ️ Version</h4><p>Version de production actuellement chargée.</p><div class="app-version" id="appVersionLabel">V3 Production 1.3</div></div>
 <div class="setting-block"><h4>🎯 Objectif du jour</h4><p>Utilisé pour la jauge du tableau de bord.</p><div class="setting-row"><span>Montant</span><input id="goalInput" min="0" step="10" style="width:115px" type="number" value="400"/></div></div>
 <div class="setting-block"><h4>💾 Sauvegarde JSON</h4><p>Copie locale des données actuellement chargées.</p><button class="btn-ghost" id="backupBtn" style="width:100%">Télécharger</button></div>
 <div class="setting-block"><h4>🧹 Brouillon</h4><p>Efface uniquement la saisie locale en cours.</p><button class="btn-ghost" id="clearDraftBtn" style="width:100%">Effacer</button></div>
@@ -2833,12 +2833,20 @@ body.is-offline .sync-pill{border-color:color-mix(in srgb,var(--danger) 45%,var(
 })();
 </script>
 
+<!-- FIBRE OPS TEST · pont Google Sheets sandbox uniquement -->
+<script>
+try{localStorage.setItem('fibre_ops_sheets_sandbox_enabled_v2','1')}catch(e){}
+</script>
+<script id="fibreSandboxAddressFixMain" src="./sandbox-address-fix.js?v=4&build=13"></script>
+<script id="fibreSheetsBridgeScriptMain" src="./sheets-bridge.js?v=4&build=13"></script>
+<script id="fibreSheetsPullScriptMain" src="./sheets-pull.js?v=10&build=13"></script>
+<!-- /FIBRE OPS TEST -->
 <script>
 const SUPABASE_URL='https://dvvoqfswlqdwvxamfsot.supabase.co';
 const SUPABASE_KEY='sb_publishable_DKIrFOlhgvc7LW43_qgLYA_cENm3M-P';
 
 const $=id=>document.getElementById(id);
-const APP_VERSION='V3 Production 1.2';
+const APP_VERSION='V3 Production 1.3';
 let supabase=null;
 let deferredInstallPrompt=null;
 function humanError(err){

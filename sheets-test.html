@@ -21,8 +21,8 @@ frame.addEventListener('load',()=>{
     const d=frame.contentDocument;
     const add=(id,src)=>{if(d.getElementById(id))return;const s=d.createElement('script');s.id=id;s.src=src;d.head.appendChild(s)};
     add('fibreAppHotfixScript','./app-hotfix.js?v=3');
-    add('fibreSheetsBridgeScript','./sheets-bridge.js?v=2');
-    add('fibreSheetsPullScript','./sheets-pull.js?v=4');
+    // Bridge sortant suspendu durant l'audit anti-doublons.
+    add('fibreSheetsPullScript','./sheets-pull.js?v=5');
     document.getElementById('boot').style.display='none';
   }catch(e){document.getElementById('boot').textContent='Impossible de charger le mode sandbox Sheets.'}
 });

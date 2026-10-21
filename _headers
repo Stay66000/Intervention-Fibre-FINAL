@@ -11,6 +11,3 @@
 
 /manifest.webmanifest
   Cache-Control: no-cache
-
-/app-hotfix.js
-  Cache-Control: no-cache

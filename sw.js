@@ -1,7 +1,7 @@
-const CACHE='fibre-ops-v3-production-1.4';
+const CACHE='fibre-ops-v3-production-1.5';
 const CACHE_PREFIX='fibre-ops-';
 const APP_SHELL='./index.html';
-const CORE=[APP_SHELL,'./manifest.webmanifest','./icons/icon-192.png','./icons/icon-512.png','./app-hotfix.js'];
+const CORE=[APP_SHELL,'./manifest.webmanifest','./icons/icon-192.png','./icons/icon-512.png'];
 
 self.addEventListener('install',event=>{
   event.waitUntil((async()=>{
@@ -18,20 +18,6 @@ self.addEventListener('activate',event=>{
     await self.clients.claim();
   })());
 });
-
-async function patchAppHtml(response){
-  if(!response)return response;
-  const type=response.headers.get('content-type')||'';
-  if(!type.includes('text/html'))return response;
-  const html=await response.text();
-  const tag='<script src="./app-hotfix.js?v=4"></script>';
-  const patched=html.includes('app-hotfix.js')?html:html.replace('</body>',tag+'</body>');
-  const headers=new Headers(response.headers);
-  headers.delete('content-length');
-  headers.delete('content-encoding');
-  headers.delete('etag');
-  return new Response(patched,{status:response.status,statusText:response.statusText,headers});
-}
 
 function freshRequest(req){
   return new Request(req,{cache:'no-store'});
@@ -55,31 +41,13 @@ self.addEventListener('fetch',event=>{
   if(url.origin!==self.location.origin)return;
 
   if(req.mode==='navigate'){
-    const isAppPage=url.pathname==='/'||url.pathname.endsWith('/index.html');
-
-    if(isAppPage){
-      event.respondWith((async()=>{
-        try{
-          const network=await fetch(freshRequest(req));
-          const patched=await patchAppHtml(network);
-          if(patched?.ok)await cachePut(APP_SHELL,patched.clone());
-          return patched;
-        }catch(e){
-          const cached=await caches.match(APP_SHELL);
-          if(cached)return patchAppHtml(cached);
-          throw e;
-        }
-      })());
-      return;
-    }
-
     event.respondWith((async()=>{
       try{
         const network=await fetch(freshRequest(req));
-        if(network?.ok)await cachePut(req,network.clone());
+        if(network?.ok)await cachePut(APP_SHELL,network.clone());
         return network;
       }catch(e){
-        return (await caches.match(req))||(await caches.match(APP_SHELL))||Response.error();
+        return (await caches.match(APP_SHELL))||Response.error();
       }
     })());
     return;

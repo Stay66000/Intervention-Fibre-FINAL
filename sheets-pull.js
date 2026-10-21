@@ -57,14 +57,14 @@
     try{
       let map=read(MAP_KEY,{}),snap=read(SNAP_KEY,null),rows=await getRows(),list=locals(),idx=buildIndex(list),add=0,upd=0,skip=0;
       window.__FIBRE_SHEETS_REMOTE_APPLY__=true;
-      for(const raw of rows){const r=await applyRow(raw,match(raw,list,idx,map),map);if(r==='add')add++;else if(r==='update')upd++;else if(r==='skip')skip++}
+      for(const raw of rows){const r=match(raw,list,idx,map)?'same':'review';if(r==='add')add++;else if(r==='update')upd++;else if(r==='skip'||r==='review')skip++}
       const del=0; // Suppressions suspendues jusqu'à accord explicite.
       if(add||upd||del){await loadAll();renderAll();list=locals()}
       const pushed=0; // Écriture de nouvelles lignes suspendue.
       if(pushed)rows=await getRows();
       list=locals();idx=buildIndex(list);for(const raw of rows){const id=rowId(raw);if(!id)continue;const e=match(raw,list,idx,map);if(e)map[id]=e.id}
       save(MAP_KEY,map);save(SNAP_KEY,makeSnap(rows));
-      setStatus(`OK · Sheets→App +${add}, ${upd} modif, ${del} supp · App→Sheets +${pushed}${skip?` · ${skip} ignorée(s)`:''}`);
+      setStatus(`Audit sans écriture · ${rows.length} lignes Sheets · ${list.length} app · ${skip} non rapprochée(s) · aucune création, modification ou suppression`);
       if(showToast&&typeof toast==='function')toast('✅ Sandbox synchronisé');
     }catch(e){console.warn('[Sheets sandbox pull]',e);setStatus('Erreur sandbox : '+String(e?.message||e).slice(0,150));if(showToast&&typeof toast==='function')toast('Erreur synchro sandbox')}
     finally{window.__FIBRE_SHEETS_REMOTE_APPLY__=false;running=false;if(ui?.sync){ui.sync.disabled=false;ui.sync.textContent='↔ Synchroniser maintenant'}}

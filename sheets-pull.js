@@ -23,8 +23,8 @@
   function canSync(){try{return !!user&&!!profile&&['admin','platform_admin'].includes(profile.role)&&!currentCompanyId()&&!hasTeam()}catch{return false}}
   function locals(){try{return (interventions||[]).filter(e=>!e.companyId&&!e.readOnlyHistory&&!e.teamId)}catch{return []}}
   function rowId(r){return String(r?.id||'').trim()}
-  function keySheet(r){return `${normDate(r.date)}|${normRef(r.num)}|${normText(r.op)}`}
-  function keyLocal(e){return `${normDate(e.date)}|${normRef(e.num)}|${normText(operatorLabel(e.op))}`}
+  function keySheet(r){return `${normRef(r.num)}|${normText(r.typo)}`}
+  function keyLocal(e){return `${normRef(e.num)}|${normText(e.typo)}`}
   function fp(r){return [keySheet(r),normText(r.typo),resultValue(r.statut),String(r.addr||'').trim(),String(r.comment||'').trim(),normText(r.solo),Number(r.montant)||0].join('|')}
 
   async function getRows(){const c=new AbortController(),t=setTimeout(()=>c.abort(),15000);try{const r=await fetch(SHEETS_URL+'?tech='+encodeURIComponent(TECH)+'&_t='+Date.now(),{cache:'no-store',signal:c.signal});if(!r.ok)throw new Error('Sheets HTTP '+r.status);const d=await r.json();if(!Array.isArray(d))throw new Error('Format Sheets invalide');return d}finally{clearTimeout(t)}}
@@ -36,7 +36,7 @@
   async function applyRow(raw,local,map){
     const date=normDate(raw.date),op=resolveOperator(raw.op),type=resolveType(op,raw.typo);if(!date||!op||!type)return 'skip';
     const desired={intervention_date:date,operator:op,intervention_type_id:type.id,result:resultValue(raw.statut),reference:String(raw.num||'').trim()||null,address:String(raw.addr||'').trim()||null,notes:String(raw.comment||'').trim()||null};
-    if(!local){const payload={user_id:user.id,company_id:null,team_id:null,work_mode:'Personal',solo_user_id:user.id,...desired,operator_data:{legacy_sheet_id:rowId(raw)||null,legacy_sheet_sync:true,sandbox_sheet_sync:true}};const {data,error}=await supabase.from('interventions').insert(payload).select('id').single();if(error)throw error;if(rowId(raw)&&data?.id)map[rowId(raw)]=data.id;return 'add'}
+    if(!local){return 'review'; const payload={user_id:user.id,company_id:null,team_id:null,work_mode:'Personal',solo_user_id:user.id,...desired,operator_data:{legacy_sheet_id:rowId(raw)||null,legacy_sheet_sync:true,sandbox_sheet_sync:true}};const {data,error}=await supabase.from('interventions').insert(payload).select('id').single();if(error)throw error;if(rowId(raw)&&data?.id)map[rowId(raw)]=data.id;return 'add'}
     const patch={};if(normDate(local.date)!==date)patch.intervention_date=date;if(local.op!==op)patch.operator=op;if(String(local.typeId||'')!==String(type.id))patch.intervention_type_id=type.id;if(String(local.statut||'Réussite')!==desired.result)patch.result=desired.result;if(String(local.num||'')!==String(raw.num||''))patch.reference=desired.reference;if(String(local.addr||'')!==String(raw.addr||''))patch.address=desired.address;if(String(local.comment||'')!==String(raw.comment||''))patch.notes=desired.notes;
     if(Object.keys(patch).length){const {error}=await supabase.from('interventions').update(patch).eq('id',local.id);if(error)throw error;return 'update'}return 'same';
   }

@@ -11,3 +11,12 @@
 
 /manifest.webmanifest
   Cache-Control: no-cache
+
+/sheets-bridge.js
+  Cache-Control: no-cache
+
+/sheets-pull.js
+  Cache-Control: no-cache
+
+/sandbox-address-fix.js
+  Cache-Control: no-cache

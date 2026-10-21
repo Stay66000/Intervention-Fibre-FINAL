@@ -31,7 +31,7 @@
   async function postRow(body){await fetch(SHEETS_URL,{method:'POST',mode:'no-cors',headers:{'Content-Type':'text/plain'},body:JSON.stringify(body)})}
 
   function buildIndex(list){const byId=new Map(list.map(e=>[String(e.id),e])),byKey=new Map();for(const e of list){const k=keyLocal(e),a=byKey.get(k)||[];a.push(e);byKey.set(k,a)}return {byId,byKey}}
-  function match(raw,list,idx,map){const sid=rowId(raw);if(sid&&map[sid]){const e=list.find(x=>x.id===map[sid]);if(e)return e}if(sid&&idx.byId.has(sid)){const e=idx.byId.get(sid);map[sid]=e.id;return e}const a=idx.byKey.get(keySheet(raw))||[];if(a.length===1){if(sid)map[sid]=a[0].id;return a[0]}return null}
+  function match(raw,list,idx,map){const sid=rowId(raw),ref=normRef(raw.num),typo=normText(raw.typo);if(!ref||!typo)return null;const sameRef=list.filter(e=>normRef(e.num)===ref);if(sameRef.length!==1)return null;const e=sameRef[0];if(normText(e.typo)!==typo)return null;if(sid&&map[sid]&&map[sid]!==e.id)return null;if(sid)map[sid]=e.id;return e}
 
   async function applyRow(raw,local,map){
     const date=normDate(raw.date),op=resolveOperator(raw.op),type=resolveType(op,raw.typo);if(!date||!op||!type)return 'skip';

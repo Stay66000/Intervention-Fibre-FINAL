@@ -1,0 +1,76 @@
+/* FIBRE OPS · Tutoriel contextuel
+   Ce fichier peut être supprimé avec fibre-tutorial.js et les blocs
+   FIBRE OPS TUTORIAL START/END de index.html sans impact sur l'application. */
+
+.fibre-tutorial-card{
+  position:fixed;z-index:1250;width:min(370px,calc(100vw - 24px));
+  padding:15px;border:1px solid color-mix(in srgb,var(--accent) 34%,var(--line));
+  border-radius:17px;background:color-mix(in srgb,var(--surface) 96%,transparent);
+  color:var(--ink);box-shadow:0 18px 55px rgba(0,0,0,.28),0 0 24px color-mix(in srgb,var(--accent) 10%,transparent);
+  backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
+  animation:fibreTutorialIn .24s cubic-bezier(.16,1,.3,1) both;
+}
+.fibre-tutorial-card.fibre-tutorial-welcome{
+  left:50%;top:50%;transform:translate(-50%,-50%);width:min(420px,calc(100vw - 24px));
+}
+.fibre-tutorial-card-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:7px}
+.fibre-tutorial-card h3{margin:0;font:700 17px var(--font-num);letter-spacing:-.01em}
+.fibre-tutorial-card p{margin:0;color:var(--ink-muted);font-size:13px;line-height:1.5}
+.fibre-tutorial-close{flex:none;width:32px;height:32px;min-height:32px;border:1px solid var(--line);border-radius:10px;background:transparent;color:var(--ink-muted);cursor:pointer}
+.fibre-tutorial-actions{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;margin-top:13px}
+.fibre-tutorial-actions .btn-primary,.fibre-tutorial-actions .btn-ghost{width:auto;min-height:39px;padding:7px 12px}
+.fibre-tutorial-card[data-anchor="1"]::before{
+  content:"";position:absolute;width:10px;height:10px;top:-6px;left:26px;
+  border-left:1px solid color-mix(in srgb,var(--accent) 34%,var(--line));
+  border-top:1px solid color-mix(in srgb,var(--accent) 34%,var(--line));
+  background:var(--surface);transform:rotate(45deg)
+}
+
+.fibre-tutorial-notice{
+  position:fixed;z-index:1240;left:50%;bottom:calc(102px + env(safe-area-inset-bottom));
+  transform:translateX(-50%);width:min(440px,calc(100vw - 24px));padding:11px 13px;
+  border:1px solid color-mix(in srgb,var(--success) 38%,var(--line));border-radius:14px;
+  background:color-mix(in srgb,var(--surface) 96%,transparent);box-shadow:0 12px 34px rgba(0,0,0,.22);
+  backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);animation:fibreTutorialNotice .25s ease both;
+}
+.fibre-tutorial-notice b{display:block;font-size:13.5px;color:var(--success);margin-bottom:2px}
+.fibre-tutorial-notice span{display:block;color:var(--ink-muted);font-size:12px;line-height:1.4;padding-right:28px}
+.fibre-tutorial-notice button{position:absolute;right:8px;top:8px;width:28px;height:28px;min-height:28px;border:0;background:transparent;color:var(--ink-muted);cursor:pointer}
+
+.fibre-tutorial-settings .fibre-tutorial-settings-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
+.fibre-tutorial-settings .fibre-tutorial-settings-actions button{width:100%}
+.fibre-tutorial-settings .display-toggle-row{margin-top:10px;padding-top:10px;border-top:1px solid var(--line)}
+
+.billing-v2-tabs.fibre-tutorial-billing-tabs{grid-template-columns:repeat(5,minmax(0,1fr))}
+.fibre-tutorial-billing-pane .fibre-billing-guide-intro{margin-bottom:12px;color:var(--ink-muted);font-size:12.5px;line-height:1.5}
+.fibre-billing-guide-steps{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;margin:12px 0}
+.fibre-billing-guide-step{padding:12px;border:1px solid var(--line);border-radius:12px;background:var(--surface-alt)}
+.fibre-billing-guide-step strong{display:block;font-size:13px;margin-bottom:4px}
+.fibre-billing-guide-step span{display:block;color:var(--ink-muted);font-size:11.5px;line-height:1.45}
+.fibre-billing-guide-diffs{display:flex;gap:6px;flex-wrap:wrap;margin:10px 0 14px}
+.fibre-billing-guide-diffs span{padding:5px 8px;border:1px solid color-mix(in srgb,var(--danger) 30%,var(--line));border-radius:999px;background:color-mix(in srgb,var(--danger) 8%,transparent);color:var(--ink-muted);font-size:10.5px}
+.fibre-billing-guide-demo{display:grid;gap:7px;margin:10px 0 14px}
+.fibre-billing-guide-demo-row{display:grid;grid-template-columns:minmax(0,1fr) 88px 88px 70px;gap:7px;align-items:center;padding:8px 9px;border:1px solid var(--line);border-radius:10px;background:var(--surface-alt);font-size:11px}
+.fibre-billing-guide-demo-row b{font-family:var(--font-num)}
+.fibre-billing-guide-demo-row .ok{color:var(--success);font-weight:800}
+.fibre-billing-guide-demo-row .bad{color:var(--danger);font-weight:800}
+
+@keyframes fibreTutorialIn{from{opacity:0;transform:translateY(8px) scale(.98)}to{opacity:1;transform:translateY(0) scale(1)}}
+@keyframes fibreTutorialNotice{from{opacity:0;transform:translateX(-50%) translateY(8px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
+.fibre-tutorial-card.fibre-tutorial-welcome{animation:fibreTutorialWelcome .24s cubic-bezier(.16,1,.3,1) both}
+@keyframes fibreTutorialWelcome{from{opacity:0;transform:translate(-50%,-46%) scale(.97)}to{opacity:1;transform:translate(-50%,-50%) scale(1)}}
+
+@media(max-width:760px){
+  .billing-v2-tabs.fibre-tutorial-billing-tabs{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .fibre-tutorial-card[data-anchor="1"]{left:12px!important;right:12px!important;top:auto!important;bottom:calc(88px + env(safe-area-inset-bottom));width:auto}
+  .fibre-tutorial-card[data-anchor="1"]::before{display:none}
+}
+@media(max-width:560px){
+  .billing-v2-tabs.fibre-tutorial-billing-tabs{grid-template-columns:1fr 1fr}
+  .fibre-billing-guide-steps{grid-template-columns:1fr}
+  .fibre-billing-guide-demo-row{grid-template-columns:minmax(0,1fr) 75px 75px}.fibre-billing-guide-demo-row span:last-child{grid-column:1/-1}
+  .fibre-tutorial-settings .fibre-tutorial-settings-actions{grid-template-columns:1fr}
+}
+@media(prefers-reduced-motion:reduce){
+  .fibre-tutorial-card,.fibre-tutorial-notice{animation:none!important;transition:none!important}
+}

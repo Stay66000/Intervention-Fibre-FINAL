@@ -148,6 +148,6 @@
     if(!ui.audit||!ui.import)return false;
     ui.audit.onclick=()=>audit(true);ui.import.onclick=importMissing;return true;
   }
-  function start(){if(!ensureUi()){setTimeout(start,400);return}if(!canUse()){setStatus('Sandbox réservé au compte principal dans son espace personnel solo.');return}setStatus('Prêt · compare d’abord, puis importe uniquement les lignes sûres.')}
+  function start(){if(!ensureUi()){setTimeout(start,400);return}if(!canUse()){setStatus('Connexion au compte principal…');setTimeout(start,800);return}setStatus('Prêt · FIBRE OPS est relié au classeur TEST. Compare d’abord, puis importe uniquement les lignes sûres.')}
   start();
 })();

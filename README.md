@@ -30,5 +30,5 @@ Les données de production sont stockées dans Supabase et ne doivent jamais êt
 - Ne jamais exposer de clé `service_role` dans le front-end.
 - Ne pas remettre d’anciens bots, hotfix injectés ou scripts de test dans le parcours de production.
 - Avant une modification importante, valider la preview Cloudflare et la syntaxe JavaScript.
-- Après déploiement, tester connexion, ajout, modification, suppression, rafraîchissement et PWA.
-- Conserver la compatibilité mobile et PWA.
+- Après déploiement, tester connexion, ajout, modification, suppression, rafraîchissement et installation PWA.
+- Conserver la compatibilité mobile.

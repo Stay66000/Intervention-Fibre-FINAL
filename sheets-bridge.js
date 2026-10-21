@@ -17,10 +17,24 @@
   function operatorLabel(op){try{return typeof opLabel==='function'?opLabel(op):String(op||'')}catch{return String(op||'')}}
   function canUse(){try{return !!user&&!!profile&&['admin','platform_admin'].includes(profile.role)&&!currentCompanyId()}catch{return false}}
   function personal(e){return !!e&&!e.companyId&&!e.readOnlyHistory&&!e.teamId}
-  function sheetIdForLocal(localId){const m=mapping();for(const sid of Object.keys(m))if(m[sid]===localId)return sid;return localId}
 
-  function bodyFor(e,action='',oldNum=''){
-    const body={id:sheetIdForLocal(e.id),num:e.num||'',date:e.date||'',addr:e.addr||'',typo:e.typo||'',statut:e.statut||'Réussite',op:operatorLabel(e.op),solo:e.workMode==='Binôme'?'Binôme':'Solo',techSolo:profile?.first_name||TECH,apie:false,montant:Number(e.montant)||0,comment:e.comment||'',tech:TECH};
+  async function sheetIdForLocal(localId){
+    const m=mapping();
+    for(const sid of Object.keys(m))if(m[sid]===localId)return sid;
+    try{
+      if(typeof supabase!=='undefined'&&supabase){
+        const {data,error}=await supabase.from('interventions').select('operator_data').eq('id',localId).maybeSingle();
+        if(!error){
+          const legacy=String(data?.operator_data?.legacy_sheet_id||'').trim();
+          if(legacy)return legacy;
+        }
+      }
+    }catch(e){console.warn('[Sheets sandbox legacy id]',e)}
+    return localId;
+  }
+
+  function bodyFor(e,action='',oldNum='',idOverride=''){
+    const body={id:idOverride||e.id,num:e.num||'',date:e.date||'',addr:e.addr||'',typo:e.typo||'',statut:e.statut||'Réussite',op:operatorLabel(e.op),solo:e.workMode==='Binôme'?'Binôme':'Solo',techSolo:profile?.first_name||TECH,apie:false,montant:Number(e.montant)||0,comment:e.comment||'',tech:TECH};
     if(action)body.action=action;if(oldNum)body.oldNum=oldNum;return body;
   }
 
@@ -63,13 +77,15 @@
 
     try{
       if(url.includes('/rest/v1/rpc/delete_my_intervention')&&method==='POST'&&personal(before)){
-        queue(bodyFor(before,'delete'));
+        const sheetId=await sheetIdForLocal(before.id);
+        queue(bodyFor(before,'delete','',sheetId));
       }else if(url.includes('/rest/v1/interventions')&&method==='POST'&&body&&!body.company_id&&!body.team_id){
         const sig={date:body.intervention_date||'',num:body.reference||'',op:body.operator||''};
         setTimeout(()=>{try{const e=(interventions||[]).filter(personal).filter(x=>x.date===sig.date&&(x.num||'')===sig.num&&x.op===sig.op).sort((a,b)=>String(b.created_at||'').localeCompare(String(a.created_at||'')))[0];if(e)queue(bodyFor(e))}catch{}},900);
       }else if(url.includes('/rest/v1/interventions')&&(method==='PATCH'||method==='PUT')&&personal(before)){
         const oldNum=before.num||'';
-        setTimeout(()=>{try{const e=(interventions||[]).find(x=>x.id===before.id);if(e)queue(bodyFor(e,'update',oldNum))}catch{}},800);
+        const sheetId=await sheetIdForLocal(before.id);
+        setTimeout(()=>{try{const e=(interventions||[]).find(x=>x.id===before.id);if(e)queue(bodyFor(e,'update',oldNum,sheetId))}catch{}},800);
       }
     }catch(e){console.warn('[Sheets sandbox outbound]',e)}
     return response;

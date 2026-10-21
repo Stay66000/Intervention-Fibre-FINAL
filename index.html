@@ -1498,6 +1498,10 @@ body.is-offline .sync-pill{border-color:color-mix(in srgb,var(--danger) 45%,var(
 @media(max-width:520px){.network-banner{top:calc(6px + env(safe-area-inset-top));font-size:11px}}
 
 </style>
+
+<!-- FIBRE OPS TUTORIAL START -->
+<link rel="stylesheet" href="./fibre-tutorial.css?v=1">
+<!-- FIBRE OPS TUTORIAL END -->
 </head>
 <body><div class="network-banner" id="networkBanner" role="status" aria-live="polite">● Hors connexion · les données en ligne sont temporairement indisponibles</div><section class="gate" id="authGate">
 <div class="gate-inner">
@@ -6178,5 +6182,9 @@ if(supabase){
   $('authGate').classList.remove('app-hidden');
   $('appShell').classList.add('app-hidden');
 }
-</script></div></body>
+</script></div>
+<!-- FIBRE OPS TUTORIAL START -->
+<script src="./fibre-tutorial.js?v=1"></script>
+<!-- FIBRE OPS TUTORIAL END -->
+</body>
 </html>

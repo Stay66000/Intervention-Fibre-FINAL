@@ -1,0 +1,70 @@
+name: Contextual tutorial integration
+
+on:
+  push:
+    branches:
+      - feature/contextual-tutorial
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  integrate:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: feature/contextual-tutorial
+
+      - name: Apply isolated hooks
+        run: python scripts/add_contextual_tutorial.py
+
+      - name: Validate tutorial JavaScript
+        run: |
+          node --check fibre-tutorial.js
+          if grep -E "supabase\.|SHEETS_URL|script\.google\.com" fibre-tutorial.js; then
+            echo "Le tutoriel ne doit pas appeler Supabase ou Sheets" >&2
+            exit 1
+          fi
+
+      - name: Validate existing inline JavaScript
+        run: |
+          python - <<'PY'
+          import re, subprocess, tempfile
+          from pathlib import Path
+          text=Path('index.html').read_text(encoding='utf-8')
+          scripts=re.findall(r'<script(?:\s[^>]*)?>(.*?)</script>', text, flags=re.S|re.I)
+          checked=0
+          for i,src in enumerate(scripts):
+              if not src.strip():
+                  continue
+              with tempfile.NamedTemporaryFile('w',suffix='.js',delete=False,encoding='utf-8') as f:
+                  f.write(src)
+                  name=f.name
+              subprocess.run(['node','--check',name],check=True)
+              Path(name).unlink(missing_ok=True)
+              checked+=1
+          print(f'{checked} scripts inline validés')
+          PY
+
+      - name: Validate removable integration
+        run: |
+          test "$(grep -c 'FIBRE OPS TUTORIAL START' index.html)" -eq 2
+          test "$(grep -c 'FIBRE OPS TUTORIAL END' index.html)" -eq 2
+          grep -q './fibre-tutorial.css?v=1' index.html
+          grep -q './fibre-tutorial.js?v=1' index.html
+
+      - name: Remove one-time migration files
+        run: rm -f scripts/add_contextual_tutorial.py .github/workflows/contextual-tutorial.yml
+
+      - name: Commit integration
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html fibre-tutorial.js fibre-tutorial.css scripts/add_contextual_tutorial.py .github/workflows/contextual-tutorial.yml
+          git diff --cached --quiet && exit 0
+          git commit -m "Intègre le tutoriel contextuel FIBRE OPS"
+          git push origin HEAD:feature/contextual-tutorial

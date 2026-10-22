@@ -20,6 +20,20 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+      - name: Repair patch script quoting
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('tools/patch-supplements.cjs')
+          s=p.read_text()
+          old1='  return `<span class="supplement-history-chip">＋${money(amount)} · ${esc(label)}</span>`;'
+          new1='  return \\`<span class="supplement-history-chip">＋\\${money(amount)} · \\${esc(label)}</span>\\`;'
+          old2="  return [String(e?.comment||'').trim(),`${label} (+${money(amount)})`].filter(Boolean).join(' · ');"
+          new2="  return [String(e?.comment||'').trim(),\\`\\${label} (+\\${money(amount)})\\`].filter(Boolean).join(' · ');"
+          if old1 not in s or old2 not in s:
+              raise SystemExit('Motifs de correction du patcher introuvables')
+          p.write_text(s.replace(old1,new1).replace(old2,new2))
+          PY
       - name: Apply and validate patch
         run: node tools/patch-supplements.cjs
       - name: Remove temporary patch tooling

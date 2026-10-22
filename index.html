@@ -153,6 +153,22 @@ button:active, .rw:active, .bar-col:active {
 .day-total .dt-label{font-size:13.5px;color:var(--ink-muted)}
 .day-total strong{font-family:var(--font-num);font-size:20px;font-weight:600;color:var(--success);font-variant-numeric:tabular-nums}
 
+/* FIBRE OPS INTERVENTION SUPPLEMENTS START */
+.intervention-supplement-card{margin:2px 0 14px;padding:11px 12px;border:1px dashed color-mix(in srgb,var(--accent) 32%,var(--line));border-radius:12px;background:color-mix(in srgb,var(--accent-soft) 38%,var(--surface-alt))}
+.intervention-supplement-card[hidden]{display:none!important}
+.intervention-supplement-toggle{display:flex;align-items:center;gap:9px;font-weight:700;font-size:13px;cursor:pointer}
+.intervention-supplement-toggle input{width:19px;height:19px;accent-color:var(--accent)}
+.intervention-supplement-fields{display:none;margin-top:11px;padding-top:11px;border-top:1px solid var(--line)}
+.intervention-supplement-card.enabled .intervention-supplement-fields{display:block}
+.intervention-supplement-grid{display:grid;grid-template-columns:135px minmax(0,1fr);gap:9px}
+.intervention-supplement-grid .field{margin-bottom:0}
+.intervention-supplement-presets{display:flex;gap:7px;align-items:center;flex-wrap:wrap;margin-bottom:9px}
+.intervention-supplement-presets small{color:var(--ink-dim);font-size:11px}
+.intervention-supplement-chip{min-height:30px;padding:4px 10px;border-radius:999px;border:1px solid color-mix(in srgb,var(--orange) 45%,var(--line));background:color-mix(in srgb,var(--orange) 10%,transparent);color:var(--orange);font-size:11.5px;font-weight:800;cursor:pointer}
+.supplement-history-chip{display:inline-flex;align-items:center;border-radius:999px;padding:2px 8px;font-size:11.5px;font-weight:700;background:var(--success-bg);color:var(--success)}
+@media(max-width:520px){.intervention-supplement-grid{grid-template-columns:1fr}}
+/* FIBRE OPS INTERVENTION SUPPLEMENTS END */
+
 /* Historique et carburant */
 .filter-bar{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:12px;flex-wrap:wrap}
 .date-pill{padding:6px 12px;font-size:13.5px;font-weight:700;color:var(--ink)}
@@ -1661,6 +1677,19 @@ body.is-offline .sync-pill{border-color:color-mix(in srgb,var(--danger) 45%,var(
 <input id="f-comment" placeholder="Remarques, détails..." type="text"/>
 </div>
 
+<!-- FIBRE OPS INTERVENTION SUPPLEMENTS START -->
+<div class="intervention-supplement-card" id="f-supplement-card">
+  <label class="intervention-supplement-toggle"><input id="f-supp-enabled" type="checkbox"/> ➕ Ajouter un complément d’intervention</label>
+  <div class="intervention-supplement-fields" id="f-supp-fields">
+    <div class="intervention-supplement-presets"><button class="intervention-supplement-chip" id="f-supp-apie" type="button">APIE</button><small id="f-supp-hint">Le motif sera repris automatiquement avec l’intervention.</small></div>
+    <div class="intervention-supplement-grid">
+      <div class="field"><label for="f-supp-amount">Montant du complément (€)</label><input id="f-supp-amount" inputmode="decimal" min="0" max="10000" step="0.01" type="number" placeholder="0,00"/></div>
+      <div class="field"><label for="f-supp-comment">Motif / commentaire</label><input id="f-supp-comment" maxlength="200" type="text" placeholder="Complément d’intervention"/></div>
+    </div>
+  </div>
+</div>
+<!-- FIBRE OPS INTERVENTION SUPPLEMENTS END -->
+
 <div class="preview">
 <div class="preview-copy">
   <span id="previewLabel" style="font-size:12px; color:var(--ink-muted);">Montant estimé</span>
@@ -2117,6 +2146,19 @@ body.is-offline .sync-pill{border-color:color-mix(in srgb,var(--danger) 45%,var(
 <textarea id="m-comment" rows="2"></textarea>
 </div>
 
+<!-- FIBRE OPS INTERVENTION SUPPLEMENTS START -->
+<div class="intervention-supplement-card" id="m-supplement-card">
+  <label class="intervention-supplement-toggle"><input id="m-supp-enabled" type="checkbox"/> ➕ Complément d’intervention</label>
+  <div class="intervention-supplement-fields" id="m-supp-fields">
+    <div class="intervention-supplement-presets"><button class="intervention-supplement-chip" id="m-supp-apie" type="button">APIE</button><small>Le montant total est recalculé automatiquement.</small></div>
+    <div class="intervention-supplement-grid">
+      <div class="field"><label for="m-supp-amount">Montant (€)</label><input id="m-supp-amount" inputmode="decimal" min="0" max="10000" step="0.01" type="number"/></div>
+      <div class="field"><label for="m-supp-comment">Motif / commentaire</label><input id="m-supp-comment" maxlength="200" type="text"/></div>
+    </div>
+  </div>
+</div>
+<!-- FIBRE OPS INTERVENTION SUPPLEMENTS END -->
+
 <div style="display:flex; gap:8px; margin-top:14px;">
 <button class="btn-primary" id="m-save-btn">Mettre à jour</button>
 <button class="btn-ghost" id="m-del-btn" style="color:var(--danger); border-color:var(--danger);">Supprimer</button>
@@ -2255,7 +2297,7 @@ body.is-offline .sync-pill{border-color:color-mix(in srgb,var(--danger) 45%,var(
 <div class="setting-block"><h4>📐 Mode compact</h4><p>Réduis l'espace occupé par les cartes et les champs.</p><div class="display-toggle-row"><div class="display-toggle-copy"><b id="compactStateLabel">Affichage normal</b><small>Modifiable à tout moment</small></div><label class="display-switch" aria-label="Mode compact"><input id="compactToggle" type="checkbox"/><span aria-hidden="true"></span></label></div></div>
 <div class="setting-block"><h4>⚫ Fond noir</h4><p>Mode noir absolu sans grille ni halo d'arrière-plan.</p><div class="display-toggle-row"><div class="display-toggle-copy"><b id="pureBlackStateLabel">Fond animé</b><small>Les couleurs des interventions restent visibles</small></div><label class="display-switch" aria-label="Fond noir absolu"><input id="pureBlackToggle" type="checkbox"/><span aria-hidden="true"></span></label></div></div>
 <div class="setting-block wide install-app-block" id="installAppBlock"><h4>📲 Installer FIBRE OPS</h4><p>Ajoute FIBRE OPS à ton écran d’accueil pour l’ouvrir comme une application.</p><button class="btn-ghost" id="installAppBtn" type="button" style="width:100%">Installer l’application</button><div class="install-app-status" id="installAppStatus"></div></div>
-<div class="setting-block"><h4>ℹ️ Version</h4><p>Version de production actuellement chargée.</p><div class="app-version" id="appVersionLabel">V3 Production 1.3</div></div>
+<div class="setting-block"><h4>ℹ️ Version</h4><p>Version de production actuellement chargée.</p><div class="app-version" id="appVersionLabel">V3 Production 1.4</div></div>
 <div class="setting-block"><h4>🎯 Objectif du jour</h4><p>Utilisé pour la jauge du tableau de bord.</p><div class="setting-row"><span>Montant</span><input id="goalInput" min="0" step="10" style="width:115px" type="number" value="400"/></div></div>
 <div class="setting-block"><h4>💾 Sauvegarde JSON</h4><p>Copie locale des données actuellement chargées.</p><button class="btn-ghost" id="backupBtn" style="width:100%">Télécharger</button></div>
 <div class="setting-block"><h4>🧹 Brouillon</h4><p>Efface uniquement la saisie locale en cours.</p><button class="btn-ghost" id="clearDraftBtn" style="width:100%">Effacer</button></div>
@@ -3321,7 +3363,7 @@ async function loadAll(){
       id:x.id,userId:x.user_id,companyId:x.company_id,teamId:x.team_id,workMode:x.work_mode||'Personal',
       soloUserId:x.solo_user_id,createdBy:x.created_by,date:x.intervention_date,op:x.operator,typeId:x.intervention_type_id,
       typo:x.intervention_type_name,montant:Number(x.my_payout)||0,statut:x.result||'Réussite',
-      num:x.reference||'',addr:x.address||'',comment:x.notes||'',created_at:x.created_at
+      num:x.reference||'',addr:x.address||'',comment:x.notes||'',operatorData:x.operator_data||{},supplementAmount:supplementAmountFromData(x.operator_data),supplementComment:supplementCommentFromData(x.operator_data),created_at:x.created_at
     }));
 
     fuel=(fuelR.data||[]).map(x=>({
@@ -3366,14 +3408,14 @@ async function loadAll(){
   const independentRows=(Array.isArray(intR.data)?intR.data:[]).map(x=>({
     id:x.id,userId:x.user_id,companyId:null,companyName:null,teamId:x.team_id,workMode:x.work_mode||'Personal',soloUserId:x.solo_user_id,createdBy:x.created_by,
     date:x.intervention_date,op:x.operator,typeId:x.intervention_type_id,typo:x.intervention_type_name,montant:Number(x.applied_amount)||0,
-    statut:x.result||'Réussite',num:x.reference||'',addr:x.address||'',comment:x.notes||'',created_at:x.created_at,
+    statut:x.result||'Réussite',num:x.reference||'',addr:x.address||'',comment:x.notes||'',operatorData:x.operator_data||{},supplementAmount:supplementAmountFromData(x.operator_data),supplementComment:supplementCommentFromData(x.operator_data),created_at:x.created_at,
     payoutIsPersonal:false,readOnlyHistory:false
   }));
 
   const companyHistoryRows=(Array.isArray(companyHistR.data)?companyHistR.data:[]).map(x=>({
     id:x.id,userId:x.user_id,companyId:x.company_id,companyName:x.company_name||'Ancienne société',teamId:x.team_id,workMode:x.work_mode||'Personal',soloUserId:x.solo_user_id,createdBy:x.created_by,
     date:x.intervention_date,op:x.operator,typeId:x.intervention_type_id,typo:x.intervention_type_name,montant:Number(x.my_payout)||0,
-    statut:x.result||'Réussite',num:x.reference||'',addr:x.address||'',comment:x.notes||'',created_at:x.created_at,
+    statut:x.result||'Réussite',num:x.reference||'',addr:x.address||'',comment:x.notes||'',operatorData:x.operator_data||{},supplementAmount:supplementAmountFromData(x.operator_data),supplementComment:supplementCommentFromData(x.operator_data),created_at:x.created_at,
     payoutIsPersonal:true,readOnlyHistory:true
   }));
 
@@ -3530,8 +3572,82 @@ bindSeg('f-work-mode',v=>{
 });
 $('f-solo-tech').onchange=e=>{form.soloUserId=e.target.value;preview();saveDraft()};
 
+/* FIBRE OPS INTERVENTION SUPPLEMENTS START */
+function supplementAmountFromData(data){
+  const n=Number(data?.supplement?.amount||0);
+  return Number.isFinite(n)&&n>0?Math.round(n*100)/100:0;
+}
+function supplementCommentFromData(data){return String(data?.supplement?.comment||'').trim()}
+function supplementAllowed(){try{return !currentCompanyId()}catch{return true}}
+function readInterventionSupplement(prefix='f'){
+  const enabled=!!$(prefix+'-supp-enabled')?.checked&&supplementAllowed();
+  const raw=Number($(prefix+'-supp-amount')?.value||0);
+  const amount=enabled&&Number.isFinite(raw)?Math.round(raw*100)/100:0;
+  const comment=enabled?(String($(prefix+'-supp-comment')?.value||'').trim()||'Complément d’intervention'):'';
+  return{enabled,amount,comment};
+}
+function mergeSupplementOperatorData(existing,s){
+  const data={...(existing&&typeof existing==='object'?existing:{})};
+  if(s?.enabled&&s.amount>0)data.supplement={amount:s.amount,comment:s.comment||'Complément d’intervention'};
+  else delete data.supplement;
+  return data;
+}
+function syncSupplementCard(prefix='f'){
+  const card=$(prefix+'-supplement-card');if(!card)return;
+  const allowed=supplementAllowed()&&!(prefix==='m'&&card.dataset.company==='1');
+  card.hidden=!allowed;
+  if(!allowed)return;
+  const enabled=!!$(prefix+'-supp-enabled')?.checked;
+  card.classList.toggle('enabled',enabled);
+  const apie=$(prefix+'-supp-apie');
+  if(apie){
+    const op=prefix==='f'?form.operator:(card.dataset.operator||'');
+    apie.style.display=op==='orange'?'':'none';
+  }
+}
+function setSupplementInputs(prefix,e){
+  const card=$(prefix+'-supplement-card');if(!card)return;
+  card.dataset.operator=e?.op||'';card.dataset.company=e?.companyId?'1':'0';
+  const amount=Number(e?.supplementAmount||0),comment=String(e?.supplementComment||'');
+  $(prefix+'-supp-enabled').checked=amount>0;
+  $(prefix+'-supp-amount').value=amount>0?amount:'';
+  $(prefix+'-supp-comment').value=comment||'';
+  syncSupplementCard(prefix);
+}
+function clearSupplementInputs(prefix='f'){
+  if(!$(prefix+'-supp-enabled'))return;
+  $(prefix+'-supp-enabled').checked=false;$(prefix+'-supp-amount').value='';$(prefix+'-supp-comment').value='';
+  syncSupplementCard(prefix);
+}
+function supplementHistoryChip(e){
+  const amount=Number(e?.supplementAmount||0);if(!(amount>0))return'';
+  const label=e?.supplementComment||'Complément';
+  return `<span class="supplement-history-chip">＋${money(amount)} · ${esc(label)}</span>`;
+}
+function supplementAutomaticComment(e){
+  const amount=Number(e?.supplementAmount||0);if(!(amount>0))return String(e?.comment||'');
+  const label=String(e?.supplementComment||'Complément d’intervention');
+  return [String(e?.comment||'').trim(),`${label} (+${money(amount)})`].filter(Boolean).join(' · ');
+}
+function bindSupplementInputs(prefix='f'){
+  const enabled=$(prefix+'-supp-enabled'),amount=$(prefix+'-supp-amount'),comment=$(prefix+'-supp-comment'),apie=$(prefix+'-supp-apie');
+  if(!enabled)return;
+  enabled.addEventListener('change',()=>{
+    if(enabled.checked&&!comment.value.trim())comment.value='Complément d’intervention';
+    syncSupplementCard(prefix);if(prefix==='f'){preview();saveDraft()}
+  });
+  amount?.addEventListener('input',()=>{if(prefix==='f'){preview();saveDraft()}});
+  comment?.addEventListener('input',()=>{if(prefix==='f')saveDraft()});
+  apie?.addEventListener('click',()=>{
+    enabled.checked=true;comment.value='APIE';syncSupplementCard(prefix);amount?.focus();if(prefix==='f'){preview();saveDraft()}
+  });
+}
+bindSupplementInputs('f');bindSupplementInputs('m');
+/* FIBRE OPS INTERVENTION SUPPLEMENTS END */
+
 function preview(){
   const t=selectedType();
+  syncSupplementCard('f');
   if(companyPricesHidden()){
     $('previewLabel').textContent='Prix masqués';
     if($('previewDetail'))$('previewDetail').textContent='Ta société a choisi de masquer les tarifs par intervention pour ton statut salarié.';
@@ -3539,7 +3655,9 @@ function preview(){
     daily();
     return;
   }
-  const base=form.result==='Échec'?0:(Number(t?.amount)||0);
+  const tariffBase=form.result==='Échec'?0:(Number(t?.amount)||0);
+  const supplement=readInterventionSupplement('f');
+  const base=tariffBase+(supplement.amount>0?supplement.amount:0);
   let amount=base;
   let detail='';
 
@@ -3569,6 +3687,10 @@ function preview(){
       : '';
   }
 
+  if(supplement.amount>0){
+    const extra=`Complément ${money(supplement.amount)}${supplement.comment?' · '+supplement.comment:''}`;
+    detail=detail?`${detail} · ${extra}`:extra;
+  }
   if($('previewDetail'))$('previewDetail').textContent=detail;
   $('f-preview').textContent=money(amount);
   daily();
@@ -3577,6 +3699,8 @@ function daily(){const date=$('f-date').value;const l=interventions.filter(e=>e.
 
 async function saveIntervention(){
   const date=$('f-date').value,reference=$('f-num').value.trim(),address=$('f-addr').value.trim(),notes=$('f-comment').value.trim(),t=selectedType();
+  const supplement=readInterventionSupplement('f');
+  if(supplement.enabled&&(!(supplement.amount>0)||supplement.amount>10000))return toast('Indique un montant de complément entre 0,01 € et 10 000 €');
   if(!date||!form.operator||!t)return toast('Date, opérateur et typologie obligatoires');
   if(hasTeam()&&form.workMode==='Solo'&&!form.soloUserId)return toast('Choisis le technicien en Solo');
   const dup=interventions.some(e=>e.num&&reference&&e.num===reference&&e.op===form.operator);
@@ -3589,13 +3713,14 @@ async function saveIntervention(){
     work_mode:hasTeam()?form.workMode:'Personal',
     solo_user_id:hasTeam()&&form.workMode==='Solo'?form.soloUserId:user.id,
     intervention_date:date,operator:form.operator,intervention_type_id:t.id,
-    result:form.result,reference:reference||null,address:address||null,notes:notes||null,operator_data:{}
+    result:form.result,reference:reference||null,address:address||null,notes:notes||null,operator_data:mergeSupplementOperatorData({},supplement)
   };
   const {error}=await supabase.from('interventions').insert(payload);
   btn.disabled=false;btn.textContent="Enregistrer l'intervention";
   if(error)return toast('Erreur : '+error.message);
 
   $('f-num').value=$('f-addr').value=$('f-comment').value='';
+  clearSupplementInputs('f');
   $('f-typo').value='';form.typeId='';
   localStorage.removeItem(draftKey());
 
@@ -3629,7 +3754,7 @@ function renderHist(){
   }
   $('splitTotals').textContent=split.join('  ·  ');
   let l=all.slice().sort((a,b)=>b.date.localeCompare(a.date));
-  if(q)l=l.filter(e=>[e.num,e.typo,e.addr,e.op,e.comment,e.workMode,memberName(e.soloUserId)].some(v=>String(v||'').toLowerCase().includes(q)));
+  if(q)l=l.filter(e=>[e.num,e.typo,e.addr,e.op,e.comment,e.supplementComment,e.workMode,memberName(e.soloUserId)].some(v=>String(v||'').toLowerCase().includes(q)));
   let h='',last='';
   for(const e of l){
     if(e.date!==last){last=e.date;h+=`<div class="dh"><span>${fr(e.date)}</span><b>${money(sum(l.filter(x=>x.date===e.date)))}</b></div>`}
@@ -3637,7 +3762,7 @@ function renderHist(){
     const mode=hasTeam()?(e.workMode==='Solo'?`<span class="mode-chip solo">Solo · ${esc(memberName(e.soloUserId))}</span>`:`<span class="mode-chip binome">Binôme</span>`):'';
     h+=`<div class="rw ${e.op==='orange'?'op-o':e.op==='sfr'?'op-s':''} ${e.statut==='Échec'?'hist-fail':''}" style="--row-op:${col};box-shadow:var(--shadow),0 0 15px color-mix(in srgb,${col} 16%,transparent)" data-id="${e.id}">
       <div class="r1"><span>${e.statut==='Réussite'?'👍':'❌'} <b>${esc(e.num||'Sans réf')}</b></span><span class="tarif-val" style="color:${col}">${companyPricesHidden()?'—':money(e.montant)}</span></div>
-      <div class="r2"><span class="badge-typo">${esc(e.typo)}</span><span class="badge-op" style="color:${col}">${esc(opLabel(e.op))}</span>${mode}${e.readOnlyHistory?`<span class="history-company-chip">🏢 ${esc(e.companyName||'Historique société')}</span>`:''}</div>
+      <div class="r2"><span class="badge-typo">${esc(e.typo)}</span><span class="badge-op" style="color:${col}">${esc(opLabel(e.op))}</span>${mode}${supplementHistoryChip(e)}${e.readOnlyHistory?`<span class="history-company-chip">🏢 ${esc(e.companyName||'Historique société')}</span>`:''}</div>
       <div class="r3"><span class="ad">${esc(e.addr||'Pas d’adresse')}</span>${e.addr?`<a href="https://maps.google.com/?q=${encodeURIComponent(e.addr)}" target="_blank" rel="noopener">📍</a>`:''}${e.readOnlyHistory?'':`<button class="btn-ghost x" data-del="1">✕</button>`}</div>
     </div>`;
   }
@@ -3674,6 +3799,7 @@ function openEdit(id){
   $('m-del-btn').style.display=readOnly?'none':'';
   $('modalTitle').textContent=(readOnly?'Historique société · ':'Intervention ')+(e.num||'');
   $('m-date').value=e.date;$('m-num').value=e.num;$('m-addr').value=e.addr;$('m-comment').value=e.comment;
+  setSupplementInputs('m',e);
   const seg=$('m-op-seg');
   const editOps=[...activeOps()];
   if(e.op&&!editOps.includes(e.op))editOps.unshift(e.op);
@@ -3700,11 +3826,15 @@ $('m-save-btn').onclick=async()=>{
   const e=interventions.find(x=>x.id===editId);if(!e)return;
   if(e.readOnlyHistory)return toast('Historique société conservé en lecture seule');
 
+  const current=interventions.find(x=>x.id===editId);
+  const supplement=readInterventionSupplement('m');
+  if(supplement.enabled&&(!(supplement.amount>0)||supplement.amount>10000))return toast('Indique un montant de complément entre 0,01 € et 10 000 €');
   const {error}=await supabase.from('interventions').update({
     intervention_date:$('m-date').value,
     reference:$('m-num').value.trim()||null,
     address:$('m-addr').value.trim()||null,
-    notes:$('m-comment').value.trim()||null
+    notes:$('m-comment').value.trim()||null,
+    operator_data:mergeSupplementOperatorData(current?.operatorData||{},supplement)
   }).eq('id',editId);
 
   if(error)return toast('Erreur : '+error.message);
@@ -6028,8 +6158,24 @@ $('pureBlackToggle').onchange=async e=>{
 };
 $('themeToggle').onclick=async()=>{const current=document.body.classList.contains('light')?'light':'dark',next=current==='light'?'dark':'light';const {error}=await supabase.from('user_settings').update({theme:next}).eq('user_id',user.id);if(error)return toast('Erreur : '+error.message);settings.theme=next;applyTheme();toast('Thème sauvegardé')};$('accentSwatches').onclick=e=>{const b=e.target.closest('.sw');if(b)saveAccent(b.dataset.c)};$('accentCustom').onchange=e=>saveAccent(e.target.value);async function saveAccent(v){const {error}=await supabase.from('user_settings').update({accent_color:v}).eq('user_id',user.id);if(error)return toast('Erreur : '+error.message);settings.accent_color=v;applyAccent(v);toast('Couleur sauvegardée')}$('goalInput').onchange=async()=>{const v=Math.max(0,Number($('goalInput').value)||0),preferences={...(settings.preferences||{}),daily_goal:v};const {error}=await supabase.from('user_settings').update({preferences}).eq('user_id',user.id);if(error)return toast('Erreur : '+error.message);settings.preferences=preferences;renderDashboard();toast('Objectif sauvegardé')};$('backupBtn').onclick=()=>{const payload={app:'FIBRE OPS V2.1',exportedAt:new Date().toISOString(),profile,settings,team,teamMembers,operators,types,interventions,fuel};const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(payload,null,2)],{type:'application/json'}));a.download=`FibreOps_backup_${profile.first_name||'tech'}_${iso()}.json`;document.body.appendChild(a);a.click();a.remove();toast('💾 Sauvegarde téléchargée')};$('clearDraftBtn').onclick=()=>{localStorage.removeItem(draftKey());toast('Brouillon supprimé')};
 
-function saveDraft(){if(!user)return;const d={date:$('f-date').value,num:$('f-num').value,addr:$('f-addr').value,comment:$('f-comment').value,typeId:form.typeId,operator:form.operator,result:form.result,workMode:form.workMode,soloUserId:form.soloUserId};if(!d.num&&!d.addr&&!d.comment&&!d.typeId)return localStorage.removeItem(draftKey());localStorage.setItem(draftKey(),JSON.stringify(d))}
-function restoreDraft(){if(!user)return;try{const d=JSON.parse(localStorage.getItem(draftKey())||'null');if(!d)return;$('f-date').value=d.date||iso();$('f-num').value=d.num||'';$('f-addr').value=d.addr||'';$('f-comment').value=d.comment||'';if(activeOps().includes(d.operator))form.operator=d.operator;form.result=d.result||'Réussite';form.typeId=d.typeId||'';if(hasTeam()){form.workMode=d.workMode==='Solo'?'Solo':'Binôme';form.soloUserId=teamMembers.some(m=>m.id===d.soloUserId)?d.soloUserId:user.id}else{form.workMode='Personal';form.soloUserId=user.id}populateOperatorUI();setSeg('f-op',form.operator);setSeg('f-statut',form.result);setSeg('f-work-mode',form.workMode);if($('f-solo-tech'))$('f-solo-tech').value=form.soloUserId;toggleSoloFields();fillTypeSelect($('f-typo'),form.operator,form.typeId);preview();toast('📝 Brouillon restauré')}catch{}}
+function saveDraft(){
+  if(!user)return;
+  const supplement=readInterventionSupplement('f');
+  const d={date:$('f-date').value,num:$('f-num').value,addr:$('f-addr').value,comment:$('f-comment').value,typeId:form.typeId,operator:form.operator,result:form.result,workMode:form.workMode,soloUserId:form.soloUserId,supplement};
+  if(!d.num&&!d.addr&&!d.comment&&!d.typeId&&!supplement.enabled)return localStorage.removeItem(draftKey());
+  localStorage.setItem(draftKey(),JSON.stringify(d));
+}
+function restoreDraft(){
+  if(!user)return;
+  try{
+    const d=JSON.parse(localStorage.getItem(draftKey())||'null');if(!d)return;
+    $('f-date').value=d.date||iso();$('f-num').value=d.num||'';$('f-addr').value=d.addr||'';$('f-comment').value=d.comment||'';
+    if(activeOps().includes(d.operator))form.operator=d.operator;form.result=d.result||'Réussite';form.typeId=d.typeId||'';
+    if(hasTeam()){form.workMode=d.workMode==='Solo'?'Solo':'Binôme';form.soloUserId=teamMembers.some(m=>m.id===d.soloUserId)?d.soloUserId:user.id}else{form.workMode='Personal';form.soloUserId=user.id}
+    if(d.supplement?.enabled){$('f-supp-enabled').checked=true;$('f-supp-amount').value=d.supplement.amount||'';$('f-supp-comment').value=d.supplement.comment||'Complément d’intervention'}else clearSupplementInputs('f');
+    populateOperatorUI();setSeg('f-op',form.operator);setSeg('f-statut',form.result);setSeg('f-work-mode',form.workMode);if($('f-solo-tech'))$('f-solo-tech').value=form.soloUserId;toggleSoloFields();fillTypeSelect($('f-typo'),form.operator,form.typeId);syncSupplementCard('f');preview();toast('📝 Brouillon restauré')
+  }catch{}
+}
 ['f-date','f-num','f-addr','f-comment'].forEach(id=>$(id).addEventListener('input',saveDraft));
 
 // Reload / status

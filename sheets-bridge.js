@@ -73,8 +73,16 @@
     return '';
   }
 
+  function sheetCommentWithSupplement(e){
+    const base=String(e?.comment||'').trim();
+    const amount=Number(e?.supplementAmount||0);
+    if(!(amount>0))return base;
+    const label=String(e?.supplementComment||'Complément d’intervention').trim()||'Complément d’intervention';
+    const moneyText=amount.toLocaleString('fr-FR',{minimumFractionDigits:2,maximumFractionDigits:2})+' €';
+    return [base,`${label} (+${moneyText})`].filter(Boolean).join(' · ');
+  }
   function bodyFor(e,action='',oldNum='',idOverride=''){
-    const body={id:idOverride||e.id,num:e.num||'',date:e.date||'',addr:e.addr||'',typo:e.typo||'',statut:e.statut||'Réussite',op:operatorLabel(e.op),solo:e.workMode==='Binôme'?'Binôme':'Solo',techSolo:profile?.first_name||TECH,apie:false,montant:Number(e.montant)||0,comment:e.comment||'',tech:TECH};
+    const body={id:idOverride||e.id,num:e.num||'',date:e.date||'',addr:e.addr||'',typo:e.typo||'',statut:e.statut||'Réussite',op:operatorLabel(e.op),solo:e.workMode==='Binôme'?'Binôme':'Solo',techSolo:profile?.first_name||TECH,apie:String(e.supplementComment||'').trim().toUpperCase()==='APIE',montant:Number(e.montant)||0,comment:sheetCommentWithSupplement(e),tech:TECH};
     if(action)body.action=action;if(oldNum)body.oldNum=oldNum;return body;
   }
 

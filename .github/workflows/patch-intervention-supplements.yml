@@ -1,0 +1,39 @@
+name: Patch intervention supplements
+
+on:
+  push:
+    branches:
+      - feature/intervention-supplements
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/intervention-supplements
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Apply and validate patch
+        run: node tools/patch-supplements.cjs
+      - name: Remove temporary patch tooling
+        run: |
+          rm -f tools/patch-supplements.cjs
+          rm -f .github/workflows/patch-intervention-supplements.yml
+      - name: Commit patched application
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html sheets-bridge.js tools/patch-supplements.cjs .github/workflows/patch-intervention-supplements.yml
+          if git diff --cached --quiet; then
+            echo "No changes"
+            exit 0
+          fi
+          git commit -m "Ajoute les compléments d'intervention"
+          git push origin HEAD:feature/intervention-supplements

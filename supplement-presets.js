@@ -20,7 +20,7 @@
       .supp-feature-state.on{background:var(--success-bg);color:var(--success)}
       .supp-feature-state.off{background:var(--surface);color:var(--ink-dim);border:1px solid var(--line)}
       .supp-feature-off-copy{padding:9px 10px;border-radius:10px;background:var(--surface);border:1px dashed var(--line);font-size:11.5px;color:var(--ink-dim)}
-      .supp-rate-row{display:grid;grid-template-columns:minmax(0,1fr) 105px auto auto;gap:7px;align-items:center;padding:7px 0;border-top:1px solid var(--line)}
+      .supp-rate-row{display:grid;grid-template-columns:minmax(0,1fr) 105px auto auto auto;gap:7px;align-items:center;padding:7px 0;border-top:1px solid var(--line)}
       .supp-rate-row input,.supp-rate-add input{width:100%;min-height:38px;padding:7px 9px;border-radius:9px;border:1px solid var(--line);background:var(--surface);color:var(--ink)}
       .supp-rate-row.is-off{opacity:.65}
       .supp-rate-add{display:grid;grid-template-columns:minmax(0,1fr) 105px auto;gap:7px;margin-top:7px;padding-top:9px;border-top:1px dashed var(--border-strong)}
@@ -32,7 +32,7 @@
         .supp-catalog-head{align-items:stretch;flex-direction:column}
         .supp-feature-actions{justify-content:flex-start}
         .supp-rate-row{grid-template-columns:minmax(0,1fr) 90px;}
-        .supp-rate-row .supp-save,.supp-rate-row .supp-toggle{grid-row:2}
+        .supp-rate-row .supp-save,.supp-rate-row .supp-toggle,.supp-rate-row .supp-delete{grid-row:2}
         .supp-rate-add{grid-template-columns:minmax(0,1fr) 90px auto}
       }
     `;
@@ -136,6 +136,7 @@
             <input class="supp-amount" type="number" min="0.01" max="10000" step="0.01" value="${Number(x.amount).toFixed(2)}" ${x.active?'':'disabled'} aria-label="Tarif du complément">
             <button class="btn-ghost supp-save" type="button" data-supp-save="${x.id}" ${x.active?'':'disabled'}>Sauver</button>
             <button class="btn-ghost supp-toggle" type="button" data-supp-toggle="${x.id}">${x.active?'Désactiver':'Réactiver'}</button>
+            <button class="btn-ghost supp-delete" style="color:var(--danger)" type="button" data-supp-delete="${x.id}">Supprimer</button>
           </div>`).join('')}
           <div class="supp-rate-add">
             <input data-supp-add-name maxlength="80" placeholder="Ex. APIE">
@@ -277,6 +278,18 @@
     toast('✅ Tarif du complément mis à jour');
   }
 
+  async function deletePreset(id){
+    const p=currentRows().find(x=>x.id===id);if(!p)return;
+    const ok=confirm(`Supprimer définitivement le complément “${p.name}” du catalogue ?\n\nLes interventions déjà enregistrées garderont ce complément et son montant.`);
+    if(!ok)return;
+    const {error}=await supabase.rpc('delete_intervention_supplement_type',{p_supplement_id:id});
+    if(error)return toast('Erreur suppression : '+error.message);
+    supplementPresets=supplementPresets.filter(x=>x.id!==id);
+    try{renderTariffs()}catch{refreshUi()}
+    renderPresetButtons('f');renderPresetButtons('m');
+    toast('🗑️ Complément supprimé · historique conservé');
+  }
+
   async function togglePreset(id){
     const p=currentRows().find(x=>x.id===id);if(!p)return;
     const next=!p.active;
@@ -299,6 +312,8 @@
     if(save){e.preventDefault();savePreset(save.dataset.suppSave,save.closest('.supp-rate-row'));return;}
     const toggle=e.target.closest('[data-supp-toggle]');
     if(toggle){e.preventDefault();togglePreset(toggle.dataset.suppToggle);return;}
+    const del=e.target.closest('[data-supp-delete]');
+    if(del){e.preventDefault();deletePreset(del.dataset.suppDelete);return;}
     setTimeout(()=>{renderPresetButtons('f');renderPresetButtons('m')},0);
   });
 

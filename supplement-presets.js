@@ -20,8 +20,9 @@
       .supp-feature-state.on{background:var(--success-bg);color:var(--success)}
       .supp-feature-state.off{background:var(--surface);color:var(--ink-dim);border:1px solid var(--line)}
       .supp-feature-off-copy{padding:9px 10px;border-radius:10px;background:var(--surface);border:1px dashed var(--line);font-size:11.5px;color:var(--ink-dim)}
-      .supp-rate-row{display:grid;grid-template-columns:minmax(0,1fr) 105px auto auto auto;gap:7px;align-items:center;padding:7px 0;border-top:1px solid var(--line)}
-      .supp-rate-row input,.supp-rate-add input{width:100%;min-height:38px;padding:7px 9px;border-radius:9px;border:1px solid var(--line);background:var(--surface);color:var(--ink)}
+      .supp-rate-row{display:grid;grid-template-columns:minmax(110px,220px) 88px auto auto auto;gap:6px;align-items:center;justify-content:start;padding:7px 0;border-top:1px solid var(--line)}
+      .supp-rate-row input,.supp-rate-add input{width:100%;min-height:36px;padding:6px 8px;border-radius:9px;border:1px solid var(--line);background:var(--surface);color:var(--ink)}
+      .supp-rate-row .supp-name{max-width:220px}.supp-rate-row .supp-amount{max-width:88px;font-family:var(--font-num)}.supp-rate-row .btn-ghost{min-height:34px;padding:5px 8px;white-space:nowrap}
       .supp-rate-row.is-off{opacity:.65}
       .supp-rate-add{display:grid;grid-template-columns:minmax(0,1fr) 105px auto;gap:7px;margin-top:7px;padding-top:9px;border-top:1px dashed var(--border-strong)}
       .supp-rate-badge{display:inline-flex;align-items:center;border-radius:999px;padding:3px 8px;font-size:10.5px;font-weight:800;background:var(--success-bg);color:var(--success)}

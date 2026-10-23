@@ -1,0 +1,41 @@
+name: Patch saved supplement presets
+
+on:
+  push:
+    branches:
+      - feature/saved-supplement-tariffs
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/saved-supplement-tariffs
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Apply loader patch
+        run: node tools/patch-saved-supplement-loader.cjs
+      - name: Validate JS
+        run: node --check supplement-presets.js
+      - name: Remove temporary patch tooling
+        run: |
+          rm -f tools/patch-saved-supplement-loader.cjs
+          rm -f .github/workflows/patch-saved-supplement-loader.yml
+      - name: Commit application changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html supplement-presets.js tools/patch-saved-supplement-loader.cjs .github/workflows/patch-saved-supplement-loader.yml
+          if git diff --cached --quiet; then
+            echo "No changes"
+            exit 0
+          fi
+          git commit -m "Intègre les compléments enregistrés aux tarifs"
+          git push origin HEAD:feature/saved-supplement-tariffs

@@ -6,6 +6,7 @@
   let lastAutoDate='';
   let dateTouchedByUser=false;
   let pageBecameVisibleAt=Date.now();
+  let settingsHubOpen=false;
   const originalFetch=window.fetch.bind(window);
 
   function todayLocal(){
@@ -39,13 +40,109 @@
     field.appendChild(note);
   }
 
-  function addPrivacySettings(){
+  function createSettingsHub(){
+    if(document.getElementById('foSettingsPage'))return;
+
+    const page=document.createElement('section');
+    page.id='foSettingsPage';
+    page.className='fo-settings-page';
+    page.setAttribute('aria-hidden','true');
+    page.innerHTML=`
+      <div class="fo-settings-page-shell">
+        <header class="fo-settings-page-head">
+          <button class="btn-ghost fo-settings-back" id="foSettingsBack" type="button">← Retour</button>
+          <div>
+            <div class="fo-settings-page-title">Réglages avancés</div>
+            <div class="fo-settings-page-sub">Compte, organisation, données et confidentialité</div>
+          </div>
+        </header>
+        <main class="fo-settings-page-content">
+          <section class="fo-settings-section"><div class="fo-settings-section-head"><span>👤</span><div><h2>Compte & organisation</h2><p>Société, invitations, binôme et accès.</p></div></div><div class="fo-settings-section-grid" id="foSettingsAccount"></div></section>
+          <section class="fo-settings-section"><div class="fo-settings-section-head"><span>📱</span><div><h2>Application</h2><p>Installation, version et réglages de fonctionnement.</p></div></div><div class="fo-settings-section-grid" id="foSettingsApp"></div></section>
+          <section class="fo-settings-section"><div class="fo-settings-section-head"><span>💾</span><div><h2>Données & maintenance</h2><p>Sauvegarde locale et outils de maintenance.</p></div></div><div class="fo-settings-section-grid" id="foSettingsData"></div></section>
+          <section class="fo-settings-section"><div class="fo-settings-section-head"><span>🔐</span><div><h2>Sécurité & confidentialité</h2><p>Protection du compte et documents juridiques.</p></div></div><div class="fo-settings-section-grid" id="foSettingsPrivacy"></div></section>
+          <section class="fo-settings-section admin-only" id="foSettingsAdminSection"><div class="fo-settings-section-head"><span>🛡️</span><div><h2>Administration</h2><p>Outils réservés à l’administration FIBRE OPS.</p></div></div><div class="fo-settings-section-grid" id="foSettingsAdmin"></div></section>
+        </main>
+      </div>`;
+    document.body.appendChild(page);
+
+    document.getElementById('foSettingsBack')?.addEventListener('click',()=>closeSettingsHub(true));
+    page.addEventListener('click',e=>{if(e.target===page)closeSettingsHub(true)});
+  }
+
+  function settingsHeading(block){
+    return String(block?.querySelector('h4')?.textContent||'').trim().toLowerCase();
+  }
+
+  function settingsTarget(block){
+    const h=settingsHeading(block);
+    if(block.id==='adminBlock'||h.includes('administration'))return 'foSettingsAdmin';
+    if(block.id==='installAppBlock'||h.includes('installer')||h.includes('version')||h.includes('objectif'))return 'foSettingsApp';
+    if(h.includes('sauvegarde')||h.includes('brouillon'))return 'foSettingsData';
+    if(block.id==='foPrivacySettings'||h.includes('confidentialité')||h.includes('sécurité'))return 'foSettingsPrivacy';
+    return 'foSettingsAccount';
+  }
+
+  function shouldStayQuick(block){
+    if(!block)return true;
+    if(block.id==='foAdvancedSettingsEntry')return true;
+    if(block.querySelector('#logoutBtn'))return true;
+    const h=settingsHeading(block);
+    return h.includes('thème')||h.includes("couleur d'accent")||h.includes('mode compact')||h.includes('fond noir');
+  }
+
+  function moveAdvancedSettings(){
     const grid=document.querySelector('#settingsOverlay .settings-grid');
+    if(!grid)return;
+    createSettingsHub();
+
+    Array.from(grid.children).forEach(block=>{
+      if(!block.classList?.contains('setting-block')||shouldStayQuick(block))return;
+      const target=document.getElementById(settingsTarget(block));
+      if(target)target.appendChild(block);
+    });
+
+    if(!document.getElementById('foAdvancedSettingsEntry')){
+      const entry=document.createElement('div');
+      entry.id='foAdvancedSettingsEntry';
+      entry.className='setting-block wide fo-settings-entry';
+      entry.innerHTML='<h4>⚙️ Plus de réglages</h4><p>Compte, société, sauvegardes, sécurité, confidentialité et outils avancés sont regroupés sur une page dédiée.</p><button class="btn-primary" id="foOpenAdvancedSettings" type="button" style="width:100%">Ouvrir les réglages avancés</button>';
+      grid.appendChild(entry);
+      entry.querySelector('#foOpenAdvancedSettings')?.addEventListener('click',openSettingsHub);
+    }
+  }
+
+  function addPrivacySettings(){
+    createSettingsHub();
+    const grid=document.getElementById('foSettingsPrivacy');
     if(!grid||document.getElementById('foPrivacySettings'))return;
     const block=document.createElement('div');
     block.className='setting-block wide';block.id='foPrivacySettings';
-    block.innerHTML=`<h4>🔐 Confidentialité & sécurité</h4><p>Consulte les règles de confidentialité, les conditions d’utilisation et les engagements de sécurité de FIBRE OPS.</p><div class="fo-settings-actions"><a href="${LEGAL_BASE}confidentialite.html" target="_blank" rel="noopener">Confidentialité</a><a href="${LEGAL_BASE}securite.html" target="_blank" rel="noopener">Sécurité</a><a href="${LEGAL_BASE}cgu.html" target="_blank" rel="noopener">CGU</a><a href="${LEGAL_BASE}cookies.html" target="_blank" rel="noopener">Cookies & stockage local</a></div><div class="fo-privacy-status">Aucun accès Platform Admin aux interventions et factures ne doit être prévu dans l’usage courant.</div>`;
+    block.innerHTML=`<h4>🔐 Confidentialité & sécurité</h4><p>Consulte les engagements de confidentialité et les documents qui encadrent l’utilisation de FIBRE OPS.</p><div class="fo-settings-actions"><a href="${LEGAL_BASE}confidentialite.html" target="_blank" rel="noopener">Confidentialité</a><a href="${LEGAL_BASE}securite.html" target="_blank" rel="noopener">Sécurité</a><a href="${LEGAL_BASE}mentions-legales.html" target="_blank" rel="noopener">Mentions légales</a><a href="${LEGAL_BASE}cgu.html" target="_blank" rel="noopener">CGU</a><a href="${LEGAL_BASE}cookies.html" target="_blank" rel="noopener">Cookies & stockage local</a></div><div class="fo-privacy-status">Les données métier ne doivent pas être accessibles au Platform Admin dans l’usage courant.</div>`;
     grid.appendChild(block);
+  }
+
+  function openSettingsHub(){
+    createSettingsHub();
+    moveAdvancedSettings();
+    addPrivacySettings();
+    const page=document.getElementById('foSettingsPage');
+    if(!page)return;
+    document.getElementById('settingsOverlay')?.classList.remove('active');
+    page.classList.add('active');
+    page.setAttribute('aria-hidden','false');
+    settingsHubOpen=true;
+    document.body.classList.add('fo-settings-page-open');
+    try{if(location.hash!=='#reglages-avances')history.pushState({foSettings:true},'',location.pathname+location.search+'#reglages-avances')}catch{}
+  }
+
+  function closeSettingsHub(reopenQuick=false){
+    const page=document.getElementById('foSettingsPage');
+    page?.classList.remove('active');
+    page?.setAttribute('aria-hidden','true');
+    settingsHubOpen=false;
+    document.body.classList.remove('fo-settings-page-open');
+    if(reopenQuick)setTimeout(()=>document.getElementById('settingsOverlay')?.classList.add('active'),40);
   }
 
   function markDateManual(){dateTouchedByUser=true}
@@ -117,11 +214,21 @@
     if(hiddenFor>45000&&!dateTouchedByUser)syncInterventionDate(true);
   });
   window.addEventListener('pageshow',()=>{pageBecameVisibleAt=Date.now();if(!dateTouchedByUser)syncInterventionDate(true)});
+  window.addEventListener('popstate',()=>{if(settingsHubOpen&&location.hash!=='#reglages-avances')closeSettingsHub(true)});
+  document.addEventListener('keydown',e=>{if(e.key==='Escape'&&settingsHubOpen){e.preventDefault();closeSettingsHub(true)}});
   setInterval(()=>{if(!dateTouchedByUser)syncInterventionDate(false)},60000);
 
-  function init(){addLegalLinks();addCaptureNotice();addPrivacySettings();bindDateProtection()}
+  function init(){
+    addLegalLinks();
+    addCaptureNotice();
+    createSettingsHub();
+    addPrivacySettings();
+    moveAdvancedSettings();
+    bindDateProtection();
+    if(location.hash==='#reglages-avances')setTimeout(openSettingsHub,80);
+  }
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();
 
-  const observer=new MutationObserver(()=>{addLegalLinks();addCaptureNotice();addPrivacySettings();bindDateProtection()});
+  const observer=new MutationObserver(()=>{addLegalLinks();addCaptureNotice();addPrivacySettings();moveAdvancedSettings();bindDateProtection()});
   observer.observe(document.documentElement,{childList:true,subtree:true});
 })();

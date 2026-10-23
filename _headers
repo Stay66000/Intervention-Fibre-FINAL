@@ -2,6 +2,8 @@
   X-Content-Type-Options: nosniff
   Referrer-Policy: strict-origin-when-cross-origin
   Permissions-Policy: camera=(), microphone=(), geolocation=()
+  X-Frame-Options: DENY
+  Strict-Transport-Security: max-age=31536000; includeSubDomains
 
 /index.html
   Cache-Control: no-cache
@@ -22,4 +24,13 @@
   Cache-Control: no-cache
 
 /supplement-presets.js
+  Cache-Control: no-cache
+
+/fibre-compliance.js
+  Cache-Control: no-cache
+
+/fibre-compliance.css
+  Cache-Control: no-cache
+
+/legal/*
   Cache-Control: no-cache

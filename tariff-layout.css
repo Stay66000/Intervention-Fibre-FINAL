@@ -1,0 +1,135 @@
+/* FIBRE OPS — Tarifs / typologies : mise en page équilibrée */
+
+#tariffRows .tariff-operator{
+  padding:14px;
+}
+
+#tariffRows .tariff-row{
+  width:100%;
+  display:grid !important;
+  grid-template-columns:minmax(0,1.75fr) minmax(105px,.72fr) auto auto !important;
+  gap:9px !important;
+  align-items:center;
+  justify-content:stretch !important;
+  padding:9px 0 !important;
+}
+
+#tariffRows .tariff-row .tr-name{
+  width:100% !important;
+  max-width:none !important;
+  min-width:0;
+  min-height:40px !important;
+  padding:8px 10px !important;
+}
+
+#tariffRows .tariff-row .tr-amount{
+  width:100% !important;
+  max-width:none !important;
+  min-width:0;
+  min-height:40px !important;
+  padding:8px 10px !important;
+  text-align:right;
+}
+
+#tariffRows .tariff-row .btn-ghost{
+  min-height:40px !important;
+  padding:7px 11px !important;
+  font-size:12.5px !important;
+  white-space:nowrap;
+}
+
+#tariffRows .tariff-add{
+  width:100%;
+  grid-template-columns:minmax(0,1.75fr) minmax(105px,.72fr) 42px !important;
+  gap:9px !important;
+  justify-content:stretch !important;
+}
+
+#tariffRows .tariff-add input{
+  min-height:40px;
+}
+
+/* Compléments enregistrés : même rythme visuel que les typologies */
+#tariffRows .supp-rate-row{
+  width:100%;
+  grid-template-columns:minmax(0,1.65fr) minmax(105px,.7fr) auto auto auto !important;
+  gap:8px !important;
+  justify-content:stretch !important;
+  padding:9px 0 !important;
+}
+
+#tariffRows .supp-rate-row .supp-name,
+#tariffRows .supp-rate-row .supp-amount{
+  width:100% !important;
+  max-width:none !important;
+  min-width:0;
+  min-height:40px !important;
+  padding:8px 10px !important;
+}
+
+#tariffRows .supp-rate-row .supp-amount{
+  text-align:right;
+}
+
+#tariffRows .supp-rate-row .btn-ghost{
+  min-height:40px !important;
+  padding:7px 10px !important;
+  font-size:12px !important;
+}
+
+#tariffRows .supp-rate-add{
+  grid-template-columns:minmax(0,1.65fr) minmax(105px,.7fr) 42px !important;
+  gap:8px !important;
+}
+
+/* Administration société : un peu plus d'espace sans étirer inutilement */
+.company-type-row{
+  grid-template-columns:minmax(0,1.55fr) minmax(105px,.65fr) auto !important;
+  gap:9px !important;
+}
+
+.company-type-row .company-type-name,
+.company-type-row .company-type-agency{
+  min-height:40px;
+}
+
+@media (max-width:560px){
+  #tariffRows .tariff-row{
+    grid-template-columns:minmax(0,1.55fr) minmax(82px,.72fr) !important;
+    gap:7px !important;
+  }
+  #tariffRows .tariff-row [data-type-action],
+  #tariffRows .tariff-row [data-type-delete]{
+    grid-row:2;
+    min-height:36px !important;
+  }
+  #tariffRows .tariff-row [data-type-action]{grid-column:1;justify-self:end}
+  #tariffRows .tariff-row [data-type-delete]{grid-column:2;justify-self:stretch}
+
+  #tariffRows .tariff-add{
+    grid-template-columns:minmax(0,1.55fr) minmax(82px,.72fr) 40px !important;
+    gap:7px !important;
+  }
+
+  #tariffRows .supp-rate-row{
+    grid-template-columns:minmax(0,1.55fr) minmax(82px,.72fr) !important;
+    gap:7px !important;
+  }
+  #tariffRows .supp-rate-row .supp-save,
+  #tariffRows .supp-rate-row .supp-toggle,
+  #tariffRows .supp-rate-row .supp-delete{
+    grid-row:2;
+  }
+  #tariffRows .supp-rate-row .supp-save{grid-column:1;justify-self:end}
+  #tariffRows .supp-rate-row .supp-toggle{grid-column:2;justify-self:start}
+  #tariffRows .supp-rate-row .supp-delete{grid-column:2;justify-self:end}
+
+  #tariffRows .supp-rate-add{
+    grid-template-columns:minmax(0,1.55fr) minmax(82px,.72fr) 40px !important;
+    gap:7px !important;
+  }
+
+  .company-type-row{
+    grid-template-columns:1fr !important;
+  }
+}

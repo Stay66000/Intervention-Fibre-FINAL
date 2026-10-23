@@ -13,4 +13,31 @@
 .fo-signup-legal a{color:var(--accent-text)}
 .fo-date-fresh{animation:foDatePulse .55s ease}
 @keyframes foDatePulse{0%{box-shadow:0 0 0 0 var(--accent-soft)}50%{box-shadow:0 0 0 5px var(--accent-soft)}100%{box-shadow:none}}
-@media(max-width:520px){.fo-settings-actions{grid-template-columns:1fr}.fo-legal-links{gap:6px 10px}}
+
+.fo-settings-entry{border-color:color-mix(in srgb,var(--accent) 30%,var(--line));background:color-mix(in srgb,var(--accent-soft) 32%,var(--surface-alt))}
+.fo-settings-page{display:none;position:fixed;inset:0;z-index:620;background:var(--bg);overflow:auto;overscroll-behavior:contain}
+.fo-settings-page.active{display:block;animation:foSettingsIn .24s cubic-bezier(.16,1,.3,1)}
+@keyframes foSettingsIn{from{opacity:0;transform:translateX(18px)}to{opacity:1;transform:none}}
+body.fo-settings-page-open{overflow:hidden}
+.fo-settings-page-shell{min-height:100dvh;max-width:860px;margin:0 auto;padding-bottom:calc(28px + env(safe-area-inset-bottom))}
+.fo-settings-page-head{position:sticky;top:0;z-index:3;display:flex;align-items:center;gap:12px;padding:calc(12px + env(safe-area-inset-top)) 14px 12px;background:color-mix(in srgb,var(--bg) 94%,transparent);backdrop-filter:blur(16px);border-bottom:1px solid var(--line)}
+.fo-settings-back{flex:none}
+.fo-settings-page-title{font-family:var(--font-num);font-size:20px;font-weight:700;line-height:1.1}
+.fo-settings-page-sub{color:var(--ink-muted);font-size:12px;margin-top:3px}
+.fo-settings-page-content{padding:14px}
+.fo-settings-section{margin-bottom:18px}
+.fo-settings-section-head{display:flex;align-items:flex-start;gap:10px;margin:0 2px 8px}
+.fo-settings-section-head>span{display:flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:11px;background:var(--accent-soft);font-size:18px;flex:none}
+.fo-settings-section-head h2{font-size:15px;margin:0;line-height:1.2}
+.fo-settings-section-head p{font-size:11.5px;color:var(--ink-muted);margin:3px 0 0}
+.fo-settings-section-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.fo-settings-section-grid>.setting-block{margin:0;min-width:0}
+.fo-settings-section-grid>.setting-block.wide{grid-column:1/-1}
+.fo-settings-section-grid:empty+.setting-block{display:none}
+#foSettingsAdminSection:has(#foSettingsAdmin:empty){display:none}
+
+@media(max-width:620px){
+  .fo-settings-section-grid{grid-template-columns:1fr}
+  .fo-settings-section-grid>.setting-block.wide{grid-column:auto}
+}
+@media(max-width:520px){.fo-settings-actions{grid-template-columns:1fr}.fo-legal-links{gap:6px 10px}.fo-settings-page-head{padding-left:10px;padding-right:10px}.fo-settings-page-content{padding:11px}}

@@ -1,5 +1,5 @@
-// FIBRE OPS — branche de test conformité / sécurité
-// Fichier totalement amovible : supprimer /functions/_middleware.js pour stopper toute injection.
+// FIBRE OPS — conformité / sécurité
+// Modules amovibles injectés côté Cloudflare Pages.
 
 class HeadInjector {
   element(element) {
@@ -10,6 +10,7 @@ class HeadInjector {
 class BodyInjector {
   element(element) {
     element.append('<script src="/fibre-compliance.js?v=1"></script>', { html: true });
+    element.append('<script src="/fibre-backend-security.js?v=1"></script>', { html: true });
   }
 }
 

@@ -87,9 +87,12 @@
   }
 
   async function showInvitePasswordGate(){
-    if(!inviteRequested()||el('foInvitePasswordGate')||typeof supabase==='undefined')return;
+    if(el('foInvitePasswordGate')||typeof supabase==='undefined')return;
     const {data:{session}}=await supabase.auth.getSession().catch(()=>({data:{session:null}}));
     if(!session)return;
+    const invitedByCompany=Boolean(session.user?.user_metadata?.invited_by_company);
+    if(!inviteRequested()&&!invitedByCompany)return;
+    const existingMeta=session.user?.user_metadata||{};
 
     const gate=document.createElement('div');
     gate.id='foInvitePasswordGate';
@@ -117,7 +120,10 @@
       if(p!==c){if(status)status.textContent='Les mots de passe ne correspondent pas.';return}
       submit.disabled=true;submit.textContent='Enregistrement…';
       try{
-        const {error}=await supabase.auth.updateUser({password:p});
+        const {error}=await supabase.auth.updateUser({
+          password:p,
+          data:{...existingMeta,invited_by_company:false}
+        });
         if(error)throw error;
         const url=new URL(location.href);url.searchParams.delete('invite');
         history.replaceState(null,'',url.pathname+(url.searchParams.toString()?'?'+url.searchParams.toString():'')+url.hash);

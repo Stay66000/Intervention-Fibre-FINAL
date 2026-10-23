@@ -20,3 +20,6 @@
 
 /sandbox-address-fix.js
   Cache-Control: no-cache
+
+/supplement-presets.js
+  Cache-Control: no-cache

@@ -1,0 +1,40 @@
+name: Apply tariff breathing layout
+
+on:
+  push:
+    branches:
+      - ui/tariff-breathing
+    paths:
+      - '.github/workflows/apply-tariff-breathing.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ui/tariff-breathing
+      - name: Include tariff layout stylesheet
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('index.html')
+          s=p.read_text()
+          marker='<link href="data:," rel="icon"/>'
+          link='<link rel="stylesheet" href="./tariff-layout.css?v=1"/>'
+          if link not in s:
+              if marker not in s:
+                  raise SystemExit('marker not found')
+              s=s.replace(marker, marker+'\n'+link, 1)
+              p.write_text(s)
+          PY
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html
+          if ! git diff --cached --quiet; then
+            git commit -m "Charge le style aéré des tarifs"
+            git push origin HEAD:ui/tariff-breathing
+          fi

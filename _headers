@@ -37,3 +37,12 @@
 
 /fibre-backend-security.js
   Cache-Control: no-cache
+
+/experience.js
+  Cache-Control: no-cache
+
+/experience-core.js
+  Cache-Control: no-cache
+
+/experience.css
+  Cache-Control: no-cache

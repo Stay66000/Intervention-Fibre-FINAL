@@ -92,7 +92,7 @@
   }
 
   function moveAdvancedSettings(){
-    const grid=document.querySelector('#settingsOverlay .settings-grid');
+    const grid=document.querySelector('#view-profil .settings-grid, #settingsOverlay .settings-grid');
     if(!grid)return;
     createSettingsHub();
 
@@ -142,7 +142,7 @@
     page?.setAttribute('aria-hidden','true');
     settingsHubOpen=false;
     document.body.classList.remove('fo-settings-page-open');
-    if(reopenQuick)setTimeout(()=>document.getElementById('settingsOverlay')?.classList.add('active'),40);
+    if(reopenQuick)setTimeout(()=>{if(typeof navigateView==='function')navigateView('profil');else document.getElementById('settingsOverlay')?.classList.add('active')},40);
   }
 
   function markDateManual(){dateTouchedByUser=true}

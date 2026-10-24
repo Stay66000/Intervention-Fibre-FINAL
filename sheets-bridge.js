@@ -1,5 +1,6 @@
 (function(){
   'use strict';
+  if(window.FibreSheetsBeta)return;
 
   // SANDBOX UNIQUEMENT — ne pointe jamais vers le vrai « Suivis octobre ».
   const SHEETS_URL='https://script.google.com/macros/s/AKfycbwM6g4kJWdwFKGhj_4Jt77gMjnlH4khqFapjuWnb00EgZMbpLXlmO8tdKYl0gLXCIks/exec';
@@ -19,6 +20,35 @@
   function personal(e){return !!e&&!e.companyId&&!e.readOnlyHistory&&!e.teamId}
   function normText(v){return String(v||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim().toLowerCase()}
   function normRef(v){return String(v||'').replace(/\D/g,'').replace(/^0+(?=\d)/,'')}
+
+  function accountId(){try{return user?.id||''}catch{return ''}}
+  const STATUS_PREFIX='fibre_ops_sheets_beta_receipt_v1_';
+  function receiptFor(id=accountId()){return id?read(STATUS_PREFIX+id,{}):{}}
+  function publish(patch={},id=accountId()){
+    if(id)try{localStorage.setItem(STATUS_PREFIX+id,JSON.stringify({...receiptFor(id),...patch}))}catch{}
+    window.dispatchEvent(new Event('fibre-sheets-status'));
+  }
+  function dateKey(value){const s=String(value||'').trim(),m=s.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);return m?`${m[3]}-${m[2]}-${m[1]}`:s.slice(0,10)}
+  function canonical(row){return JSON.stringify([String(row.id||''),String(row.num||'').trim(),dateKey(row.date),String(row.addr||'').trim(),String(row.typo||'').trim(),String(row.statut||'Réussite').trim(),String(row.op||'').trim(),Math.round((Number(row.montant)||0)*100),String(row.comment||'').trim()])}
+  async function fingerprint(row){const bytes=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(canonical(row)));return Array.from(new Uint8Array(bytes),b=>b.toString(16).padStart(2,'0')).join('')}
+  async function rememberSent(body,id){
+    const at=new Date().toISOString();
+    try{publish({lastSentAt:at,lastVerifiedAt:null,error:'',receipt:{id:String(body.id||''),action:body.action||'create',digest:await fingerprint(body)}},id)}
+    catch{publish({lastSentAt:at,lastVerifiedAt:null,receipt:null,error:'Transmission effectuée ; la vérification de réception n’est pas disponible sur cet appareil.'},id)}
+  }
+  async function verifyLastReceipt(){
+    const id=accountId(),sent=receiptFor(id);
+    if(!id||!canUse()||!enabled()||!sent.receipt)throw new Error('Aucun envoi vérifiable pour ce compte');
+    try{
+      const rows=await getSheetRows(),matches=rows.filter(row=>String(row.id||'')===sent.receipt.id);
+      const found=sent.receipt.action==='delete'?matches.length===0:matches.length===1&&(await fingerprint(matches[0]))===sent.receipt.digest;
+      const current=receiptFor(id);
+      if(accountId()!==id||current.lastSentAt!==sent.lastSentAt)throw new Error('Un nouvel envoi est arrivé. Relance le contrôle.');
+      publish(found?{lastVerifiedAt:new Date().toISOString(),error:''}:{error:'Le dernier changement transmis n’a pas encore été retrouvé dans Sheets. Relance le contrôle plus tard.'},id);
+      return found;
+    }catch(error){publish({error:'Vérification Sheets impossible : '+String(error?.message||error).slice(0,180)},id);throw error}
+  }
+  window.FibreSheetsBeta={status(){return {...receiptFor(),enabled:enabled(),available:canUse(),pending:canUse()?outbox.length:0}},verifyLastReceipt,retry:()=>flush()};
 
   async function mutationsSupported(force=false){
     const now=Date.now();
@@ -90,7 +120,7 @@
     if(!enabled()||!canUse()||window.__FIBRE_SHEETS_REMOTE_APPLY__||!body)return;
     const s=JSON.stringify(body),last=outbox[outbox.length-1];
     if(last&&JSON.stringify(last.body)===s)return;
-    outbox.push({body,at:new Date().toISOString()});save();flush();
+    outbox.push({body,at:new Date().toISOString()});save();publish();flush();
   }
 
   async function flush(){
@@ -101,12 +131,14 @@
         const item=outbox[0],action=String(item?.body?.action||'').toLowerCase();
         if((action==='update'||action==='delete')&&!(await mutationsSupported())){
           console.warn('[Sheets sandbox] mutation supprimée de la file : webhook v2 non actif',item.body);
-          outbox.shift();save();continue;
+          outbox.shift();save();publish({error:'Une modification n’a pas été transmise : le webhook bêta ne confirme pas la prise en charge des modifications.'});continue;
         }
+        const owner=accountId();
         await nativeFetch(SHEETS_URL,{method:'POST',mode:'no-cors',headers:{'Content-Type':'text/plain'},body:JSON.stringify(item.body)});
-        outbox.shift();save();
+        await rememberSent(item.body,owner);
+        outbox.shift();save();publish();
       }
-    }catch(e){console.warn('[Sheets sandbox bridge]',e)}finally{flushing=false}
+    }catch(e){console.warn('[Sheets sandbox bridge]',e);publish({error:'Envoi non confirmé. Les changements restent dans la file d’attente.'})}finally{flushing=false;publish()}
   }
 
   function urlOf(input){try{return typeof input==='string'?input:String(input?.url||input||'')}catch{return ''}}
@@ -127,6 +159,7 @@
     if(!response.ok||!enabled()||!canUse()||window.__FIBRE_SHEETS_REMOTE_APPLY__)return response;
     try{
       if(url.includes('/rest/v1/rpc/delete_my_intervention')&&method==='POST'&&personal(before)){
+        const deleted=await response.clone().json();if(deleted!==true)return response;
         if(!(await mutationsSupported())){mutationBlockedToast();return response}
         const sheetId=await resolveExistingSheetId(before,before.num||'');if(sheetId)queue(bodyFor(before,'delete','',sheetId));
       }else if(url.includes('/rest/v1/interventions')&&method==='POST'&&body&&!body.company_id&&!body.team_id){

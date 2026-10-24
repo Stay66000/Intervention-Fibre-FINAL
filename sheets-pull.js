@@ -138,7 +138,7 @@
 
   function ensureUi(){
     if(document.getElementById('sheetsSandboxBlock'))return bindUi();
-    const grid=document.querySelector('#settingsOverlay .settings-grid');if(!grid)return false;
+    const grid=document.querySelector('#view-profil .settings-grid, #settingsOverlay .settings-grid');if(!grid)return false;
     const b=document.createElement('div');b.className='setting-block wide';b.id='sheetsSandboxBlock';
     b.innerHTML=`<h4>🧪 Google Sheets · SANDBOX BRENDAN</h4><p>Import manuel depuis le duplicata TEST uniquement. Règle anti-doublon : numéro d’intervention + typologie.</p><label style="display:flex;align-items:flex-start;gap:8px;margin:10px 0"><input id="sheetsSandboxCleanAddr" type="checkbox" checked style="margin-top:3px"><span><b>Nettoyer les adresses à l’import</b><br><small>Supprime les marqueurs parasites évidents comme « IE », les caractères invisibles et les espaces/virgules en double. Ne modifie pas automatiquement les noms de rues mal encodés.</small></span></label><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px"><button class="btn-ghost" id="sheetsSandboxAudit" type="button">🔎 Comparer sans modifier</button><button class="btn-primary" id="sheetsSandboxImport" type="button">⬇ Importer les manquantes</button></div><div class="field-hint" id="sheetsSandboxStatus" style="margin-top:8px">Aucune suppression automatique. Aucun polling Supabase.</div><div class="field-hint" style="margin-top:6px">Si un numéro existe déjà avec une autre typologie, ou si le même numéro + typologie apparaît plusieurs fois, la ligne est bloquée en conflit et n’est pas importée.</div>`;
     grid.appendChild(b);return bindUi();

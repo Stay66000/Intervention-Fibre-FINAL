@@ -29,6 +29,7 @@ Ne pas supprimer cette note lors des prochaines versions.
 <meta content="black-translucent" name="apple-mobile-web-app-status-bar-style"/>
 <link href="data:," rel="icon"/>
 <link rel="stylesheet" href="./tariff-layout.css?v=1"/>
+<link rel="stylesheet" href="./experience.css?v=1"/>
 <link href="https://fonts.googleapis.com" rel="preconnect"/>
 <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
 <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&amp;family=Figtree:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
@@ -1593,7 +1594,7 @@ body.is-offline .sync-pill{border-color:color-mix(in srgb,var(--danger) 45%,var(
 <div class="stats">
 <div class="stat wide"><div><div class="k" id="dashMonthLabel">Chiffre d'affaires du mois</div><div class="v" id="dashMonthAmount">0,00 €</div></div><div class="s" id="dashMonthSub">0 intervention</div></div>
 <div class="stat"><div class="k">Carburant du mois</div><div class="v" id="dashFuelAmount">0,00 €</div><div class="s" id="dashFuelSub">Aucun plein</div></div>
-<div class="stat"><div class="k" id="dashMarginLabel">Marge estimée</div><div class="v" id="dashMarginAmount">0,00 €</div><div class="s" id="dashMarginSub">Après carburant</div></div>
+<div class="stat"><div class="k" id="dashMarginLabel">Après carburant</div><div class="v" id="dashMarginAmount">0,00 €</div><div class="s" id="dashMarginSub">Après carburant</div></div>
 <div class="stat" id="dashPersonalShareStat"><div class="k">Ma part estimée</div><div class="v" id="dashPersonalShare">0,00 €</div><div class="s">Binôme / 2 + mon Solo - mon carburant</div></div>
 
 <div class="stat wide"><div style="flex:1"><div class="k">Taux de réussite du mois</div><div class="v" id="dashRate">0%</div><div class="rate-bar"><i id="dashRateBar"></i></div></div><div class="s" id="dashRateSub">0 sur 0 réussies</div></div>
@@ -1616,7 +1617,7 @@ body.is-offline .sync-pill{border-color:color-mix(in srgb,var(--danger) 45%,var(
 <div class="view-head">
 <div class="view-title">Nouvelle intervention</div>
 <div class="view-copy">Renseigne l’essentiel, vérifie le montant, puis enregistre directement.</div>
-</div>
+</div><div class="experience-actions experience-subnav"><button class="btn-ghost" id="entryUseDefaults" type="button">Utiliser mes préférences</button><button class="btn-ghost" id="entrySaveDefaults" type="button">Mémoriser ces choix</button></div>
 <div class="card">
 <div class="section-card-title"><span class="icon"><svg fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24"><rect height="4" rx="1" width="8" x="8" y="3"></rect><path d="M16 5h2a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h2"></path><path d="M9 13h6M9 17h4"></path></svg></span><span>Détails de l’intervention</span></div>
 <div class="field">
@@ -1698,7 +1699,8 @@ body.is-offline .sync-pill{border-color:color-mix(in srgb,var(--danger) 45%,var(
 </div>
 <span class="amount" id="f-preview">0,00 €</span>
 </div>
-<button class="btn-primary" id="f-save">Enregistrer l'intervention</button>
+<div class="experience-save-actions"><button class="btn-primary" id="f-save">Enregistrer l'intervention</button><button class="btn-soft" id="f-save-next" type="button">Enregistrer et continuer →</button></div>
+<div id="entrySaveStatus" class="experience-mini-status" role="status" aria-live="polite"></div>
 <div class="day-total" id="dailyTotalCard">
 <span class="dt-label">Total du <span id="dailyTotalDate">--/--/----</span></span>
 <strong id="dailyTotalAmount">0,00 €</strong>
@@ -1757,7 +1759,7 @@ body.is-offline .sync-pill{border-color:color-mix(in srgb,var(--danger) 45%,var(
     <div class="date-pill" id="monthLabel">Mois</div>
     <button class="btn-ghost" id="nextMonth">›</button>
   </div>
-  <button class="btn-primary history-billing-btn" id="billingHistoryBtn" type="button" style="display:none">🧾 Facturation</button>
+
 </div>
 <div class="month-total-pill" id="totalGlobalBadge">Total : 0,00 €</div>
 </div>
@@ -1770,6 +1772,13 @@ body.is-offline .sync-pill{border-color:color-mix(in srgb,var(--danger) 45%,var(
 <div class="field" style="margin-bottom:10px;">
 <input id="histSearch" placeholder="🔍 Rechercher Réf, Typologie, Adresse..." type="text"/>
 </div>
+<div class="experience-filter-grid" id="historyFilters">
+<label>Période<select id="histPeriod"><option value="month">Mois affiché</option><option value="today">Aujourd’hui</option><option value="week">Cette semaine</option><option value="all">Tout l’historique chargé</option></select></label>
+<label>Opérateur<select id="histOperator"><option value="">Tous les opérateurs</option></select></label>
+<label>Résultat<select id="histResult"><option value="">Tous les résultats</option><option value="Réussite">Réussite</option><option value="Échec">Échec</option></select></label>
+<label>Mode<select id="histWork"><option value="">Tous les modes</option><option value="Personal">Personnel</option><option value="Solo">Solo</option><option value="Binôme">Binôme</option></select></label>
+</div>
+<div class="experience-history-tools"><span id="histFilterSummary" class="experience-muted" role="status" aria-live="polite"></span><div class="experience-layout" aria-label="Présentation de l’historique"><button class="btn-ghost" id="histCards" type="button" aria-pressed="true">Cartes</button><button class="btn-ghost" id="histTable" type="button" aria-pressed="false">Tableau</button><button class="btn-ghost" id="histReset" type="button">Effacer les filtres</button></div></div>
 <div id="histList"></div>
 <button class="btn-primary" id="exportXlsx" style="margin-top:12px; font-size:12px;">📊 Exporter en Excel (.xlsx)</button>
 </section>
@@ -2094,8 +2103,26 @@ body.is-offline .sync-pill{border-color:color-mix(in srgb,var(--danger) 45%,var(
 </div>
 <div class="card" id="personalTariffsCard"><div class="section-card-title"><span class="icon">€</span><span id="tariffSectionTitle">Mes opérateurs &amp; tarifs</span></div><div class="field-hint" id="tariffSectionHint" style="margin-bottom:12px">Un opérateur n’est jamais supprimé. Le désactiver le retire uniquement des nouvelles saisies ; toutes les interventions déjà enregistrées restent dans l’historique, le tableau de bord et les statistiques.</div><div class="field" id="personalOperatorAddField"><label for="addOperatorSelect">Ajouter / réactiver un opérateur</label><div style="display:flex;gap:8px"><select id="addOperatorSelect"><option value="">Choisir…</option></select><button class="btn-ghost" id="addOperatorBtn" type="button">Ajouter</button></div></div><div id="tariffRows"></div></div>
 </section>
+<section class="view" id="view-finances">
+<div class="view-head"><div class="experience-kicker">Mon activité</div><div class="view-title">Finances</div><div class="view-copy">Tes interventions et tes frais, puis les outils pour facturer.</div></div>
+<div class="experience-grid"><div class="experience-card"><div class="experience-kicker">Mois en cours · interventions</div><div class="experience-metric" id="financeActivity">—</div><p>Montant des interventions. Ce chiffre ne confirme pas un encaissement.</p></div><div class="experience-card"><div class="experience-kicker">Carburant du mois</div><div class="experience-metric" id="financeFuel">—</div><p id="financeAfterFuel">—</p></div></div>
+<div class="experience-card"><h3>Mes outils financiers</h3><p>Accède à la facturation et retrouve tes pleins sans chercher dans les réglages.</p><div class="experience-actions"><button class="btn-primary history-billing-btn" id="billingHistoryBtn" type="button" style="display:none">Factures & encaissements</button><button class="btn-soft" data-experience-view="carburant" type="button">Carburant & pleins</button></div><p id="financeBillingHint" class="experience-muted"></p></div>
+</section>
+<section class="view" id="view-profil">
+<div class="view-head"><div class="experience-kicker">À ma façon</div><div class="view-title">Profil & outils</div><div class="view-copy">Ton compte, tes préférences de terrain et le suivi de tes sauvegardes.</div></div>
+<div class="experience-account-head"><span id="experienceAvatar" class="experience-avatar">FO</span><div><strong id="experienceName">Mon profil</strong><div id="experienceRole" class="experience-muted"></div></div></div>
+<div class="experience-grid"><div class="experience-card"><h3>Mes opérateurs & tarifs</h3><p id="profileTariffHint">Configure ton catalogue et retrouve les montants appliqués.</p><button class="btn-soft" data-experience-view="tarifs" type="button">Ouvrir mes tarifs</button></div><div class="experience-card"><h3>Mon écran de démarrage</h3><p>Choisis ce que tu retrouves à chaque ouverture.</p><label class="field"><span class="sr-only">Écran de démarrage</span><select id="experienceStart"><option value="saisie">Nouvelle intervention</option><option value="dashboard">Accueil</option><option value="historique">Historique</option><option value="finances">Finances</option></select></label></div></div>
+<div class="experience-card"><h3>Mes préférences de saisie</h3><p>Ces choix sont proposés sur une nouvelle saisie. Un brouillon existant est toujours conservé.</p><div class="experience-preferences">
+<div class="field"><label for="defaultOperator">Opérateur habituel</label><select id="defaultOperator"></select></div><div class="field"><label for="defaultType">Typologie habituelle</label><select id="defaultType"></select></div>
+<div class="field"><label for="defaultResult">Résultat proposé</label><select id="defaultResult"><option value="Réussite">Réussite</option><option value="Échec">Échec</option></select></div><div class="field"><label for="defaultWork">Mode proposé</label><select id="defaultWork"><option value="Binôme">Binôme</option><option value="Solo">Solo</option></select></div></div>
+<div class="experience-actions"><button class="btn-primary" id="saveEntryDefaults" type="button">Enregistrer mes préférences</button><button class="btn-ghost" id="resetEntryDefaults" type="button">Réinitialiser mes préférences</button></div><p id="preferencesStatus" class="experience-mini-status" role="status" aria-live="polite"></p></div>
+<div class="experience-card experience-save-card" id="backupStatusCard"><h3>Mes sauvegardes</h3><div id="backupStatusRows" aria-live="polite"></div><div class="experience-actions"><button class="btn-ghost" id="retrySheetsQueue" type="button">Réessayer les envois en attente</button><button class="btn-soft" id="verifySheetsReceipt" type="button">Vérifier le dernier envoi Sheets</button><button class="btn-ghost" id="downloadAccountBackup" type="button">Télécharger ma copie JSON</button></div><p id="backupStatusHint" class="experience-muted"></p></div>
+<div id="profileSettings"></div>
+</section>
 </main>
 <!-- MODALE D'ÉDITION -->
+<div class="modal-overlay" id="interventionSheet"><div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="interventionSheetTitle" tabindex="-1"><div class="modal-header"><div><div class="experience-kicker">Fiche intervention</div><h2 id="interventionSheetTitle"></h2></div><button class="btn-ghost" id="closeInterventionSheet" type="button">Fermer</button></div><div id="interventionSheetBody"></div><div class="experience-actions"><button class="btn-primary" id="interventionSheetEdit" type="button">Modifier les informations</button><button class="btn-soft" id="interventionSheetBack" type="button">Retour à l’historique</button></div></div></div>
+
 <div class="modal-overlay" id="detailModal">
 <div class="modal-card">
 <div class="modal-header">
@@ -2225,11 +2252,11 @@ body.is-offline .sync-pill{border-color:color-mix(in srgb,var(--danger) 45%,var(
 <button class="primary" data-view="saisie"><span class="ico"><svg fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24"><path d="M12 5v14M5 12h14"></path></svg></span>
     Saisie
   </button>
-<button data-view="carburant"><svg fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24"><path d="M3 22V4a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v18M13 11h4a2 2 0 0 1 2 2v7a2 2 0 0 0 2 2M13 6h4"></path><circle cx="7" cy="7" r="2"></circle></svg>
-    Carburant
+<button data-view="finances"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="15" rx="3"/><path d="M3 9h18M16 14h2"/></svg>
+    Finances
   </button>
-<button data-view="tarifs"><svg fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24"><path d="M20.6 13.4l-7.2 7.2a2 2 0 0 1-2.8 0L2 12V2h10l8.6 8.6a2 2 0 0 1 0 2.8z"></path><path d="M7 7h.01"></path></svg>
-    Tarifs
+<button data-view="profil"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 22v-2a8 8 0 0 1 16 0v2"/></svg>
+    Profil
   </button>
 </nav>
 <div class="settings-overlay" id="settingsOverlay">
@@ -2895,7 +2922,7 @@ const SUPABASE_URL='https://dvvoqfswlqdwvxamfsot.supabase.co';
 const SUPABASE_KEY='sb_publishable_DKIrFOlhgvc7LW43_qgLYA_cENm3M-P';
 
 const $=id=>document.getElementById(id);
-const APP_VERSION='V3 Production 1.3';
+const APP_VERSION='V4 Terrain 1.0';
 let supabase=null;
 let deferredInstallPrompt=null;
 function humanError(err){
@@ -2933,7 +2960,7 @@ try{
 }
 
 const OPS={orange:'Orange',bouygues:'Bouygues Telecom',sfr:'SFR',free:'Free'};
-const OP_COLORS={orange:'#ff8a1f',sfr:'#38bdf8',bouygues:'#22c55e',free:'#ef4444'};
+const OP_COLORS={orange:'#ff8a1f',sfr:'#ef4444',bouygues:'#38bdf8',free:'#e8569b'};
 const MONTHS=['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
 const ACCENTS={blue:'#4f8cff',orange:'#ff8a1f',green:'#3ccf8e',purple:'#a678ff',red:'#ff6b6b'};
 let user=null,profile=null,settings=null,companyContext=null,companyWorkStatus=null,team=null,teamMembers=[],pendingTeamInvite=null,operators=[],types=[],interventions=[],fuel=[],view=new Date(),form={operator:'',typeId:'',result:'Réussite',workMode:'Personal',soloUserId:null},editId=null,fuelEditId=null,onboardStep=1,betaCompanies=[],companyMembers=[],companyOperators=[],companyTypes=[],companyTariffs=[],companyTeams=[],companyBusinessInterventions=[],companyBusinessFuel=[],companyPaymentDetails=[],companyPendingInvites=[],teamTariffFlow=null,myCompanyInvites=[],invoiceProfile=null,invoiceClients=[],invoiceRows=[],invoiceEditingId=null,invoicePreviewRow=null,billingReconRaw=null,billingReconResult=null,billingReconLoadingMonth=null;
@@ -3316,6 +3343,7 @@ async function enterApp(){
   applyDisplaySettings();
   renderAll();
   restoreDraft();
+  window.FibreExperience?.ready();
   updateStatus('Synchronisé');
 }
 async function loadAll(){
@@ -3462,7 +3490,7 @@ function updateCompanyTechnicianUI(){
       : 'Un opérateur n’est jamais supprimé. Le désactiver le retire uniquement des nouvelles saisies ; l’historique reste intact.';
 
   if($('dashMonthLabel'))$('dashMonthLabel').textContent=hidden?'Interventions du mois':(tech?'Mes gains du mois':'Chiffre d’affaires du mois');
-  if($('dashMarginLabel'))$('dashMarginLabel').textContent=hidden?'Rémunération':(tech?'Net estimé':'Marge estimée');
+  if($('dashMarginLabel'))$('dashMarginLabel').textContent=hidden?'Rémunération':'Après carburant';
   if($('dashMarginSub'))$('dashMarginSub').textContent=hidden?'Prix masqués par la société':(tech?'Mes gains après mon carburant':'Après carburant');
 
   if($('soloExitCard')){
@@ -3684,7 +3712,9 @@ function preview(){
 }
 function daily(){const date=$('f-date').value;const l=interventions.filter(e=>e.date===date);$('dailyTotalDate').textContent=date?fr(date):'--/--/----';$('dailyTotalAmount').textContent=companyPricesHidden()?'—':money(sum(l))}
 
-async function saveIntervention(){
+let interventionSaving=false;
+async function saveIntervention(continueEntry=false){
+  if(interventionSaving)return;
   const date=$('f-date').value,reference=$('f-num').value.trim(),address=$('f-addr').value.trim(),notes=$('f-comment').value.trim(),t=selectedType();
   const supplement=readInterventionSupplement('f');
   if(supplement.enabled&&(!(supplement.amount>0)||supplement.amount>10000))return toast('Indique un montant de complément entre 0,01 € et 10 000 €');
@@ -3692,7 +3722,12 @@ async function saveIntervention(){
   if(hasTeam()&&form.workMode==='Solo'&&!form.soloUserId)return toast('Choisis le technicien en Solo');
   const dup=interventions.some(e=>e.num&&reference&&e.num===reference&&e.op===form.operator);
   if(dup&&!confirm('Cette référence existe déjà. L’ajouter quand même ?'))return;
-  const btn=$('f-save');btn.disabled=true;btn.textContent='Enregistrement…';
+  interventionSaving=true;
+  const btn=$('f-save'),next=$('f-save-next');btn.disabled=true;if(next)next.disabled=true;btn.textContent='Enregistrement…';
+  const retainedChoices={...form};
+  let confirmed=false;
+  window.FibreExperience?.entryStatus('Enregistrement dans FIBRE OPS…','busy');
+  try{
   const payload={
     user_id:user.id,
     company_id:isCompanyTechnician()?currentCompanyId():null,
@@ -3703,21 +3738,31 @@ async function saveIntervention(){
     result:form.result,reference:reference||null,address:address||null,notes:notes||null,operator_data:mergeSupplementOperatorData({},supplement)
   };
   const {error}=await supabase.from('interventions').insert(payload);
-  btn.disabled=false;btn.textContent="Enregistrer l'intervention";
-  if(error)return toast('Erreur : '+error.message);
+  if(error)throw error;
+  confirmed=true;
+  window.FibreExperience?.databaseSaved();
 
   $('f-num').value=$('f-addr').value=$('f-comment').value='';
   clearSupplementInputs('f');
   $('f-typo').value='';form.typeId='';
   localStorage.removeItem(draftKey());
 
-  // Le serveur calcule et verrouille les snapshots financiers.
-  await loadAll();
-  preview();
-  renderAll();
+  // The write has succeeded; a read failure must never invite duplicate submission.
+  try{await loadAll()}catch(error){toast('Intervention enregistrée. Actualisation à réessayer.');console.warn('[Refresh after confirmed save]',error)}
+  if(continueEntry){Object.assign(form,retainedChoices);populateOperatorUI();setSeg('f-statut',form.result);setSeg('f-work-mode',form.workMode);toggleSoloFields()}
+  preview();renderAll();
+  if(continueEntry)saveDraft();
+  window.FibreExperience?.entryStatus('Enregistrée dans FIBRE OPS. '+(continueEntry?'Prête pour la suivante.':''),'success');
   toast(hasTeam() ? `✅ Intervention ${form.workMode} enregistrée` : '✅ Intervention enregistrée');
+  if(continueEntry)$('f-num').focus();
+  }catch(error){
+    if(confirmed){$('f-num').value=$('f-addr').value=$('f-comment').value='';$('f-typo').value='';form.typeId='';localStorage.removeItem(draftKey());window.FibreExperience?.entryStatus('Intervention enregistrée. Recharge pour actualiser l’affichage.','success');toast('Intervention enregistrée · affichage à actualiser')}
+    else{window.FibreExperience?.entryStatus('Enregistrement non confirmé : '+humanError(error),'error');toast('Erreur : '+humanError(error))}
+  }
+  finally{interventionSaving=false;btn.disabled=false;if(next)next.disabled=false;btn.textContent="Enregistrer l'intervention"}
 }
-$('f-save').onclick=saveIntervention;
+$('f-save').onclick=()=>saveIntervention(false);
+$('f-save-next').onclick=()=>saveIntervention(true);
 
 function monthList(){const k=ym();return interventions.filter(e=>e.date.slice(0,7)===k)}
 function calcStats(list){const ok=list.filter(e=>e.statut==='Réussite').length;return{ok,total:list.length,pct:list.length?Math.round(ok/list.length*100):0}}
@@ -3739,15 +3784,15 @@ function renderHist(){
     const bin=sum(all.filter(e=>e.workMode==='Binôme')),solo=sum(all.filter(e=>e.workMode==='Solo'));
     split.push(`Binôme ${money(bin)}`,`Solo ${money(solo)}`);
   }
-  $('splitTotals').textContent=split.join('  ·  ');
-  let l=all.slice().sort((a,b)=>b.date.localeCompare(a.date));
-  if(q)l=l.filter(e=>[e.num,e.typo,e.addr,e.op,e.comment,e.supplementComment,e.workMode,memberName(e.soloUserId)].some(v=>String(v||'').toLowerCase().includes(q)));
+  $('splitTotals').textContent=companyPricesHidden()?'Montants masqués par la société':split.join('  ·  ');
+  const l=window.FibreExperience?window.FibreExperience.historyRows():all.slice().sort((a,b)=>b.date.localeCompare(a.date));
+  if(window.FibreExperience?.historyTable(l))return;
   let h='',last='';
   for(const e of l){
-    if(e.date!==last){last=e.date;h+=`<div class="dh"><span>${fr(e.date)}</span><b>${money(sum(l.filter(x=>x.date===e.date)))}</b></div>`}
+    if(e.date!==last){last=e.date;h+=`<div class="dh"><span>${fr(e.date)}</span><b>${companyPricesHidden()?'—':money(sum(l.filter(x=>x.date===e.date)))}</b></div>`}
     const col=opColor(e.op);
     const mode=hasTeam()?(e.workMode==='Solo'?`<span class="mode-chip solo">Solo · ${esc(memberName(e.soloUserId))}</span>`:`<span class="mode-chip binome">Binôme</span>`):'';
-    h+=`<div class="rw ${e.op==='orange'?'op-o':e.op==='sfr'?'op-s':''} ${e.statut==='Échec'?'hist-fail':''}" style="--row-op:${col};box-shadow:var(--shadow),0 0 15px color-mix(in srgb,${col} 16%,transparent)" data-id="${e.id}">
+    h+=`<div class="rw ${e.op==='orange'?'op-o':e.op==='sfr'?'op-s':''} ${e.statut==='Échec'?'hist-fail':''}" style="--row-op:${col};box-shadow:var(--shadow),0 0 15px color-mix(in srgb,${col} 16%,transparent)" data-id="${e.id}" role="button" tabindex="0" aria-label="${esc('Ouvrir intervention '+(e.num||'sans référence'))}">
       <div class="r1"><span>${e.statut==='Réussite'?'👍':'❌'} <b>${esc(e.num||'Sans réf')}</b></span><span class="tarif-val" style="color:${col}">${companyPricesHidden()?'—':money(e.montant)}</span></div>
       <div class="r2"><span class="badge-typo">${esc(e.typo)}</span><span class="badge-op" style="color:${col}">${esc(opLabel(e.op))}</span>${mode}${supplementHistoryChip(e)}${e.readOnlyHistory?`<span class="history-company-chip">🏢 ${esc(e.companyName||'Historique société')}</span>`:''}</div>
       <div class="r3"><span class="ad">${esc(e.addr||'Pas d’adresse')}</span>${e.addr?`<a href="https://maps.google.com/?q=${encodeURIComponent(e.addr)}" target="_blank" rel="noopener">📍</a>`:''}${e.readOnlyHistory?'':`<button class="btn-ghost x" data-del="1">✕</button>`}</div>
@@ -3761,6 +3806,7 @@ function shiftMonth(n){view=new Date(view.getFullYear(),view.getMonth()+n,1);ren
 $('prevMonth').onclick=()=>shiftMonth(-1);$('nextMonth').onclick=()=>shiftMonth(1);$('prevMonthFuel').onclick=()=>shiftMonth(-1);$('nextMonthFuel').onclick=()=>shiftMonth(1);
 
 $('histList').addEventListener('click',async e=>{
+  if(e.target.closest('a'))return;
   const row=e.target.closest('.rw');if(!row)return;
   const id=row.dataset.id;
   const item=interventions.find(x=>x.id===id);
@@ -3774,7 +3820,7 @@ $('histList').addEventListener('click',async e=>{
     renderAll();
     return toast('🗑️ Intervention supprimée');
   }
-  openEdit(id);
+  if(window.FibreExperience)window.FibreExperience.openIntervention(id);else openEdit(id);
 });
 function setSeg(id,val){const el=$(id);if(el)el.querySelectorAll('button[data-val]').forEach(b=>b.classList.toggle('selected',b.dataset.val===val))}
 function openEdit(id){
@@ -3825,6 +3871,7 @@ $('m-save-btn').onclick=async()=>{
   }).eq('id',editId);
 
   if(error)return toast('Erreur : '+error.message);
+  window.FibreExperience?.databaseSaved();
 
   $('detailModal').classList.remove('active');
   await loadAll();
@@ -4067,8 +4114,7 @@ function billingSyncAvailability(){
 function billingOpenView(){
   if(!billingCanUse())return toast('La facturation est disponible pour les techniciens indépendants et les auto-entrepreneurs');
   window.scrollTo(0,0);
-  document.querySelectorAll('.tabbar button').forEach(x=>x.classList.toggle('active',x.dataset.view==='historique'));
-  document.querySelectorAll('.view').forEach(s=>s.classList.toggle('active',s.id==='view-facturation'));
+  navigateView('facturation');
   billingEnter();
 }
 async function billingEnter(){
@@ -4891,7 +4937,7 @@ async function billingReconExportResult(){
   toast('📊 Contrôle XLSX exporté');
 }
 
-function renderAll(){renderHist();renderFuel();renderDashboard();renderTariffs();daily();preview();billingSyncAvailability()}
+function renderAll(){renderHist();renderFuel();renderDashboard();renderTariffs();daily();preview();billingSyncAvailability();window.FibreExperience?.refresh()}
 
 // Navigation
 
@@ -5139,7 +5185,19 @@ $('billingPrintInvoice').onclick=()=>{
 window.addEventListener('afterprint',()=>document.body.classList.remove('billing-printing'));
 window.addEventListener('resize',billingScalePreview);
 
-document.querySelector('.tabbar')?.addEventListener('click',e=>{const b=e.target.closest('button[data-view]');if(!b)return;const v=b.dataset.view;window.scrollTo(0,0);document.querySelectorAll('.tabbar button').forEach(x=>x.classList.toggle('active',x===b));document.querySelectorAll('.view').forEach(s=>s.classList.toggle('active',s.id==='view-'+v));if(v==='dashboard')renderDashboard();if(v==='historique')renderHist();if(v==='carburant')renderFuel();if(v==='tarifs')renderTariffs();if(v==='saisie'){preview();daily()}});document.querySelectorAll('[data-quick-view]').forEach(b=>b.onclick=()=>document.querySelector(`.tabbar button[data-view="${b.dataset.quickView}"]`)?.click());$('dashFuelBtn').onclick=()=>{document.querySelector('.tabbar button[data-view="carburant"]')?.click();$('fuel-amount').focus()};
+function navigateView(name){
+  if(!['dashboard','historique','saisie','finances','profil','carburant','tarifs','facturation'].includes(name))return;
+  const navName=['carburant','facturation'].includes(name)?'finances':name==='tarifs'?'profil':name;
+  document.querySelectorAll('.tabbar button').forEach(b=>{const selected=b.dataset.view===navName;b.classList.toggle('active',selected);if(selected)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current')});
+  document.querySelectorAll('.view').forEach(section=>section.classList.toggle('active',section.id==='view-'+name));
+  window.scrollTo(0,0);
+  if(name==='dashboard')renderDashboard();if(name==='historique')renderHist();if(name==='carburant')renderFuel();if(name==='tarifs')renderTariffs();if(name==='saisie'){preview();daily()}
+  window.FibreExperience?.viewChanged(name);
+}
+document.querySelector('.tabbar')?.addEventListener('click',e=>{const button=e.target.closest('button[data-view]');if(button)navigateView(button.dataset.view)});
+document.querySelectorAll('[data-quick-view]').forEach(b=>b.onclick=()=>navigateView(b.dataset.quickView));
+$('dashFuelBtn').onclick=()=>{navigateView('carburant');$('fuel-amount').focus()};
+
 
 // Export XLSX
 $('exportXlsx').onclick=()=>{
@@ -5680,7 +5738,7 @@ async function betaCreateCompany(){
 
 
 // Settings
-$('settingsBtn').onclick=()=>$('settingsOverlay').classList.add('active');
+$('settingsBtn').onclick=()=>navigateView('profil');
 
 $('openBetaAdmin').onclick=async()=>{
   if(!canUseBetaAdmin())return toast('Accès administrateur requis');
@@ -6263,6 +6321,8 @@ if(supabase){
 }
 </script></div>
 <!-- FIBRE OPS SAVED SUPPLEMENTS START -->
+<script src="./experience-core.js?v=1"></script>
+<script src="./experience.js?v=1"></script>
 <script src="./supplement-presets.js?v=2"></script>
 <!-- FIBRE OPS SAVED SUPPLEMENTS END -->
 <!-- FIBRE OPS TUTORIAL START -->

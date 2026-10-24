@@ -212,12 +212,12 @@
   }
   function showHistoryTip(){
     const billingBtn=document.getElementById('billingHistoryBtn');
-    const billingAvailable=billingBtn&&getComputedStyle(billingBtn).display!=='none'&&!billingBtn.disabled;
+    const billingAvailable=billingBtn&&document.getElementById('view-finances')?.classList.contains('active')&&getComputedStyle(billingBtn).display!=='none'&&!billingBtn.disabled;
     if(billingAvailable){
       enqueue({
         key:'history_tip_seen',anchor:billingBtn,reveal:true,
         title:'Le bouton qui fait gagner un temps fou 🧾',
-        text:'Depuis ton Historique, touche Facturation : tu peux créer tes factures ET comparer ton récap FIBRE OPS avec celui du donneur d’ordre pour repérer les écarts.',
+        text:'Dans Finances, touche Factures & encaissements : tu peux créer tes factures ET comparer ton récap FIBRE OPS avec celui du donneur d’ordre pour repérer les écarts.',
         actions:[
           {label:'Découvrir Facturation 🚀',primary:true,run:()=>setTimeout(()=>billingBtn.click(),80)},
           {label:'Plus tard',primary:false}
@@ -243,7 +243,7 @@
   }
   function showSettingsTip(){
     enqueue({
-      key:'settings_tip_seen',anchor:document.querySelector('#settingsOverlay .settings-title'),
+      key:'settings_tip_seen',anchor:document.querySelector('#view-profil .view-head, #settingsOverlay .settings-title'),
       title:'Ton espace, tes réglages ⚙️',
       text:'Personnalise FIBRE OPS ici et retrouve la carte Tutoriel & aide pour réactiver ou recommencer les conseils.',
       actions:[{label:'Compris',primary:true}]
@@ -316,11 +316,12 @@
     else if(v==='historique')setTimeout(showHistoryTip,80);
     else if(v==='dashboard')showDashboardTip();
     else if(v==='tarifs')showTariffsTip();
+    else if(v==='profil'){injectSettings();showSettingsTip()}
     else if(v==='facturation')setTimeout(()=>showBillingTip(activeBillingPane()||'invoices'),80);
   }
 
   function injectSettings(){
-    const grid=document.querySelector('#settingsOverlay .settings-grid');
+    const grid=document.querySelector('#view-profil .settings-grid, #settingsOverlay .settings-grid');
     if(!grid||document.getElementById('fibreTutorialSettings'))return;
     const block=document.createElement('div');block.id='fibreTutorialSettings';block.className='setting-block wide fibre-tutorial-settings';
     block.innerHTML=`<h4>🎓 Tutoriel & aide</h4><p>Découvre les fonctionnalités de FIBRE OPS au fur et à mesure de leur utilisation.</p>

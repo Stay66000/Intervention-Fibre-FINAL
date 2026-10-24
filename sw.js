@@ -1,4 +1,4 @@
-const CACHE='fibre-ops-v3-security-2.0';
+const CACHE='fibre-ops-v4-terrain-1.0';
 const CACHE_PREFIX='fibre-ops-';
 const APP_SHELL='./index.html';
 const CORE=['./manifest.webmanifest','./icons/icon-192.png','./icons/icon-512.png'];

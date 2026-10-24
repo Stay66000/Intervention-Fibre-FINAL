@@ -1,0 +1,104 @@
+/* Mobile layout comes after the base styles: content must fit, not be clipped. */
+@media screen and (max-width:760px){
+  .view,.experience-card,.setting-block,.modal-card,.billing-card,.billing-v2-card,
+  .fo-settings-page-shell,.fo-settings-page-content{min-width:0;max-width:100%}
+  .view :where(div,section,article,form,fieldset,label,dl,dd),
+  .modal-card :where(div,form,fieldset,label,dl,dd),
+  .fo-settings-page :where(div,section,form,label){min-width:0}
+  .view,.modal-card,.fo-settings-page,.gate-inner{overflow-wrap:anywhere}
+  .field,.field input,.field select,.field textarea{min-width:0;max-width:100%}
+  input[type=date]{display:block;min-inline-size:0;max-inline-size:100%}
+  input::-webkit-date-and-time-value{text-align:left;min-height:1.4em}
+  .view button,.modal-card button,.fo-settings-page button,.gate button{
+    max-width:100%;white-space:normal;overflow-wrap:anywhere
+  }
+  .view input,.view select,.view textarea,.modal-card input,.modal-card select,
+  .modal-card textarea,.fo-settings-page input,.fo-settings-page select{font-size:16px}
+  .experience-grid,.experience-preferences,.settings-grid,.billing-grid,
+  .billing-v2-form-grid{grid-template-columns:minmax(0,1fr)}
+  .settings-grid>.wide,.billing-grid>.wide,.billing-v2-form-grid>.wide{grid-column:1/-1}
+  .experience-filter-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .experience-save-actions{grid-template-columns:minmax(0,1fr)}
+  .experience-actions>*{flex:1 1 180px;min-width:0}
+  .experience-layout{flex-wrap:wrap;max-width:100%}
+  .experience-layout button{flex:1 1 auto;min-width:0}
+  .experience-table-wrap,.recon-table-wrap,.invoice-paper-wrap{
+    width:100%;max-width:100%;min-width:0;overflow-x:auto;overscroll-behavior-x:contain
+  }
+  .invoice-paper-wrap{margin-left:0;margin-right:0}
+  .experience-account-head>div:last-child,.experience-sync-row>div:last-child{min-width:0}
+  .experience-avatar,.experience-status-dot{flex-shrink:0}
+  .experience-detail-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .r1,.fr,.fa,.setting-row,.tariff-head,.team-inline,.cap-row,
+  .panel-head,.chart-cap,.day-total,.preview,.billing-entry-row{flex-wrap:wrap}
+  .r1>span,.tariff-head>div,.setting-row>span{min-width:0}
+  .r1 .tarif-val,.act-amt{margin-left:auto}
+  .badge-typo,.badge-op,.chip,.history-company-chip{max-width:100%;white-space:normal;overflow-wrap:anywhere}
+  .team-inline .field{flex-basis:100%}
+  .team-inline .btn-primary,.team-inline .btn-ghost{width:100%!important;min-width:0!important}
+  .fo-settings-page-head>div,.modal-header>div{min-width:0}
+  .modal-header{align-items:flex-start}
+  .modal-header .btn-ghost{flex-shrink:0}
+  .billing-v2-history-row,.billing-history-row{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+  .billing-v2-history-row .billing-amount,.billing-history-row .billing-amount{grid-column:2;text-align:right}
+  .billing-v2-history-actions{grid-column:1/-1;justify-content:flex-start}
+  .billing-v2-actions,.billing-modal-actions{display:flex;flex-wrap:wrap}
+  .billing-v2-actions button,.billing-modal-actions button{flex:1 1 160px;min-width:0}
+  .company-member-row{grid-template-columns:minmax(0,1fr)}
+  .company-admin-mini-actions{flex-wrap:wrap;justify-content:flex-start}
+  .company-admin-mini-actions button{min-width:0;white-space:normal}
+}
+
+@media screen and (max-width:560px){
+  header.top{gap:8px;padding-left:12px;padding-right:12px}
+  .header-actions{gap:5px;flex-shrink:0}
+  .brand-wrap{gap:7px}.brand{font-size:15px}.brand-mark{width:30px;height:30px}
+  .brand-sub{display:none}
+  .header-actions .header-icon{width:40px;height:44px;min-height:44px}
+  .header-actions .sync-pill{min-height:44px;max-width:100%;padding:7px 9px}
+  .hero-actions{grid-template-columns:minmax(0,1fr)}
+  .hero-actions button{white-space:normal}
+  .stats{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .stat.wide{grid-column:1/-1;flex-wrap:wrap;align-items:flex-start}
+  .stat .k{white-space:normal;overflow:visible}
+  .stat .v{font-size:clamp(16px,4.6vw,21px);overflow-wrap:anywhere}
+  .stat.wide .s{text-align:left}
+  .hero-label,.goal-row{flex-wrap:wrap;gap:5px 10px}
+  .hero-amount{font-size:clamp(28px,9vw,40px);overflow-wrap:anywhere}
+  .panel-head{align-items:flex-start}.panel-note{flex-basis:100%}
+  .bar-val{font-size:10px}.chart-cap{align-items:flex-start}
+  .history-rate-grid{grid-template-columns:minmax(0,1fr)!important}
+  #tariffRows .tariff-row,#tariffRows .supp-rate-row{
+    grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:8px!important
+  }
+  #tariffRows .tariff-row :is(.tr-name,.tr-amount),
+  #tariffRows .supp-rate-row :is(.supp-name,.supp-amount){min-height:44px!important}
+  #tariffRows .tariff-row [data-type-action],#tariffRows .tariff-row [data-type-delete]{
+    grid-row:2;justify-self:stretch;min-height:44px!important
+  }
+  /* Three supplement actions need distinct cells; the former two-cell row overlapped. */
+  #tariffRows .supp-rate-row .supp-save{grid-row:2;grid-column:1;justify-self:stretch}
+  #tariffRows .supp-rate-row .supp-toggle{grid-row:2;grid-column:2;justify-self:stretch}
+  #tariffRows .supp-rate-row .supp-delete{grid-row:3;grid-column:1/-1;justify-self:stretch}
+  #tariffRows :is(.tariff-add,.supp-rate-add){
+    grid-template-columns:minmax(0,1fr) minmax(0,1fr) 44px!important;gap:7px!important
+  }
+  #tariffRows :is(.tariff-row,.supp-rate-row) .btn-ghost{min-height:44px!important;white-space:normal}
+  .type-row{grid-template-columns:minmax(0,1fr) 90px 44px}
+  .type-row input,.tariff-add input,.supp-rate-add input{min-width:0}
+  .insight-status-grid{grid-template-columns:minmax(0,1fr)}
+  .tabbar button{flex:1 1 0;min-width:0;font-size:10.5px}
+  nav.tabbar{padding-bottom:calc(8px + env(safe-area-inset-bottom))}
+  .toast{border-radius:16px;text-align:center;overflow-wrap:anywhere}
+}
+
+@media screen and (max-width:420px){
+  .header-actions .sync-text{display:none}
+  .header-actions .sync-pill{width:36px;justify-content:center;padding:6px}
+  .header-actions .sync-dot{flex-shrink:0}
+  .experience-filter-grid,.experience-detail-grid{grid-template-columns:minmax(0,1fr)}
+  .experience-layout{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));width:100%}
+  .experience-layout button:last-child{grid-column:1/-1}
+  .experience-card{padding:14px}
+  .fo-settings-page-head{gap:8px}.fo-settings-page-title{font-size:18px}
+}

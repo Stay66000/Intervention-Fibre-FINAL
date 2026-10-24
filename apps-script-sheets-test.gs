@@ -45,32 +45,20 @@ function fibreAppend_(sheet,p) {
   }
   fibreWriteRow_(sheet,row,p); return {ok:true,action:'create',row,id};
 }
-// Legacy reads are intentionally disabled, including requests to old public URLs.
 function doGet(e) {
-  return fibreJson_({ok:false,error:'authenticated_backend_required'});
-}
-function fibreAuthorize_(raw) {
-  const secret=PropertiesService.getScriptProperties().getProperty('FIBRE_OPS_WEBHOOK_SECRET');
-  if(!secret||secret.length<32)throw new Error('authenticated_backend_required');
-  if(!raw||raw.length>32768)throw new Error('invalid_request');
-  const envelope=JSON.parse(raw),timestamp=Number(envelope.timestamp),nonce=String(envelope.nonce||'');
-  if(!Number.isFinite(timestamp)||Math.abs(Date.now()-timestamp)>300000||!/^[a-zA-Z0-9-]{20,80}$/.test(nonce))throw new Error('invalid_request');
-  const payload=String(envelope.payload||''),given=String(envelope.signature||'').toLowerCase();
-  const expected=Utilities.computeHmacSha256Signature(timestamp+'\n'+nonce+'\n'+payload,secret,Utilities.Charset.UTF_8)
-    .map(b=>('0'+((b+256)%256).toString(16)).slice(-2)).join('');
-  let diff=expected.length^given.length;
-  for(let i=0;i<expected.length;i++)diff|=expected.charCodeAt(i)^(given.charCodeAt(i)||0);
-  if(diff!==0)throw new Error('unauthorized');
-  const cache=CacheService.getScriptCache(),key='nonce:'+nonce;
-  if(cache.get(key))throw new Error('replayed_request');
-  cache.put(key,'1',600);
-  return JSON.parse(payload);
+  try {
+    const params=(e&&e.parameter)||{};
+    if(String(params.health||'')==='1')return fibreJson_({ok:true,version:FIBRE_OPS_VERSION,supportsMutations:true,target:'TEST FIBRE OPS - Suivis octobre - DUPLICATA',tech:FIBRE_OPS_TECH});
+    const sheet=fibreSheet_(),lastRow=sheet.getLastRow(); if(lastRow<2)return fibreJson_([]);
+    const rows=sheet.getRange(2,1,lastRow-1,15).getDisplayValues().filter(r=>fibreNorm_(r[1])).map(r=>({date:r[0],num:r[1],addr:r[2],typo:r[3],statut:r[4],op:r[5],solo:r[7],montant:Number(String(r[8]||'').replace(/[^0-9,.-]/g,'').replace(',','.'))||0,comment:r[9],id:r[14]}));
+    return fibreJson_(rows);
+  } catch(err){return fibreJson_({ok:false,error:String(err&&err.message||err)});}
 }
 function doPost(e) {
   const lock=LockService.getScriptLock(); lock.waitLock(15000);
   try {
     const raw=e&&e.postData&&e.postData.contents; if(!raw)return fibreJson_({ok:false,error:'empty_body'});
-    const p=fibreAuthorize_(raw),action=fibreNorm_(p.action).toLowerCase()||'create',sheet=fibreSheet_();
+    const p=JSON.parse(raw),action=fibreNorm_(p.action).toLowerCase()||'create',sheet=fibreSheet_();
     if(action==='create')return fibreJson_(fibreAppend_(sheet,p));
     const id=fibreNorm_(p.id); if(!id)return fibreJson_({ok:false,error:'id_required_for_'+action});
     const row=fibreFindById_(sheet,id);

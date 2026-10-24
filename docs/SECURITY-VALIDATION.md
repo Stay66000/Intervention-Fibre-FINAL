@@ -36,21 +36,18 @@ Run it in a single database connection; never remove its final ROLLBACK.
 The SQL suite was also exercised on a local PostgreSQL-compatible engine seeded
 with schema definitions only. No production user data was copied locally.
 
-## Google Sheets deployment — separate action required
+## Google Sheets beta — retained at the owner's request
 
-The browser's anonymous Sheets transport is retired. The source Apps Script now
-refuses GET data reads and requires a server-side HMAC signature, timestamp and
-one-time nonce for writes. Without a secret it refuses all writes.
+The existing beta sync remains enabled. Its bridge, pull transport and Apps
+Script retain their previous behavior. The HTML includes the same scripts and
+CSP explicitly permits requests to script.google.com and its Googleusercontent
+redirect. The sandbox iframe uses its parent's CSP nonce for copied/preloaded
+scripts. No Google deployment is disabled or changed by this release.
 
-**Changing GitHub does not update an existing Apps Script deployment.** Disable
-the previous public deployment in Apps Script > Deploy > Manage deployments, or
-redeploy the hardened script before considering that external URL protected.
-Until then the old endpoint remains an external risk even though this site no
-longer calls it. No new automatic Sheets backup is claimed by this release;
-Supabase remains the active data store. Before reenabling backup, implement a
-backend proxy that derives the user/company from verified authentication, never
-from browser-supplied identifiers. Keep its HMAC secret only in backend secrets
-and Script Properties, never browser code or this repository.
+The anonymous webhook's known risk remains deliberately outside this release.
+Its future replacement should retain continuous independent backups and add
+server-side authentication, signed requests, retry queues and versioned copies
+before retiring the current beta integration.
 
 ## Operational limits
 
@@ -60,9 +57,9 @@ updates, audit-log retention and monitoring need ongoing maintenance. Existing
 account settings (password minimum and no mandatory MFA) are preserved.
 
 The production SQL regression suite passed in a rolled-back transaction. No
-synthetic users remain. Nine Node regression tests passed. A full browser run
-was unavailable in this environment; the Cloudflare worker compiled, but local
-HTTP/browser execution could not be completed. Real invitation email delivery
+synthetic users remain. Nine Node regression tests passed. The preview login page and password-recovery navigation were checked in a
+browser. HTTP checks confirmed no-store responses and matching script nonces.
+Authenticated end-to-end browser flows were not completed. Real invitation email delivery
 was deliberately not exercised with another person's mailbox.
 
 Supabase Security Advisors still reports intentionally exposed guarded business

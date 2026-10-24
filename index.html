@@ -2880,6 +2880,14 @@ body.is-offline .sync-pill{border-color:color-mix(in srgb,var(--danger) 45%,var(
 })();
 </script>
 
+<!-- FIBRE OPS TEST · pont Google Sheets sandbox uniquement -->
+<script>
+try{localStorage.setItem('fibre_ops_sheets_sandbox_enabled_v2','1')}catch(e){}
+</script>
+<script id="fibreSandboxAddressFixMain" src="./sandbox-address-fix.js?v=4&build=13"></script>
+<script id="fibreSheetsBridgeScriptMain" src="./sheets-bridge.js?v=4&build=13"></script>
+<script id="fibreSheetsPullScriptMain" src="./sheets-pull.js?v=10&build=13"></script>
+<!-- /FIBRE OPS TEST -->
 <script src="./fibre-backend-security.js?v=2"></script>
 
 <script>

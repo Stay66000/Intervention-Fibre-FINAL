@@ -23,9 +23,16 @@ test('CSP uses per-response nonce and denies unsafe inline scripts, embedding an
  assert.match(a['Content-Security-Policy'],/frame-ancestors 'none'/);
  assert.equal(a['Cache-Control'],'no-store');assert.equal(a['Referrer-Policy'],'no-referrer');
 });
-test('public Sheets transports cannot issue anonymous network calls',()=>{
- for(const name of ['sheets-bridge.js','sheets-pull.js'])assert.doesNotMatch(read(name),/script\.google\.com|fetch\s*\(/);
- const gas=read('apps-script-sheets-test.gs');new vm.Script(gas);
- assert.match(gas,/computeHmacSha256Signature/);assert.match(gas,/fibreAuthorize_\(raw\)/);
- assert.match(gas,/replayed_request/);
+test('beta Sheets sync remains loaded and CSP permits its existing Google endpoints',()=>{
+ const html=read('index.html');
+ for(const name of ['sheets-bridge.js','sheets-pull.js']){
+  new vm.Script(read(name));assert.match(html,new RegExp(name.replace('.','\\.')));
+ }
+ const csp=securityHeaders('nonce')['Content-Security-Policy'];
+ assert.match(csp,/connect-src[^;]*https:\/\/script\.google\.com/);
+ assert.match(csp,/connect-src[^;]*https:\/\/script\.googleusercontent\.com/);
+ assert.match(csp,/frame-src 'self'/);
+ new vm.Script(read('apps-script-sheets-test.gs'));
+ assert.match(read('sheets-test.html'),/sandboxNonce=document.currentScript.nonce/);
+ for(const match of read('sheets-test.html').matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/gi))if(!/\bsrc=/.test(match[1]))new vm.Script(match[2]);
 });

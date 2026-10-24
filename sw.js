@@ -1,7 +1,7 @@
-const CACHE='fibre-ops-v3-production-1.5';
+const CACHE='fibre-ops-v3-security-2.0';
 const CACHE_PREFIX='fibre-ops-';
 const APP_SHELL='./index.html';
-const CORE=[APP_SHELL,'./manifest.webmanifest','./icons/icon-192.png','./icons/icon-512.png'];
+const CORE=['./manifest.webmanifest','./icons/icon-192.png','./icons/icon-512.png'];
 
 self.addEventListener('install',event=>{
   event.waitUntil((async()=>{
@@ -26,6 +26,8 @@ function freshRequest(req){
 async function cachePut(key,response){
   if(!response||!response.ok)return;
   try{
+    // CSP nonce pages and authenticated replies must never enter the offline cache.
+    if((response.headers.get('cache-control')||'').includes('no-store')||response.headers.get('content-type')?.includes('text/html'))return;
     const cache=await caches.open(CACHE);
     await cache.put(key,response);
   }catch(e){
@@ -38,7 +40,7 @@ self.addEventListener('fetch',event=>{
   if(req.method!=='GET')return;
 
   const url=new URL(req.url);
-  if(url.origin!==self.location.origin)return;
+  if(url.origin!==self.location.origin||url.pathname.startsWith('/api/')||url.searchParams.has('code')||url.searchParams.has('token_hash'))return;
 
   if(req.mode==='navigate'){
     event.respondWith((async()=>{

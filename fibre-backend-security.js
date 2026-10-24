@@ -1,6 +1,8 @@
 // FIBRE OPS — pont frontend vers le backend durci
 (function(){
   'use strict';
+  if(window.__fibreSecurityLoaded)return;
+  window.__fibreSecurityLoaded=true;
 
   const INVITE_ENDPOINT='company-invite-technician-access';
 
@@ -86,13 +88,18 @@
     try{return new URLSearchParams(location.search).get('invite')==='1'}catch{return false}
   }
 
+  let checkingPassword=false;
   async function showInvitePasswordGate(){
+    if(checkingPassword)return;
+    checkingPassword=true;
+    try{await checkInvitePasswordGate()}finally{checkingPassword=false}
+  }
+  async function checkInvitePasswordGate(){
     if(el('foInvitePasswordGate')||typeof supabase==='undefined')return;
     const {data:{session}}=await supabase.auth.getSession().catch(()=>({data:{session:null}}));
     if(!session)return;
-    const invitedByCompany=Boolean(session.user?.user_metadata?.invited_by_company);
-    if(!inviteRequested()&&!invitedByCompany)return;
-    const existingMeta=session.user?.user_metadata||{};
+    const {data:setup,error:setupError}=await supabase.rpc('get_my_password_setup_status');
+    if(setupError||setup?.provisioning_pending||setup?.password_required!==true)return;
 
     const gate=document.createElement('div');
     gate.id='foInvitePasswordGate';
@@ -121,8 +128,7 @@
       submit.disabled=true;submit.textContent='Enregistrement…';
       try{
         const {error}=await supabase.auth.updateUser({
-          password:p,
-          data:{...existingMeta,invited_by_company:false}
+          password:p
         });
         if(error)throw error;
         const url=new URL(location.href);url.searchParams.delete('invite');
@@ -153,6 +159,7 @@
   }
 
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();
+  window.addEventListener('fibreops-password-required',showInvitePasswordGate);
   const observer=new MutationObserver(()=>{
     bindCompanyInviteButton();
     sanitizePlatformAdminRows();

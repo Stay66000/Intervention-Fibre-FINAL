@@ -31,7 +31,7 @@ Ne pas supprimer cette note lors des prochaines versions.
 <link rel="stylesheet" href="./tariff-layout.css?v=1"/>
 <link href="https://fonts.googleapis.com" rel="preconnect"/>
 <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
-<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&amp;family=Figtree:wght@400;500;600;700&amp;display=swap" media="print" onload="this.media='all'" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&amp;family=Figtree:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
 <style>
 :root{
   --bg:#0f141b; --surface:#171e28; --surface-alt:#1d2632; --surface-raise:#2a3647;
@@ -2420,7 +2420,7 @@ body.is-offline .sync-pill{border-color:color-mix(in srgb,var(--danger) 45%,var(
     <div class="field wide"><label for="companyCreateEmployment">Statut</label><select id="companyCreateEmployment" class="admin-beta-select"><option value="auto">Auto-entrepreneur</option><option value="salaried">Salarié</option></select></div>
     <label class="company-work-check wide" id="companyCreateHidePricesWrap" style="display:none"><input id="companyCreateHidePrices" type="checkbox"> Cacher les prix au salarié</label>
   </div>
-  <button class="btn-ghost" id="companyCreateAccessBtn" type="button" style="width:100%">Créer le compte + identifiants</button>
+  <button class="btn-ghost" id="companyCreateAccessBtn" type="button" style="width:100%">Envoyer l’invitation par e-mail</button>
   <div class="company-credentials" id="companyCredentialsResult"></div>
 
   <div id="companyTechCount" class="company-admin-note"></div>
@@ -2880,14 +2880,8 @@ body.is-offline .sync-pill{border-color:color-mix(in srgb,var(--danger) 45%,var(
 })();
 </script>
 
-<!-- FIBRE OPS TEST · pont Google Sheets sandbox uniquement -->
-<script>
-try{localStorage.setItem('fibre_ops_sheets_sandbox_enabled_v2','1')}catch(e){}
-</script>
-<script id="fibreSandboxAddressFixMain" src="./sandbox-address-fix.js?v=4&build=13"></script>
-<script id="fibreSheetsBridgeScriptMain" src="./sheets-bridge.js?v=4&build=13"></script>
-<script id="fibreSheetsPullScriptMain" src="./sheets-pull.js?v=10&build=13"></script>
-<!-- /FIBRE OPS TEST -->
+<script src="./fibre-backend-security.js?v=2"></script>
+
 <script>
 const SUPABASE_URL='https://dvvoqfswlqdwvxamfsot.supabase.co';
 const SUPABASE_KEY='sb_publishable_DKIrFOlhgvc7LW43_qgLYA_cENm3M-P';
@@ -3144,6 +3138,10 @@ async function openCompanyAdminManager(){
 
 async function boot(){
   try{
+    const {data:setup,error:setupError}=await supabase.rpc('get_my_password_setup_status');
+    if(setupError)throw setupError;
+    if(setup?.provisioning_pending)throw new Error('Ton invitation est en cours de finalisation. Réessaie dans un instant.');
+    if(setup?.password_required){window.dispatchEvent(new Event('fibreops-password-required'));return;}
     await loadIdentity();
     $('authGate').classList.add('app-hidden');
 
@@ -3295,26 +3293,6 @@ async function rejectMyCompanyInvite(code){
   toast('Invitation refusée · ton compte reste indépendant');
 }
 
-async function invokeCompanyCreateAccess(payload){
-  const {data:{session},error:sessionError}=await supabase.auth.getSession();
-  if(sessionError||!session?.access_token)throw new Error('Session introuvable');
-
-  const r=await fetch(SUPABASE_URL+'/functions/v1/company-create-technician-access',{
-    method:'POST',
-    headers:{
-      'apikey':SUPABASE_KEY,
-      'Authorization':'Bearer '+session.access_token,
-      'Content-Type':'application/json'
-    },
-    body:JSON.stringify(payload)
-  });
-
-  const raw=await r.text();
-  let data={};
-  if(raw){try{data=JSON.parse(raw)}catch(e){data={error:raw}}}
-  if(!r.ok)throw new Error(data.error||data.message||('HTTP '+r.status));
-  return data;
-}
 
 async function enterApp(){
   await loadTeamContext();
@@ -3996,7 +3974,7 @@ function renderTariffs(){
     return;
   }
 
-  root.innerHTML=operators.map(o=>{const ts=types.filter(t=>t.operator===o.operator),active=o.active;return `<div class="tariff-operator" data-op="${o.operator}"><div class="tariff-head"><div><b style="color:${opColor(o.operator)}">${esc(opLabel(o.operator))}</b><div class="field-hint">${active?'Actif · disponible pour les nouvelles saisies':'Désactivé · historique conservé'}</div></div><button type="button" class="btn-ghost" onclick="toggleOperatorSafe('${o.operator}',this)">${active?'Désactiver':'Réactiver'}</button></div>${ts.map(t=>`<div class="tariff-row" data-type="${t.id}"><input class="tr-name" value="${esc(t.name)}" ${t.active?'':'disabled'}><input class="tr-amount" type="number" min="0" step="0.01" value="${Number(t.amount).toFixed(2)}" ${t.active?'':'disabled'}><button type="button" class="btn-ghost" data-type-action="${t.id}">${t.active?'Sauver':'Réactiver'}</button><button type="button" class="btn-ghost" style="color:var(--danger)" data-type-delete="${t.id}">Supprimer</button></div>`).join('')}<div class="tariff-add"><input data-add-name placeholder="Nouvelle typologie"><input data-add-amount type="number" min="0" step="0.01" placeholder="0,00"><button type="button" class="btn-primary" data-add-type="${o.operator}">+</button></div></div>`}).join('')||'<div class="empty">Aucun opérateur configuré.</div>';
+  root.innerHTML=operators.map(o=>{const ts=types.filter(t=>t.operator===o.operator),active=o.active;return `<div class="tariff-operator" data-op="${o.operator}"><div class="tariff-head"><div><b style="color:${opColor(o.operator)}">${esc(opLabel(o.operator))}</b><div class="field-hint">${active?'Actif · disponible pour les nouvelles saisies':'Désactivé · historique conservé'}</div></div><button type="button" class="btn-ghost" data-toggle-operator="${o.operator}">${active?'Désactiver':'Réactiver'}</button></div>${ts.map(t=>`<div class="tariff-row" data-type="${t.id}"><input class="tr-name" value="${esc(t.name)}" ${t.active?'':'disabled'}><input class="tr-amount" type="number" min="0" step="0.01" value="${Number(t.amount).toFixed(2)}" ${t.active?'':'disabled'}><button type="button" class="btn-ghost" data-type-action="${t.id}">${t.active?'Sauver':'Réactiver'}</button><button type="button" class="btn-ghost" style="color:var(--danger)" data-type-delete="${t.id}">Supprimer</button></div>`).join('')}<div class="tariff-add"><input data-add-name placeholder="Nouvelle typologie"><input data-add-amount type="number" min="0" step="0.01" placeholder="0,00"><button type="button" class="btn-primary" data-add-type="${o.operator}">+</button></div></div>`}).join('')||'<div class="empty">Aucun opérateur configuré.</div>';
 }
 $('addOperatorBtn').onclick=async()=>{if(isCompanyTechnician())return toast('Les opérateurs sont gérés par ton patron.');
   const op=$('addOperatorSelect').value;if(!op)return;const existing=operators.find(o=>o.operator===op);let r;
@@ -4010,7 +3988,7 @@ $('addOperatorBtn').onclick=async()=>{if(isCompanyTechnician())return toast('Les
   if(existing)existing.active=true;else operators.push({user_id:user.id,team_id:hasTeam()?team.id:null,operator:op,active:true});
   populateOperatorUI();renderAll();toast(`${opLabel(op)} activé`);
 };
-$('tariffRows').addEventListener('click',async e=>{if(isCompanyTechnician())return;const del=e.target.closest('[data-type-delete]');if(del){const t=types.find(x=>x.id===del.dataset.typeDelete);if(!t)return;const ok=confirm(`Supprimer définitivement la typologie “${t.name}” du catalogue ?\n\nLes interventions déjà enregistrées garderont leur typologie et leur montant.`);if(!ok)return;del.disabled=true;const {error}=await supabase.rpc('delete_intervention_type',{p_type_id:t.id});if(error){del.disabled=false;return toast('Erreur suppression : '+error.message)}types=types.filter(x=>x.id!==t.id);populateOperatorUI();renderTariffs();return toast('🗑️ Typologie supprimée · historique conservé')}const act=e.target.closest('[data-type-action]');if(act){const t=types.find(x=>x.id===act.dataset.typeAction),row=act.closest('.tariff-row');if(!t)return;if(!t.active){const {error}=await supabase.from('intervention_types').update({active:true}).eq('id',t.id);if(error)return toast('Erreur : '+error.message);t.active=true;renderTariffs();populateOperatorUI();return toast('Typologie réactivée')}const name=row.querySelector('.tr-name').value.trim(),amount=Number(row.querySelector('.tr-amount').value);if(!name||!Number.isFinite(amount)||amount<0)return toast('Nom et tarif valides requis');const {error}=await supabase.from('intervention_types').update({name,amount}).eq('id',t.id);if(error)return toast('Erreur : '+error.message);t.name=name;t.amount=amount;populateOperatorUI();renderTariffs();return toast('✅ Tarif mis à jour')}const add=e.target.closest('[data-add-type]');if(add){const op=add.dataset.addType,b=add.closest('.tariff-operator'),name=b.querySelector('[data-add-name]').value.trim(),amount=Number(b.querySelector('[data-add-amount]').value);if(!name||!Number.isFinite(amount)||amount<0)return toast('Nom et tarif valides requis');const {data,error}=await supabase.from('intervention_types').insert({user_id:user.id,team_id:hasTeam()?team.id:null,operator:op,name,amount,active:true,sort_order:types.filter(t=>t.operator===op).length}).select('id,user_id,team_id,operator,name,amount,active,sort_order').single();if(error)return toast('Erreur : '+error.message);types.push(data);populateOperatorUI();renderTariffs();toast('✅ Typologie ajoutée')}});
+$('tariffRows').addEventListener('click',async e=>{if(isCompanyTechnician())return;const operatorToggle=e.target.closest('[data-toggle-operator]');if(operatorToggle){await toggleOperatorSafe(operatorToggle.dataset.toggleOperator,operatorToggle);return;}const del=e.target.closest('[data-type-delete]');if(del){const t=types.find(x=>x.id===del.dataset.typeDelete);if(!t)return;const ok=confirm(`Supprimer définitivement la typologie “${t.name}” du catalogue ?\n\nLes interventions déjà enregistrées garderont leur typologie et leur montant.`);if(!ok)return;del.disabled=true;const {error}=await supabase.rpc('delete_intervention_type',{p_type_id:t.id});if(error){del.disabled=false;return toast('Erreur suppression : '+error.message)}types=types.filter(x=>x.id!==t.id);populateOperatorUI();renderTariffs();return toast('🗑️ Typologie supprimée · historique conservé')}const act=e.target.closest('[data-type-action]');if(act){const t=types.find(x=>x.id===act.dataset.typeAction),row=act.closest('.tariff-row');if(!t)return;if(!t.active){const {error}=await supabase.from('intervention_types').update({active:true}).eq('id',t.id);if(error)return toast('Erreur : '+error.message);t.active=true;renderTariffs();populateOperatorUI();return toast('Typologie réactivée')}const name=row.querySelector('.tr-name').value.trim(),amount=Number(row.querySelector('.tr-amount').value);if(!name||!Number.isFinite(amount)||amount<0)return toast('Nom et tarif valides requis');const {error}=await supabase.from('intervention_types').update({name,amount}).eq('id',t.id);if(error)return toast('Erreur : '+error.message);t.name=name;t.amount=amount;populateOperatorUI();renderTariffs();return toast('✅ Tarif mis à jour')}const add=e.target.closest('[data-add-type]');if(add){const op=add.dataset.addType,b=add.closest('.tariff-operator'),name=b.querySelector('[data-add-name]').value.trim(),amount=Number(b.querySelector('[data-add-amount]').value);if(!name||!Number.isFinite(amount)||amount<0)return toast('Nom et tarif valides requis');const {data,error}=await supabase.from('intervention_types').insert({user_id:user.id,team_id:hasTeam()?team.id:null,operator:op,name,amount,active:true,sort_order:types.filter(t=>t.operator===op).length}).select('id,user_id,team_id,operator,name,amount,active,sort_order').single();if(error)return toast('Erreur : '+error.message);types.push(data);populateOperatorUI();renderTariffs();toast('✅ Typologie ajoutée')}});
 
 function renderDashboard(){
   const hiddenPrices=companyPricesHidden();
@@ -5847,61 +5825,7 @@ $('companyPendingInvites').addEventListener('click',async e=>{
   }
 });
 
-$('companyCreateAccessBtn').onclick=async()=>{
-  if(!isCompanyAdmin())return;
-
-  const first=$('companyCreateFirst').value.trim();
-  const last=$('companyCreateLast').value.trim();
-  const email=$('companyCreateEmail').value.trim();
-  const employmentType=$('companyCreateEmployment').value;
-  const hidePrices=employmentType==='salaried'&&$('companyCreateHidePrices').checked;
-
-  if(!first||!email)return toast('Prénom et e-mail requis');
-
-  const btn=$('companyCreateAccessBtn');
-  btn.disabled=true;
-  btn.textContent='Création du compte…';
-
-  try{
-    const data=await invokeCompanyCreateAccess({
-      first_name:first,
-      last_name:last,
-      email,
-      employment_type:employmentType,
-      hide_prices:hidePrices
-    });
-
-    $('companyCredentialsResult').classList.add('visible');
-    $('companyCredentialsResult').innerHTML=`
-      <b>✅ Compte créé et rattaché à la société</b><br>
-      E-mail : <code>${esc(data.email||email)}</code><br>
-      Mot de passe temporaire : <code id="companyTempPassword">${esc(data.temporary_password||'')}</code><br>
-      Statut : <b>${employmentType==='salaried'?'Salarié':'Auto-entrepreneur'}${hidePrices?' · prix masqués':''}</b><br>
-      <span class="field-hint">Transmets ces identifiants au technicien. Il pourra changer son mot de passe dans Réglages.</span>
-      <button type="button" class="btn-ghost" id="copyCompanyCredentialsBtn" style="width:100%;margin-top:8px">Copier les identifiants</button>
-    `;
-
-    $('companyCreateFirst').value='';
-    $('companyCreateLast').value='';
-    $('companyCreateEmail').value='';
-    $('companyCreateEmployment').value='auto';
-    $('companyCreateHidePrices').checked=false;
-    syncCompanyWorkChoiceUI();
-
-    $('copyCompanyCredentialsBtn').onclick=async()=>{
-      const msg=`FIBRE OPS\nE-mail : ${data.email||email}\nMot de passe temporaire : ${data.temporary_password||''}`;
-      try{await navigator.clipboard.writeText(msg);toast('Identifiants copiés')}catch(e){toast('Copie impossible')}
-    };
-
-    await refreshCompanyAdminTools();
-    toast('✅ Compte technicien créé');
-  }catch(err){
-    toast('Erreur : '+(err?.message||err));
-  }finally{
-    btn.disabled=false;
-    btn.textContent='Créer le compte + identifiants';
-  }
-};
+// Invitation is bound by fibre-backend-security.js; no temporary passwords.
 
 $('companyInviteAcceptBtn').onclick=()=>acceptMyCompanyInvite($('companyInviteCodeInput').value);
 
@@ -6247,7 +6171,7 @@ function parseCap(t){
   }
   return{nd,addr:cleanAddress(addr),op}
 }
-function loadT(){if(window.Tesseract)return Promise.resolve();return new Promise((ok,ko)=>{const s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js';s.onload=ok;s.onerror=()=>ko(new Error('module de lecture indisponible'));document.head.appendChild(s)})}
+function loadT(){if(window.Tesseract)return Promise.resolve();return new Promise((ok,ko)=>{const s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js';s.onload=ok;s.onerror=()=>ko(new Error('module de lecture indisponible'));document.head.appendChild(s)})}
 let capUrl='';$('cap-file').onchange=async function(){const f=this.files[0];this.value='';if(!f)return;$('cap-msg').textContent='⏳ Lecture de la capture…';if(capUrl)URL.revokeObjectURL(capUrl);capUrl=URL.createObjectURL(f);$('cap-img').src=capUrl;$('cap-link').style.display='inline';$('cap-link').textContent='📎 Voir la capture';try{await loadT();const r=await Tesseract.recognize(f,'fra'),text=r.data.text,p=parseCap(text);$('cap-raw').textContent=text;if(p.nd)$('f-num').value=p.nd;if(p.addr)$('f-addr').value=p.addr;if(activeOps().includes(p.op)){form.operator=p.op;populateOperatorUI();setSeg('f-op',p.op);fillTypeSelect($('f-typo'),p.op,'')}preview();saveDraft();$('cap-msg').textContent=(p.nd||p.addr)?`✓ Informations détectées (${opLabel(p.op)})`:'⚠️ Rien trouvé : saisis à la main'}catch(e){$('cap-msg').textContent='⚠️ Lecture impossible : '+e.message}};$('cap-link').onclick=()=>{const img=$('cap-img'),show=img.style.display==='none';img.style.display=show?'block':'none';$('cap-link').textContent=show?'📎 Masquer la capture':'📎 Voir la capture'};
 
 // General events

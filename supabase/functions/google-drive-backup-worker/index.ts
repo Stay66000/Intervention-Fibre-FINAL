@@ -4,6 +4,7 @@ import { createClient } from 'npm:@supabase/supabase-js@2.95.3';
 const TOKEN_URL = 'https://oauth2.googleapis.com/token';
 const SHEETS_BASE = 'https://sheets.googleapis.com/v4/spreadsheets';
 const JOURNAL = '_JOURNAL_BACKUP';
+const TEMPLATE_VERSION = 2;
 const RETRY_SECONDS = [60, 300, 900, 3600];
 
 function secretKey() {
@@ -29,29 +30,45 @@ function operatorLabel(value: unknown) {
   const key = String(value || '').toLowerCase();
   return ({ orange:'Orange', sfr:'SFR', bouygues:'Bouygues Telecom', free:'Free' } as Record<string,string>)[key] || compactText(value, 80);
 }
+function resultLabel(value: unknown) {
+  const raw = String(value || '').toLowerCase();
+  return raw.startsWith('réuss') || raw === 'success' ? 'Réussite' : 'Échec';
+}
 function workMode(snapshot: any) {
-  if (snapshot?.work_mode === 'Binôme') return 'Binôme';
-  if (snapshot?.work_mode === 'Solo') return 'Solo';
-  return 'Personnel';
+  return snapshot?.work_mode === 'Binôme' ? 'Binôme' : 'Solo';
 }
 function supplement(snapshot: any) {
   const data = snapshot?.operator_data && typeof snapshot.operator_data === 'object' ? snapshot.operator_data : {};
   const label = compactText(data.supplement_comment ?? data.supplement_label ?? data.supplement ?? '', 200);
-  const amount = numberValue(data.supplement_amount ?? 0);
+  const rawAmount = numberValue(data.supplement_amount ?? 0);
+  const amount = workMode(snapshot) === 'Binôme' ? rawAmount / 2 : rawAmount;
   return { label, amount };
 }
-function monthlyRow(snapshot: any, state: string) {
-  const supp = supplement(snapshot);
+function visibleAmount(snapshot: any) {
+  if (resultLabel(snapshot?.result) !== 'Réussite') return 0;
+  const base = numberValue(snapshot?.applied_amount);
+  return base + supplement(snapshot).amount;
+}
+function dailyFormula() {
+  return '=IF(INDEX(A:A,ROW())="","",SUMIFS(I:I,A:A,INDEX(A:A,ROW()),E:E,"Réussite"))';
+}
+function visibleMonthlyRow(snapshot: any) {
   return [
     compactText(snapshot?.intervention_date, 20),
     compactText(snapshot?.reference, 120),
     compactText(snapshot?.address, 400),
     compactText(snapshot?.intervention_type_name, 160),
-    compactText(snapshot?.result, 80),
+    resultLabel(snapshot?.result),
     operatorLabel(snapshot?.operator),
+    dailyFormula(),
     workMode(snapshot),
-    numberValue(snapshot?.applied_amount),
+    visibleAmount(snapshot),
     compactText(snapshot?.notes, 500),
+  ];
+}
+function technicalMonthlyRow(snapshot: any, state: string) {
+  const supp = supplement(snapshot);
+  return [
     supp.label,
     supp.amount,
     new Date().toISOString(),
@@ -60,8 +77,30 @@ function monthlyRow(snapshot: any, state: string) {
   ];
 }
 function journalRow(job: any, state: string) {
-  const row = monthlyRow(job.snapshot, state);
-  return [job.id, job.action, new Date().toISOString(), ...row.slice(0, 11), state, row[13]];
+  const supp = supplement(job.snapshot);
+  return [
+    job.id,
+    job.action,
+    new Date().toISOString(),
+    compactText(job.snapshot?.intervention_date, 20),
+    compactText(job.snapshot?.reference, 120),
+    compactText(job.snapshot?.address, 400),
+    compactText(job.snapshot?.intervention_type_name, 160),
+    resultLabel(job.snapshot?.result),
+    operatorLabel(job.snapshot?.operator),
+    workMode(job.snapshot),
+    visibleAmount(job.snapshot),
+    compactText(job.snapshot?.notes, 500),
+    supp.label,
+    supp.amount,
+    state,
+    compactText(job.snapshot?.id, 80),
+  ];
+}
+function styleKey(title: string) { return `__template_v${TEMPLATE_VERSION}__${title}`; }
+function rgb(hex: string) {
+  const n = hex.replace('#','');
+  return { red: parseInt(n.slice(0,2),16)/255, green: parseInt(n.slice(2,4),16)/255, blue: parseInt(n.slice(4,6),16)/255 };
 }
 
 async function googleJson(url: string, accessToken: string, init: RequestInit = {}) {
@@ -102,37 +141,100 @@ async function getValues(spreadsheetId: string, accessToken: string, range: stri
   const data = await googleJson(url, accessToken);
   return Array.isArray(data?.values) ? data.values as any[][] : [];
 }
-async function appendValues(spreadsheetId: string, accessToken: string, range: string, values: any[][]) {
-  const url = `${SHEETS_BASE}/${spreadsheetId}/values/${encodeURIComponent(range)}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`;
+async function appendValues(spreadsheetId: string, accessToken: string, range: string, values: any[][], valueInputOption = 'RAW') {
+  const url = `${SHEETS_BASE}/${spreadsheetId}/values/${encodeURIComponent(range)}:append?valueInputOption=${encodeURIComponent(valueInputOption)}&insertDataOption=INSERT_ROWS`;
   return googleJson(url, accessToken, {
     method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({values}),
   });
 }
-async function updateValues(spreadsheetId: string, accessToken: string, range: string, values: any[][]) {
-  const url = `${SHEETS_BASE}/${spreadsheetId}/values/${encodeURIComponent(range)}?valueInputOption=RAW`;
+async function updateValues(spreadsheetId: string, accessToken: string, range: string, values: any[][], valueInputOption = 'RAW') {
+  const url = `${SHEETS_BASE}/${spreadsheetId}/values/${encodeURIComponent(range)}?valueInputOption=${encodeURIComponent(valueInputOption)}`;
   return googleJson(url, accessToken, {
     method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify({values}),
   });
 }
+async function initializeMonthlyTemplate(connection: any, accessToken: string, title: string, sheetId: number) {
+  const spreadsheetId = connection.spreadsheet_id;
+  const summary = [
+    ['Opérateur','Solo','Binôme','Total'],
+    ['Orange','=SUMIFS($I:$I,$F:$F,$K2,$H:$H,L$1,$E:$E,"Réussite")','=SUMIFS($I:$I,$F:$F,$K2,$H:$H,M$1,$E:$E,"Réussite")','=SUM(L2:M2)'],
+    ['SFR','=SUMIFS($I:$I,$F:$F,$K3,$H:$H,L$1,$E:$E,"Réussite")','=SUMIFS($I:$I,$F:$F,$K3,$H:$H,M$1,$E:$E,"Réussite")','=SUM(L3:M3)'],
+    ['Bouygues Telecom','=SUMIFS($I:$I,$F:$F,$K4,$H:$H,L$1,$E:$E,"Réussite")','=SUMIFS($I:$I,$F:$F,$K4,$H:$H,M$1,$E:$E,"Réussite")','=SUM(L4:M4)'],
+    ['Free','=SUMIFS($I:$I,$F:$F,$K5,$H:$H,L$1,$E:$E,"Réussite")','=SUMIFS($I:$I,$F:$F,$K5,$H:$H,M$1,$E:$E,"Réussite")','=SUM(L5:M5)'],
+    ['TOTAL GÉNÉRAL','=SUM(L2:L5)','=SUM(M2:M5)','=SUM(N2:N5)'],
+  ];
+  await googleJson(`${SHEETS_BASE}/${spreadsheetId}/values:batchUpdate`, accessToken, {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({valueInputOption:'USER_ENTERED',data:[
+      {range:`${q(title)}!A1:J1`,values:[['Date','N° intervention','Adresse client','Typologie raccordement','Réussite / Échec','Opérateur','Total journalier (€)','Mode','Montant (€)','Commentaire']]},
+      {range:`${q(title)}!K1:N6`,values:summary},
+      {range:`${q(title)}!O1:T1`,values:[['Complément','Montant complément','Dernière synchro','État','ID FIBRE OPS',`FIBRE_OPS_TEMPLATE_V${TEMPLATE_VERSION}`]]},
+    ]}),
+  });
+
+  const header = rgb('#386A9C');
+  const white = rgb('#FFFFFF');
+  const dark = rgb('#1F2937');
+  const opColors = [rgb('#FF8A1F'), rgb('#38BDF8'), rgb('#22C55E'), rgb('#EF4444')];
+  const widths = [90,135,250,205,135,145,145,95,115,260,165,110,110,115];
+  const requests: any[] = [
+    { updateSheetProperties:{ properties:{sheetId,gridProperties:{frozenRowCount:1}}, fields:'gridProperties.frozenRowCount' } },
+    { clearBasicFilter:{ sheetId } },
+    { repeatCell:{ range:{sheetId,startRowIndex:0,endRowIndex:1,startColumnIndex:0,endColumnIndex:10}, cell:{userEnteredFormat:{backgroundColor:header,textFormat:{foregroundColor:white,bold:true},horizontalAlignment:'CENTER',verticalAlignment:'MIDDLE'}}, fields:'userEnteredFormat(backgroundColor,textFormat,horizontalAlignment,verticalAlignment)' } },
+    { repeatCell:{ range:{sheetId,startRowIndex:0,endRowIndex:1,startColumnIndex:10,endColumnIndex:14}, cell:{userEnteredFormat:{backgroundColor:header,textFormat:{foregroundColor:white,bold:true},horizontalAlignment:'CENTER',verticalAlignment:'MIDDLE'}}, fields:'userEnteredFormat(backgroundColor,textFormat,horizontalAlignment,verticalAlignment)' } },
+    { repeatCell:{ range:{sheetId,startRowIndex:5,endRowIndex:6,startColumnIndex:10,endColumnIndex:14}, cell:{userEnteredFormat:{backgroundColor:dark,textFormat:{foregroundColor:white,bold:true}}}, fields:'userEnteredFormat(backgroundColor,textFormat)' } },
+    { repeatCell:{ range:{sheetId,startRowIndex:1,endRowIndex:2000,startColumnIndex:6,endColumnIndex:7}, cell:{userEnteredFormat:{numberFormat:{type:'CURRENCY',pattern:'#,##0.00 "€"'}}}, fields:'userEnteredFormat.numberFormat' } },
+    { repeatCell:{ range:{sheetId,startRowIndex:1,endRowIndex:2000,startColumnIndex:8,endColumnIndex:9}, cell:{userEnteredFormat:{numberFormat:{type:'CURRENCY',pattern:'#,##0.00 "€"'}}}, fields:'userEnteredFormat.numberFormat' } },
+    { repeatCell:{ range:{sheetId,startRowIndex:1,endRowIndex:6,startColumnIndex:11,endColumnIndex:14}, cell:{userEnteredFormat:{numberFormat:{type:'CURRENCY',pattern:'#,##0.00 "€"'}}}, fields:'userEnteredFormat.numberFormat' } },
+    { repeatCell:{ range:{sheetId,startRowIndex:1,endRowIndex:2000,startColumnIndex:15,endColumnIndex:16}, cell:{userEnteredFormat:{numberFormat:{type:'CURRENCY',pattern:'#,##0.00 "€"'}}}, fields:'userEnteredFormat.numberFormat' } },
+    { setBasicFilter:{ filter:{ range:{sheetId,startRowIndex:0,endRowIndex:2000,startColumnIndex:0,endColumnIndex:10} } } },
+    { updateDimensionProperties:{ range:{sheetId,dimension:'COLUMNS',startIndex:14,endIndex:20}, properties:{hiddenByUser:true}, fields:'hiddenByUser' } },
+  ];
+  for (let i=0;i<widths.length;i++) requests.push({
+    updateDimensionProperties:{ range:{sheetId,dimension:'COLUMNS',startIndex:i,endIndex:i+1}, properties:{pixelSize:widths[i]}, fields:'pixelSize' }
+  });
+  for (let i=0;i<4;i++) requests.push({
+    repeatCell:{ range:{sheetId,startRowIndex:i+1,endRowIndex:i+2,startColumnIndex:10,endColumnIndex:11}, cell:{userEnteredFormat:{backgroundColor:opColors[i],textFormat:{foregroundColor:white,bold:true},horizontalAlignment:'CENTER'}}, fields:'userEnteredFormat(backgroundColor,textFormat,horizontalAlignment)' }
+  });
+  const operatorRules = [
+    ['Orange','#FF8A1F'],['SFR','#38BDF8'],['Bouygues Telecom','#22C55E'],['Free','#EF4444']
+  ];
+  for (const [name,color] of operatorRules) requests.push({
+    addConditionalFormatRule:{ index:0, rule:{ ranges:[{sheetId,startRowIndex:1,endRowIndex:2000,startColumnIndex:5,endColumnIndex:6}], booleanRule:{ condition:{type:'TEXT_EQ',values:[{userEnteredValue:name}]}, format:{backgroundColor:rgb(color),textFormat:{foregroundColor:white,bold:true}} } } }
+  });
+  await googleJson(`${SHEETS_BASE}/${spreadsheetId}:batchUpdate`, accessToken, {
+    method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({requests}),
+  });
+}
+async function ensureJournalHeader(connection: any, accessToken: string) {
+  await updateValues(connection.spreadsheet_id, accessToken, `${q(JOURNAL)}!A1:P1`, [[
+    'Event ID','Action','Horodatage','Date','Référence','Adresse','Typologie','Résultat','Opérateur','Mode','Montant','Commentaire','Complément','Montant complément','État','ID FIBRE OPS'
+  ]]);
+}
 async function ensureSheet(admin: any, connection: any, accessToken: string, title: string, hidden = false) {
   const known = connection.known_sheets && typeof connection.known_sheets === 'object' ? { ...connection.known_sheets } : {};
-  if (known[title] != null) return known;
-  const result = await googleJson(`${SHEETS_BASE}/${connection.spreadsheet_id}:batchUpdate`, accessToken, {
-    method:'POST', headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({requests:[{addSheet:{properties:{title,hidden,gridProperties:{frozenRowCount:1}}}}]}),
-  });
-  const props = result?.replies?.[0]?.addSheet?.properties;
-  if (props?.sheetId != null) known[title] = props.sheetId;
-  await admin.from('google_backup_connections').update({ known_sheets:known, updated_at:new Date().toISOString() }).eq('user_id', connection.user_id);
-  connection.known_sheets = known;
+  let changed = false;
+  if (known[title] == null) {
+    const result = await googleJson(`${SHEETS_BASE}/${connection.spreadsheet_id}:batchUpdate`, accessToken, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({requests:[{addSheet:{properties:{title,hidden,gridProperties:{frozenRowCount:1}}}}]}),
+    });
+    const props = result?.replies?.[0]?.addSheet?.properties;
+    if (props?.sheetId != null) { known[title] = props.sheetId; changed = true; }
+  }
+  const sheetId = Number(known[title]);
   if (title === JOURNAL) {
-    await updateValues(connection.spreadsheet_id, accessToken, `${q(JOURNAL)}!A1:P1`, [[
-      'Event ID','Action','Horodatage','Date','Référence','Adresse','Typologie','Résultat','Opérateur','Mode','Montant','Commentaire','Complément','Montant complément','État','ID FIBRE OPS'
-    ]]);
-  } else {
-    await updateValues(connection.spreadsheet_id, accessToken, `${q(title)}!A1:N1`, [[
-      'Date','Référence','Adresse','Typologie','Résultat','Opérateur','Mode','Montant','Commentaire','Complément','Montant complément','Dernière synchro','État','ID FIBRE OPS'
-    ]]);
+    if (!known[styleKey(title)]) {
+      await ensureJournalHeader(connection,accessToken);
+      known[styleKey(title)] = TEMPLATE_VERSION; changed = true;
+    }
+  } else if (!known[styleKey(title)]) {
+    await initializeMonthlyTemplate(connection,accessToken,title,sheetId);
+    known[styleKey(title)] = TEMPLATE_VERSION; changed = true;
+  }
+  if (changed) {
+    await admin.from('google_backup_connections').update({ known_sheets:known, updated_at:new Date().toISOString() }).eq('user_id', connection.user_id);
+    connection.known_sheets = known;
   }
   return known;
 }
@@ -141,9 +243,29 @@ async function journalContains(connection: any, accessToken: string, jobId: stri
   return values.some(row => String(row?.[0] || '') === jobId);
 }
 async function findMonthlyRow(connection: any, accessToken: string, month: string, interventionId: string) {
-  const values = await getValues(connection.spreadsheet_id, accessToken, `${q(month)}!N2:N`);
+  const values = await getValues(connection.spreadsheet_id, accessToken, `${q(month)}!S2:S`);
   const idx = values.findIndex(row => String(row?.[0] || '') === interventionId);
   return idx < 0 ? null : idx + 2;
+}
+function appendRowNumber(response: any) {
+  const updatedRange = String(response?.updates?.updatedRange || '');
+  const match = updatedRange.match(/!A(\d+):/i);
+  return match ? Number(match[1]) : null;
+}
+async function upsertMonthlyRow(connection: any, accessToken: string, month: string, snapshot: any, state: string, interventionId: string) {
+  let rowNumber = await findMonthlyRow(connection,accessToken,month,interventionId);
+  if (rowNumber) {
+    await Promise.all([
+      updateValues(connection.spreadsheet_id,accessToken,`${q(month)}!A${rowNumber}:J${rowNumber}`,[visibleMonthlyRow(snapshot)],'USER_ENTERED'),
+      updateValues(connection.spreadsheet_id,accessToken,`${q(month)}!O${rowNumber}:S${rowNumber}`,[technicalMonthlyRow(snapshot,state)]),
+    ]);
+    return rowNumber;
+  }
+  const appended = await appendValues(connection.spreadsheet_id,accessToken,`${q(month)}!A:J`,[visibleMonthlyRow(snapshot)],'USER_ENTERED');
+  rowNumber = appendRowNumber(appended);
+  if (!rowNumber) throw new Error('SHEETS_ROW_NUMBER_MISSING');
+  await updateValues(connection.spreadsheet_id,accessToken,`${q(month)}!O${rowNumber}:S${rowNumber}`,[technicalMonthlyRow(snapshot,state)]);
+  return rowNumber;
 }
 async function markDone(admin: any, job: any) {
   const now = new Date().toISOString();
@@ -217,11 +339,8 @@ Deno.serve(async (req: Request) => {
       }
 
       const interventionId = compactText(job.intervention_id || job.snapshot?.id,80);
-      const rowNumber = await findMonthlyRow(connection,accessToken,month,interventionId);
       const state = job.action === 'delete' ? 'Supprimée dans FIBRE OPS' : 'Active';
-      const row = monthlyRow(job.snapshot,state);
-      if (rowNumber) await updateValues(connection.spreadsheet_id,accessToken,`${q(month)}!A${rowNumber}:N${rowNumber}`,[row]);
-      else await appendValues(connection.spreadsheet_id,accessToken,`${q(month)}!A:N`,[row]);
+      await upsertMonthlyRow(connection,accessToken,month,job.snapshot,state,interventionId);
 
       await markDone(admin,job); success++;
     } catch (error) {

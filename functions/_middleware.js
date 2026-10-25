@@ -14,6 +14,7 @@ export async function onRequest(context) {
       if (!legal) {
         element.append('<link rel="stylesheet" href="/fibre-compliance.css?v=1">', { html: true });
         element.append('<link rel="stylesheet" href="/google-backup.css?v=1">', { html: true });
+        element.append('<link rel="stylesheet" href="/mobile-overrides.css?v=1">', { html: true });
       }
     } })
     .on('body', { element(element) {

@@ -41,6 +41,9 @@
 /google-backup.css
   Cache-Control: no-cache
 
+/mobile-overrides.css
+  Cache-Control: no-cache
+
 /legal/*
   Cache-Control: no-cache
 

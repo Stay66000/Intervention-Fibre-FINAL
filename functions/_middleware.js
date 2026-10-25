@@ -19,7 +19,7 @@ export async function onRequest(context) {
     .on('body', { element(element) {
       if (!legal) {
         element.append('<script nonce="'+nonce+'" src="/fibre-compliance.js?v=1"></script>', { html: true });
-        element.append('<script nonce="'+nonce+'" src="/supabase-compat.js?v=1"></script>', { html: true });
+        element.append('<script nonce="'+nonce+'" src="/supabase-compat.js?v=2"></script>', { html: true });
         element.append('<script nonce="'+nonce+'" src="/google-backup.js?v=1"></script>', { html: true });
       }
     } })

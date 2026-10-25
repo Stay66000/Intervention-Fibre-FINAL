@@ -11,10 +11,16 @@ export async function onRequest(context) {
   return new HTMLRewriter()
     .on('script', { element(element) { element.setAttribute('nonce', nonce); } })
     .on('head', { element(element) {
-      if (!legal) element.append('<link rel="stylesheet" href="/fibre-compliance.css?v=1">', { html: true });
+      if (!legal) {
+        element.append('<link rel="stylesheet" href="/fibre-compliance.css?v=1">', { html: true });
+        element.append('<link rel="stylesheet" href="/google-backup.css?v=1">', { html: true });
+      }
     } })
     .on('body', { element(element) {
-      if (!legal) element.append('<script nonce="'+nonce+'" src="/fibre-compliance.js?v=1"></script>', { html: true });
+      if (!legal) {
+        element.append('<script nonce="'+nonce+'" src="/fibre-compliance.js?v=1"></script>', { html: true });
+        element.append('<script nonce="'+nonce+'" src="/google-backup.js?v=1"></script>', { html: true });
+      }
     } })
     .transform(response);
 }

@@ -32,6 +32,12 @@
 /fibre-compliance.css
   Cache-Control: no-cache
 
+/google-backup.js
+  Cache-Control: no-cache
+
+/google-backup.css
+  Cache-Control: no-cache
+
 /legal/*
   Cache-Control: no-cache
 

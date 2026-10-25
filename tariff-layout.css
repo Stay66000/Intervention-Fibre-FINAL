@@ -4,6 +4,13 @@
   padding:14px;
 }
 
+/* Code couleur opérateurs officiel FIBRE OPS
+   Orange = orange · SFR = bleu ciel · Bouygues = vert · Free = rouge */
+#tariffRows .tariff-operator[data-op="orange"] .tariff-head b{color:#ff8a1f !important}
+#tariffRows .tariff-operator[data-op="sfr"] .tariff-head b{color:#38bdf8 !important}
+#tariffRows .tariff-operator[data-op="bouygues"] .tariff-head b{color:#22c55e !important}
+#tariffRows .tariff-operator[data-op="free"] .tariff-head b{color:#ef4444 !important}
+
 #tariffRows .tariff-row{
   width:100%;
   display:grid !important;

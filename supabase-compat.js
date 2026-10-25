@@ -40,7 +40,9 @@
         try{
           const provider=credentials?.provider;
           if(!provider)return {data:null,error:{message:'Provider OAuth manquant'}};
-          const redirectTo=credentials?.options?.redirectTo||location.origin+'/';
+          const requested=credentials?.options?.redirectTo||location.origin+'/';
+          const onFibrePages=location.protocol==='https:'&&(location.hostname==='intervention-fibre-final.pages.dev'||location.hostname.endsWith('.intervention-fibre-final.pages.dev'));
+          const redirectTo=onFibrePages?location.origin+'/':requested;
           const url=new URL(base+'/auth/v1/authorize');
           url.searchParams.set('provider',provider);
           url.searchParams.set('redirect_to',redirectTo);

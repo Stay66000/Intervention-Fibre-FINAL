@@ -32,6 +32,9 @@
 /fibre-compliance.css
   Cache-Control: no-cache
 
+/supabase-compat.js
+  Cache-Control: no-cache
+
 /google-backup.js
   Cache-Control: no-cache
 

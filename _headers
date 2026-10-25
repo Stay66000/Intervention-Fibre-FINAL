@@ -44,6 +44,12 @@
 /mobile-overrides.css
   Cache-Control: no-cache
 
+/settings-final.js
+  Cache-Control: no-cache
+
+/settings-final.css
+  Cache-Control: no-cache
+
 /legal/*
   Cache-Control: no-cache
 

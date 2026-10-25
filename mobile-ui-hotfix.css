@@ -1,0 +1,49 @@
+/* FIBRE OPS — correctifs UI mobile validés 2026-10-25 */
+
+/* Les préférences se gèrent désormais depuis Profil : on retire les deux raccourcis de la page Saisie. */
+#view-saisie .experience-subnav,
+#entryUseDefaults,
+#entrySaveDefaults{
+  display:none !important;
+}
+
+/* Le bouton central + doit toujours rester au-dessus de la page et entièrement visible sur iPhone/Safari. */
+nav.tabbar{
+  z-index:120 !important;
+  overflow:visible !important;
+}
+.tabbar button.primary{
+  position:relative;
+  z-index:4;
+  overflow:visible !important;
+}
+.tabbar button.primary .ico,
+.tabbar .ico{
+  position:relative;
+  z-index:5;
+}
+
+@media (max-width:760px){
+  main{
+    padding-bottom:calc(118px + env(safe-area-inset-bottom)) !important;
+  }
+  nav.tabbar{
+    padding-top:8px !important;
+    padding-bottom:max(7px, env(safe-area-inset-bottom)) !important;
+  }
+  .tabbar button.primary{
+    overflow:visible !important;
+  }
+  .tabbar .ico{
+    margin-top:-20px !important;
+    transform:translateY(-4px);
+  }
+}
+
+@supports (-webkit-touch-callout:none){
+  @media (max-width:760px){
+    nav.tabbar{
+      padding-bottom:max(10px, env(safe-area-inset-bottom)) !important;
+    }
+  }
+}

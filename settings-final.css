@@ -1,41 +1,71 @@
-/* FIBRE OPS — page Réglages finale */
-.fo-settings-entry-final{
-  display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:12px;align-items:center;
-  padding:14px!important;border-color:color-mix(in srgb,var(--accent) 38%,var(--line))!important;
-  background:linear-gradient(135deg,color-mix(in srgb,var(--accent-soft) 58%,var(--surface-alt)),var(--surface-alt))!important;
+/* FIBRE OPS — Profil + Réglages finalisés */
+#headerProfile{display:none!important}
+#foSettingsSupport{display:none!important}
+
+#view-profil .view-head{margin-bottom:12px}
+#view-profil .experience-account-head.fo-profile-identity{
+  display:flex;align-items:center;justify-content:space-between;gap:14px;
+  padding:15px 16px;margin:0 0 12px;border:1px solid var(--line);border-radius:var(--r-md);
+  background:var(--surface);box-shadow:var(--shadow)
 }
-.fo-settings-entry-icon{width:42px;height:42px;border-radius:13px;display:flex;align-items:center;justify-content:center;background:var(--accent-soft);font-size:20px}
-.fo-settings-entry-copy{min-width:0}.fo-settings-entry-copy h4{margin:0 0 3px}.fo-settings-entry-copy p{margin:0!important}
-.fo-settings-entry-final .btn-primary{width:auto;min-width:92px}
+#view-profil .fo-hidden-avatar,#view-profil .fo-hidden-role{display:none!important}
+#view-profil .fo-profile-identity>div{min-width:0;flex:1}
+#view-profil .fo-profile-identity #experienceName{display:block;font-size:16px;font-weight:800;line-height:1.2}
+#view-profil .fo-profile-email{margin-top:4px;color:var(--ink-muted);font-size:12.5px;overflow-wrap:anywhere}
+#view-profil .fo-profile-logout{width:auto!important;min-height:40px!important;flex:none;color:var(--danger)!important;border-color:color-mix(in srgb,var(--danger) 35%,var(--line))!important;background:color-mix(in srgb,var(--danger-bg) 72%,transparent)!important}
+#view-profil #profileSettings{display:none!important}
+#view-profil #foProfileGoal{margin-top:12px}
+
+.fo-accordion-card{padding:0!important;overflow:hidden}
+.fo-accordion-trigger{
+  width:100%;display:flex;align-items:center;justify-content:space-between;gap:14px;
+  padding:15px 16px;border:0;background:transparent;color:var(--ink);text-align:left;cursor:pointer
+}
+.fo-accordion-title{display:flex;align-items:center;gap:11px;min-width:0}
+.fo-accordion-title>span:last-child{display:block;min-width:0}
+.fo-accordion-title b{display:block;font-size:15px;line-height:1.25}
+.fo-accordion-title small{display:block;margin-top:3px;color:var(--ink-muted);font-size:12px;line-height:1.4;font-weight:500}
+.fo-accordion-icon{width:38px;height:38px;min-width:38px;border-radius:12px;display:flex;align-items:center;justify-content:center;background:var(--accent-soft);color:var(--accent-text);font-size:18px}
+.fo-accordion-chevron{font-size:20px;line-height:1;color:var(--ink-muted);transition:transform .2s ease}
+.fo-accordion-card.fo-open>.fo-accordion-trigger .fo-accordion-chevron{transform:rotate(180deg)}
+.fo-accordion-body{display:none;padding:0 16px 16px;border-top:1px solid var(--line)}
+.fo-accordion-card.fo-open>.fo-accordion-body{display:block}
+.fo-accordion-body>.experience-preferences,.fo-accordion-body>.setting-row,.fo-accordion-body>.field,.fo-accordion-body>.experience-actions,.fo-accordion-body>#backupStatusRows,.fo-accordion-body>.fo-settings-actions,.fo-accordion-body>.fo-privacy-status{margin-top:14px}
+.fo-accordion-body>.experience-actions:first-child,.fo-accordion-body>.field:first-child,.fo-accordion-body>.setting-row:first-child{margin-top:14px}
+#foProfileGoal .fo-accordion-body .setting-row{margin-top:14px}
+#foProfileGoal #goalInput{width:120px!important}
 
 #foSettingsPage .fo-settings-page-shell{max-width:920px}
-#foSettingsPage .fo-settings-section{scroll-margin-top:86px}
-#foSettingsPage .fo-settings-section-grid>.experience-card{margin:0;min-width:0}
-#foSettingsPage .fo-settings-section-grid>.experience-card:has(#defaultOperator),
-#foSettingsPage .fo-settings-section-grid>#backupStatusCard{grid-column:1/-1}
-#foSettingsPage #backupStatusCard{margin:0}
-#foSettingsPage .google-backup-panel{margin-top:10px}
-#foSettingsPage .experience-preferences{grid-template-columns:repeat(2,minmax(0,1fr))}
-#foSettingsPage .experience-actions{margin-top:10px}
-#foSettingsPage .setting-block{height:100%}
-
-/* Les catégories deviennent visuellement distinctes sans alourdir la page */
-#foSettingsAccountSection .fo-settings-section-head>span{background:color-mix(in srgb,#60a5fa 15%,var(--surface-alt))}
-#foSettingsFieldSection .fo-settings-section-head>span{background:color-mix(in srgb,var(--success) 15%,var(--surface-alt))}
-#foSettingsAppearanceSection .fo-settings-section-head>span{background:color-mix(in srgb,#a78bfa 15%,var(--surface-alt))}
-#foSettingsDataSection .fo-settings-section-head>span{background:color-mix(in srgb,#f59e0b 15%,var(--surface-alt))}
-#foSettingsAppSection .fo-settings-section-head>span{background:color-mix(in srgb,var(--accent) 15%,var(--surface-alt))}
-#foSettingsPrivacySection .fo-settings-section-head>span{background:color-mix(in srgb,#ef4444 13%,var(--surface-alt))}
+#foSettingsPage .fo-settings-page-content{padding-bottom:34px}
+#foSettingsPage .fo-final-settings{display:grid;gap:18px}
+#foSettingsPage .fo-final-section{display:grid;gap:10px;scroll-margin-top:86px}
+#foSettingsPage .fo-final-section-head{display:flex;align-items:flex-start;gap:11px;padding:0 2px}
+#foSettingsPage .fo-final-section-head>span{width:38px;height:38px;min-width:38px;border-radius:12px;display:flex;align-items:center;justify-content:center;background:var(--accent-soft);font-size:18px}
+#foSettingsPage .fo-final-section-head h2{margin:1px 0 3px;font-size:17px}
+#foSettingsPage .fo-final-section-head p{margin:0;color:var(--ink-muted);font-size:12.5px}
+#foSettingsPage .fo-final-section-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+#foSettingsPage .fo-final-section-grid>.wide,#foSettingsPage .fo-final-section-grid>.fo-accordion-card{grid-column:1/-1}
+#foSettingsPage .setting-block{margin:0;min-width:0;height:auto}
+#foSettingsPage .fo-accordion-card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-md)}
+#foSettingsPage .fo-app-settings-inner{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;padding-top:14px}
+#foSettingsPage .fo-app-settings-inner>.setting-block{background:var(--surface-alt)}
+#foSettingsPage #foFinalApplication{margin-top:2px}
+#foSettingsPage #foFinalApplication .fo-final-section-head{display:none}
+#foSettingsPage #foFinalAppearance .fo-final-section-head>span{background:color-mix(in srgb,#a78bfa 15%,var(--surface-alt))}
+#foSettingsPage #foFinalData .fo-final-section-head>span{background:color-mix(in srgb,#f59e0b 15%,var(--surface-alt))}
+#foSettingsPage #foFinalSecurity .fo-final-section-head>span{background:color-mix(in srgb,#ef4444 13%,var(--surface-alt))}
+#foSettingsPage #foFinalOrganization .fo-final-section-head>span{background:color-mix(in srgb,#60a5fa 15%,var(--surface-alt))}
 
 @media(max-width:760px){
-  .fo-settings-entry-final{grid-template-columns:auto minmax(0,1fr)}
-  .fo-settings-entry-final .btn-primary{grid-column:1/-1;width:100%}
-  #foSettingsPage .experience-preferences{grid-template-columns:1fr!important}
-  #foSettingsPage .fo-settings-section-grid>.experience-card:has(#experienceStart){grid-column:1/-1}
+  #foSettingsPage .fo-final-section-grid{grid-template-columns:1fr}
+  #foSettingsPage .fo-final-section-grid>*{grid-column:1!important}
+  #foSettingsPage .fo-app-settings-inner{grid-template-columns:1fr}
 }
-
-@media(max-width:420px){
-  .fo-settings-entry-final{grid-template-columns:1fr;text-align:left}
-  .fo-settings-entry-icon{width:38px;height:38px}
-  #foSettingsPage .fo-settings-page-sub{font-size:11px}
+@media(max-width:520px){
+  #view-profil .experience-account-head.fo-profile-identity{align-items:flex-start;padding:14px 13px}
+  #view-profil .fo-profile-logout{font-size:12px;padding:8px 10px}
+  .fo-accordion-trigger{padding:14px 13px}
+  .fo-accordion-body{padding:0 13px 14px}
+  .fo-accordion-title small{font-size:11.5px}
+  #foSettingsPage .fo-final-section-head h2{font-size:16px}
 }

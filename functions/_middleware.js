@@ -16,6 +16,7 @@ export async function onRequest(context) {
         element.append('<link rel="stylesheet" href="/google-backup.css?v=1">', { html: true });
         element.append('<link rel="stylesheet" href="/mobile-overrides.css?v=1">', { html: true });
         element.append('<link rel="stylesheet" href="/settings-final.css?v=1">', { html: true });
+        element.append('<link rel="stylesheet" href="/mobile-ui-hotfix.css?v=1">', { html: true });
       }
     } })
     .on('body', { element(element) {

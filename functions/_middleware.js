@@ -27,6 +27,7 @@ export async function onRequest(context) {
         element.append('<script nonce="'+nonce+'" src="/google-backup.js?v=1"></script>', { html: true });
         element.append('<script nonce="'+nonce+'" src="/settings-final.js?v=1"></script>', { html: true });
         element.append('<script nonce="'+nonce+'" src="/company-v2.js?v=1"></script>', { html: true });
+        element.append('<script nonce="'+nonce+'" src="/company-v2-runtime-fix.js?v=1"></script>', { html: true });
         element.append('<script nonce="'+nonce+'" src="/preview-auth-redirect.js?v=1"></script>', { html: true });
       }
     } })

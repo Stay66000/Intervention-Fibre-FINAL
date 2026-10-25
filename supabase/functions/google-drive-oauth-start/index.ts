@@ -67,6 +67,7 @@ Deno.serve(async (req: Request) => {
     state_hash: stateHash,
     user_id: identity.user.id,
     expires_at: expiresAt,
+    return_origin: origin,
   });
   if (insertError) return json({ error: 'Impossible de préparer la connexion Google' }, 500);
 

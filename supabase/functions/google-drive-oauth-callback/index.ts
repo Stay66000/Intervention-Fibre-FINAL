@@ -6,265 +6,41 @@ const TOKEN_URL = 'https://oauth2.googleapis.com/token';
 const USERINFO_URL = 'https://openidconnect.googleapis.com/v1/userinfo';
 const SHEETS_BASE = 'https://sheets.googleapis.com/v4/spreadsheets';
 const JOURNAL = '_JOURNAL_BACKUP';
-const TEMPLATE_VERSION = 2;
+const TEMPLATE_VERSION = 3;
 
-function secretKey() {
-  const modern = Deno.env.get('SUPABASE_SECRET_KEYS');
-  if (modern) {
-    try { const parsed = JSON.parse(modern); if (parsed?.default) return parsed.default as string; } catch {}
-  }
-  return Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
+function secretKey(){const modern=Deno.env.get('SUPABASE_SECRET_KEYS');if(modern){try{const parsed=JSON.parse(modern);if(parsed?.default)return parsed.default as string}catch{}}return Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')||''}
+function allowedOrigin(origin:string){try{const u=new URL(origin);return origin===PROD_ORIGIN||(u.protocol==='https:'&&!u.port&&u.hostname.endsWith('.intervention-fibre-final.pages.dev'))}catch{return false}}
+async function sha256(value:string){const digest=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(value));return Array.from(new Uint8Array(digest),b=>b.toString(16).padStart(2,'0')).join('')}
+function monthTitle(value?:string|null){const months=['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];const d=value&&/^\d{4}-\d{2}-\d{2}/.test(value)?new Date(value+'T12:00:00Z'):new Date();return `${months[d.getUTCMonth()]} ${d.getUTCFullYear()}`}
+function q(title:string){return `'${title.replace(/'/g,"''")}'`}
+function styleKey(title:string){return `__template_v${TEMPLATE_VERSION}__${title}`}
+function priorStyleKeys(known:Record<string,any>,title:string){return Object.keys(known).filter(k=>/^__template_v\d+__/.test(k)&&k.endsWith(`__${title}`))}
+function rgb(hex:string){const n=hex.replace('#','');return{red:parseInt(n.slice(0,2),16)/255,green:parseInt(n.slice(2,4),16)/255,blue:parseInt(n.slice(4,6),16)/255}}
+function archiveTitle(known:Record<string,any>,title:string){let base=`_ARCHIVE ${title}`.slice(0,95),candidate=base,n=2;while(known[candidate]!=null)candidate=`${base.slice(0,90)} ${n++}`;return candidate}
+async function googleJson(url:string,accessToken:string,init:RequestInit={}){const res=await fetch(url,{...init,headers:{...(init.headers||{}),Authorization:`Bearer ${accessToken}`}});const text=await res.text();let body:any=null;try{body=text?JSON.parse(text):null}catch{body=text}if(!res.ok)throw new Error(`GOOGLE_${res.status}:${typeof body==='string'?body.slice(0,180):body?.error?.message||'request_failed'}`);return body}
+async function updateValues(spreadsheetId:string,accessToken:string,range:string,values:any[][],valueInputOption='RAW'){return googleJson(`${SHEETS_BASE}/${spreadsheetId}/values/${encodeURIComponent(range)}?valueInputOption=${encodeURIComponent(valueInputOption)}`,accessToken,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({values})})}
+async function batchUpdateValues(spreadsheetId:string,accessToken:string,data:any[],valueInputOption='USER_ENTERED'){return googleJson(`${SHEETS_BASE}/${spreadsheetId}/values:batchUpdate`,accessToken,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({valueInputOption,data})})}
+async function initializeMonthlyTemplate(spreadsheetId:string,accessToken:string,title:string,sheetId:number){
+  const summary=[['Opérateur','Solo','Binôme','Total'],['Orange','=SUMIFS($I:$I,$F:$F,$K2,$H:$H,L$1,$E:$E,"Réussite")','=SUMIFS($I:$I,$F:$F,$K2,$H:$H,M$1,$E:$E,"Réussite")','=SUM(L2:M2)'],['SFR','=SUMIFS($I:$I,$F:$F,$K3,$H:$H,L$1,$E:$E,"Réussite")','=SUMIFS($I:$I,$F:$F,$K3,$H:$H,M$1,$E:$E,"Réussite")','=SUM(L3:M3)'],['Bouygues Telecom','=SUMIFS($I:$I,$F:$F,$K4,$H:$H,L$1,$E:$E,"Réussite")','=SUMIFS($I:$I,$F:$F,$K4,$H:$H,M$1,$E:$E,"Réussite")','=SUM(L4:M4)'],['Free','=SUMIFS($I:$I,$F:$F,$K5,$H:$H,L$1,$E:$E,"Réussite")','=SUMIFS($I:$I,$F:$F,$K5,$H:$H,M$1,$E:$E,"Réussite")','=SUM(L5:M5)'],['TOTAL GÉNÉRAL','=SUM(L2:L5)','=SUM(M2:M5)','=SUM(N2:N5)']];
+  await batchUpdateValues(spreadsheetId,accessToken,[{range:`${q(title)}!A1:J1`,values:[['Date','N° intervention','Adresse client','Typologie raccordement','Réussite / Échec','Opérateur','Total journalier (€)','Mode','Montant (€)','Commentaire']]},{range:`${q(title)}!K1:N6`,values:summary},{range:`${q(title)}!O1:T1`,values:[['Complément','Montant complément','Dernière synchro','État','ID FIBRE OPS',`FIBRE_OPS_TEMPLATE_V${TEMPLATE_VERSION}`]]}]);
+  const header=rgb('#386A9C'),white=rgb('#FFFFFF'),dark=rgb('#1F2937'),opColors=[rgb('#FF8A1F'),rgb('#38BDF8'),rgb('#22C55E'),rgb('#EF4444')],widths=[90,135,250,205,135,145,145,95,115,260,165,110,110,115];
+  const requests:any[]=[{updateSheetProperties:{properties:{sheetId,gridProperties:{frozenRowCount:1}},fields:'gridProperties.frozenRowCount'}},{clearBasicFilter:{sheetId}},{repeatCell:{range:{sheetId,startRowIndex:0,endRowIndex:1,startColumnIndex:0,endColumnIndex:10},cell:{userEnteredFormat:{backgroundColor:header,textFormat:{foregroundColor:white,bold:true},horizontalAlignment:'CENTER',verticalAlignment:'MIDDLE'}},fields:'userEnteredFormat(backgroundColor,textFormat,horizontalAlignment,verticalAlignment)'}},{repeatCell:{range:{sheetId,startRowIndex:0,endRowIndex:1,startColumnIndex:10,endColumnIndex:14},cell:{userEnteredFormat:{backgroundColor:header,textFormat:{foregroundColor:white,bold:true},horizontalAlignment:'CENTER',verticalAlignment:'MIDDLE'}},fields:'userEnteredFormat(backgroundColor,textFormat,horizontalAlignment,verticalAlignment)'}},{repeatCell:{range:{sheetId,startRowIndex:5,endRowIndex:6,startColumnIndex:10,endColumnIndex:14},cell:{userEnteredFormat:{backgroundColor:dark,textFormat:{foregroundColor:white,bold:true}}},fields:'userEnteredFormat(backgroundColor,textFormat)'}},{repeatCell:{range:{sheetId,startRowIndex:1,endRowIndex:2000,startColumnIndex:6,endColumnIndex:7},cell:{userEnteredFormat:{numberFormat:{type:'CURRENCY',pattern:'#,##0.00 "€"'}}},fields:'userEnteredFormat.numberFormat'}},{repeatCell:{range:{sheetId,startRowIndex:1,endRowIndex:2000,startColumnIndex:8,endColumnIndex:9},cell:{userEnteredFormat:{numberFormat:{type:'CURRENCY',pattern:'#,##0.00 "€"'}}},fields:'userEnteredFormat.numberFormat'}},{repeatCell:{range:{sheetId,startRowIndex:1,endRowIndex:6,startColumnIndex:11,endColumnIndex:14},cell:{userEnteredFormat:{numberFormat:{type:'CURRENCY',pattern:'#,##0.00 "€"'}}},fields:'userEnteredFormat.numberFormat'}},{repeatCell:{range:{sheetId,startRowIndex:1,endRowIndex:2000,startColumnIndex:15,endColumnIndex:16},cell:{userEnteredFormat:{numberFormat:{type:'CURRENCY',pattern:'#,##0.00 "€"'}}},fields:'userEnteredFormat.numberFormat'}},{setBasicFilter:{filter:{range:{sheetId,startRowIndex:0,endRowIndex:2000,startColumnIndex:0,endColumnIndex:10}}}},{updateDimensionProperties:{range:{sheetId,dimension:'COLUMNS',startIndex:14,endIndex:20},properties:{hiddenByUser:true},fields:'hiddenByUser'}}];
+  for(let i=0;i<widths.length;i++)requests.push({updateDimensionProperties:{range:{sheetId,dimension:'COLUMNS',startIndex:i,endIndex:i+1},properties:{pixelSize:widths[i]},fields:'pixelSize'}});
+  for(let i=0;i<4;i++)requests.push({repeatCell:{range:{sheetId,startRowIndex:i+1,endRowIndex:i+2,startColumnIndex:10,endColumnIndex:11},cell:{userEnteredFormat:{backgroundColor:opColors[i],textFormat:{foregroundColor:white,bold:true},horizontalAlignment:'CENTER'}},fields:'userEnteredFormat(backgroundColor,textFormat,horizontalAlignment)'}});
+  for(const [name,color] of [['Orange','#FF8A1F'],['SFR','#38BDF8'],['Bouygues Telecom','#22C55E'],['Free','#EF4444']])requests.push({addConditionalFormatRule:{index:0,rule:{ranges:[{sheetId,startRowIndex:1,endRowIndex:2000,startColumnIndex:5,endColumnIndex:6}],booleanRule:{condition:{type:'TEXT_EQ',values:[{userEnteredValue:name}]},format:{backgroundColor:rgb(color),textFormat:{foregroundColor:white,bold:true}}}}}});
+  await googleJson(`${SHEETS_BASE}/${spreadsheetId}:batchUpdate`,accessToken,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({requests})});
 }
-function allowedOrigin(origin: string) {
-  try {
-    const u = new URL(origin);
-    return origin === PROD_ORIGIN || (u.protocol === 'https:' && !u.port && u.hostname.endsWith('.intervention-fibre-final.pages.dev'));
-  } catch { return false; }
+async function ensureJournalHeader(spreadsheetId:string,accessToken:string){await updateValues(spreadsheetId,accessToken,`${q(JOURNAL)}!A1:P1`,[['Event ID','Action','Horodatage','Date','Référence','Adresse','Typologie','Résultat','Opérateur','Mode','Montant','Commentaire','Complément','Montant complément','État','ID FIBRE OPS']])}
+async function replaceLegacyMonthlySheet(spreadsheetId:string,accessToken:string,title:string,known:Record<string,any>){const oldSheetId=Number(known[title]),archived=archiveTitle(known,title);const result=await googleJson(`${SHEETS_BASE}/${spreadsheetId}:batchUpdate`,accessToken,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({requests:[{updateSheetProperties:{properties:{sheetId:oldSheetId,title:archived,hidden:true},fields:'title,hidden'}},{addSheet:{properties:{title,gridProperties:{frozenRowCount:1}}}}]})});const newSheetId=Number(result?.replies?.[1]?.addSheet?.properties?.sheetId);if(!newSheetId)throw new Error('SHEETS_TEMPLATE_UPGRADE_FAILED');known[archived]=oldSheetId;known[title]=newSheetId;for(const key of priorStyleKeys(known,title))delete known[key];return newSheetId}
+async function ensureCoreSheets(spreadsheetId:string,accessToken:string,currentMonth:string,previousKnown:Record<string,number>={}){
+  const meta=await googleJson(`${SHEETS_BASE}/${spreadsheetId}?fields=spreadsheetId,spreadsheetUrl,sheets.properties(sheetId,title,hidden)`,accessToken);const known:Record<string,number>={};for(const[key,value]of Object.entries(previousKnown||{}))if(key.startsWith('__template_v'))known[key]=Number(value);for(const s of meta.sheets||[])known[s.properties.title]=s.properties.sheetId;
+  if(!(JOURNAL in known)){const added=await googleJson(`${SHEETS_BASE}/${spreadsheetId}:batchUpdate`,accessToken,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({requests:[{addSheet:{properties:{title:JOURNAL,hidden:true,gridProperties:{frozenRowCount:1}}}}]})});known[JOURNAL]=Number(added?.replies?.[0]?.addSheet?.properties?.sheetId)}
+  if(!(currentMonth in known)){const added=await googleJson(`${SHEETS_BASE}/${spreadsheetId}:batchUpdate`,accessToken,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({requests:[{addSheet:{properties:{title:currentMonth,gridProperties:{frozenRowCount:1}}}}]})});known[currentMonth]=Number(added?.replies?.[0]?.addSheet?.properties?.sheetId)}
+  else if(!known[styleKey(currentMonth)])known[currentMonth]=await replaceLegacyMonthlySheet(spreadsheetId,accessToken,currentMonth,known);
+  if(!known[styleKey(currentMonth)]){await initializeMonthlyTemplate(spreadsheetId,accessToken,currentMonth,Number(known[currentMonth]));known[styleKey(currentMonth)]=TEMPLATE_VERSION}
+  if(!known[styleKey(JOURNAL)]){await ensureJournalHeader(spreadsheetId,accessToken);known[styleKey(JOURNAL)]=TEMPLATE_VERSION}
+  return{known,spreadsheetUrl:meta.spreadsheetUrl||`https://docs.google.com/spreadsheets/d/${spreadsheetId}/edit`};
 }
-async function sha256(value: string) {
-  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(value));
-  return Array.from(new Uint8Array(digest), b => b.toString(16).padStart(2, '0')).join('');
-}
-function monthTitle(value?: string | null) {
-  const months = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
-  const d = value && /^\d{4}-\d{2}-\d{2}/.test(value) ? new Date(value + 'T12:00:00Z') : new Date();
-  return `${months[d.getUTCMonth()]} ${d.getUTCFullYear()}`;
-}
-function q(title: string) { return `'${title.replace(/'/g, "''")}'`; }
-function styleKey(title: string) { return `__template_v${TEMPLATE_VERSION}__${title}`; }
-function rgb(hex: string) {
-  const n = hex.replace('#','');
-  return { red: parseInt(n.slice(0,2),16)/255, green: parseInt(n.slice(2,4),16)/255, blue: parseInt(n.slice(4,6),16)/255 };
-}
-async function googleJson(url: string, accessToken: string, init: RequestInit = {}) {
-  const res = await fetch(url, { ...init, headers: { ...(init.headers || {}), Authorization: `Bearer ${accessToken}` } });
-  const text = await res.text();
-  let body: any = null; try { body = text ? JSON.parse(text) : null; } catch { body = text; }
-  if (!res.ok) throw new Error(`GOOGLE_${res.status}:${typeof body === 'string' ? body.slice(0,180) : body?.error?.message || 'request_failed'}`);
-  return body;
-}
-async function updateValues(spreadsheetId: string, accessToken: string, range: string, values: any[][], valueInputOption = 'RAW') {
-  const url = `${SHEETS_BASE}/${spreadsheetId}/values/${encodeURIComponent(range)}?valueInputOption=${encodeURIComponent(valueInputOption)}`;
-  return googleJson(url, accessToken, {
-    method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify({values}),
-  });
-}
-async function initializeMonthlyTemplate(spreadsheetId: string, accessToken: string, title: string, sheetId: number) {
-  const summary = [
-    ['Opérateur','Solo','Binôme','Total'],
-    ['Orange','=SUMIFS($I:$I,$F:$F,$K2,$H:$H,L$1,$E:$E,"Réussite")','=SUMIFS($I:$I,$F:$F,$K2,$H:$H,M$1,$E:$E,"Réussite")','=SUM(L2:M2)'],
-    ['SFR','=SUMIFS($I:$I,$F:$F,$K3,$H:$H,L$1,$E:$E,"Réussite")','=SUMIFS($I:$I,$F:$F,$K3,$H:$H,M$1,$E:$E,"Réussite")','=SUM(L3:M3)'],
-    ['Bouygues Telecom','=SUMIFS($I:$I,$F:$F,$K4,$H:$H,L$1,$E:$E,"Réussite")','=SUMIFS($I:$I,$F:$F,$K4,$H:$H,M$1,$E:$E,"Réussite")','=SUM(L4:M4)'],
-    ['Free','=SUMIFS($I:$I,$F:$F,$K5,$H:$H,L$1,$E:$E,"Réussite")','=SUMIFS($I:$I,$F:$F,$K5,$H:$H,M$1,$E:$E,"Réussite")','=SUM(L5:M5)'],
-    ['TOTAL GÉNÉRAL','=SUM(L2:L5)','=SUM(M2:M5)','=SUM(N2:N5)'],
-  ];
-  await googleJson(`${SHEETS_BASE}/${spreadsheetId}/values:batchUpdate`, accessToken, {
-    method:'POST', headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({valueInputOption:'USER_ENTERED',data:[
-      {range:`${q(title)}!A1:J1`,values:[['Date','N° intervention','Adresse client','Typologie raccordement','Réussite / Échec','Opérateur','Total journalier (€)','Mode','Montant (€)','Commentaire']]},
-      {range:`${q(title)}!K1:N6`,values:summary},
-      {range:`${q(title)}!O1:T1`,values:[['Complément','Montant complément','Dernière synchro','État','ID FIBRE OPS',`FIBRE_OPS_TEMPLATE_V${TEMPLATE_VERSION}`]]},
-    ]}),
-  });
-
-  const header = rgb('#386A9C');
-  const white = rgb('#FFFFFF');
-  const dark = rgb('#1F2937');
-  const opColors = [rgb('#FF8A1F'), rgb('#38BDF8'), rgb('#22C55E'), rgb('#EF4444')];
-  const widths = [90,135,250,205,135,145,145,95,115,260,165,110,110,115];
-  const requests: any[] = [
-    { updateSheetProperties:{ properties:{sheetId,gridProperties:{frozenRowCount:1}}, fields:'gridProperties.frozenRowCount' } },
-    { clearBasicFilter:{ sheetId } },
-    { repeatCell:{ range:{sheetId,startRowIndex:0,endRowIndex:1,startColumnIndex:0,endColumnIndex:10}, cell:{userEnteredFormat:{backgroundColor:header,textFormat:{foregroundColor:white,bold:true},horizontalAlignment:'CENTER',verticalAlignment:'MIDDLE'}}, fields:'userEnteredFormat(backgroundColor,textFormat,horizontalAlignment,verticalAlignment)' } },
-    { repeatCell:{ range:{sheetId,startRowIndex:0,endRowIndex:1,startColumnIndex:10,endColumnIndex:14}, cell:{userEnteredFormat:{backgroundColor:header,textFormat:{foregroundColor:white,bold:true},horizontalAlignment:'CENTER',verticalAlignment:'MIDDLE'}}, fields:'userEnteredFormat(backgroundColor,textFormat,horizontalAlignment,verticalAlignment)' } },
-    { repeatCell:{ range:{sheetId,startRowIndex:5,endRowIndex:6,startColumnIndex:10,endColumnIndex:14}, cell:{userEnteredFormat:{backgroundColor:dark,textFormat:{foregroundColor:white,bold:true}}}, fields:'userEnteredFormat(backgroundColor,textFormat)' } },
-    { repeatCell:{ range:{sheetId,startRowIndex:1,endRowIndex:2000,startColumnIndex:6,endColumnIndex:7}, cell:{userEnteredFormat:{numberFormat:{type:'CURRENCY',pattern:'#,##0.00 "€"'}}}, fields:'userEnteredFormat.numberFormat' } },
-    { repeatCell:{ range:{sheetId,startRowIndex:1,endRowIndex:2000,startColumnIndex:8,endColumnIndex:9}, cell:{userEnteredFormat:{numberFormat:{type:'CURRENCY',pattern:'#,##0.00 "€"'}}}, fields:'userEnteredFormat.numberFormat' } },
-    { repeatCell:{ range:{sheetId,startRowIndex:1,endRowIndex:6,startColumnIndex:11,endColumnIndex:14}, cell:{userEnteredFormat:{numberFormat:{type:'CURRENCY',pattern:'#,##0.00 "€"'}}}, fields:'userEnteredFormat.numberFormat' } },
-    { repeatCell:{ range:{sheetId,startRowIndex:1,endRowIndex:2000,startColumnIndex:15,endColumnIndex:16}, cell:{userEnteredFormat:{numberFormat:{type:'CURRENCY',pattern:'#,##0.00 "€"'}}}, fields:'userEnteredFormat.numberFormat' } },
-    { setBasicFilter:{ filter:{ range:{sheetId,startRowIndex:0,endRowIndex:2000,startColumnIndex:0,endColumnIndex:10} } } },
-    { updateDimensionProperties:{ range:{sheetId,dimension:'COLUMNS',startIndex:14,endIndex:20}, properties:{hiddenByUser:true}, fields:'hiddenByUser' } },
-  ];
-  for (let i=0;i<widths.length;i++) requests.push({
-    updateDimensionProperties:{ range:{sheetId,dimension:'COLUMNS',startIndex:i,endIndex:i+1}, properties:{pixelSize:widths[i]}, fields:'pixelSize' }
-  });
-  for (let i=0;i<4;i++) requests.push({
-    repeatCell:{ range:{sheetId,startRowIndex:i+1,endRowIndex:i+2,startColumnIndex:10,endColumnIndex:11}, cell:{userEnteredFormat:{backgroundColor:opColors[i],textFormat:{foregroundColor:white,bold:true},horizontalAlignment:'CENTER'}}, fields:'userEnteredFormat(backgroundColor,textFormat,horizontalAlignment)' }
-  });
-  const operatorRules = [
-    ['Orange','#FF8A1F'],['SFR','#38BDF8'],['Bouygues Telecom','#22C55E'],['Free','#EF4444']
-  ];
-  for (const [name,color] of operatorRules) requests.push({
-    addConditionalFormatRule:{ index:0, rule:{ ranges:[{sheetId,startRowIndex:1,endRowIndex:2000,startColumnIndex:5,endColumnIndex:6}], booleanRule:{ condition:{type:'TEXT_EQ',values:[{userEnteredValue:name}]}, format:{backgroundColor:rgb(color),textFormat:{foregroundColor:white,bold:true}} } } }
-  });
-  await googleJson(`${SHEETS_BASE}/${spreadsheetId}:batchUpdate`, accessToken, {
-    method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({requests}),
-  });
-}
-async function ensureJournalHeader(spreadsheetId: string, accessToken: string) {
-  await updateValues(spreadsheetId, accessToken, `${q(JOURNAL)}!A1:P1`, [[
-    'Event ID','Action','Horodatage','Date','Référence','Adresse','Typologie','Résultat','Opérateur','Mode','Montant','Commentaire','Complément','Montant complément','État','ID FIBRE OPS'
-  ]]);
-}
-async function ensureCoreSheets(spreadsheetId: string, accessToken: string, currentMonth: string, previousKnown: Record<string,number> = {}) {
-  const meta = await googleJson(`${SHEETS_BASE}/${spreadsheetId}?fields=spreadsheetId,spreadsheetUrl,sheets.properties(sheetId,title,hidden)`, accessToken);
-  const known: Record<string, number> = {};
-  for (const [key,value] of Object.entries(previousKnown || {})) if (key.startsWith('__template_v')) known[key] = Number(value);
-  for (const s of meta.sheets || []) known[s.properties.title] = s.properties.sheetId;
-  const requests: any[] = [];
-  if (!(currentMonth in known)) requests.push({ addSheet: { properties: { title: currentMonth, gridProperties: { frozenRowCount: 1 } } } });
-  if (!(JOURNAL in known)) requests.push({ addSheet: { properties: { title: JOURNAL, hidden: true, gridProperties: { frozenRowCount: 1 } } } });
-  if (requests.length) {
-    const added = await googleJson(`${SHEETS_BASE}/${spreadsheetId}:batchUpdate`, accessToken, {
-      method: 'POST', headers: { 'Content-Type':'application/json' }, body: JSON.stringify({ requests }),
-    });
-    for (const reply of added?.replies || []) {
-      const props = reply?.addSheet?.properties;
-      if (props?.title && props?.sheetId != null) known[props.title] = props.sheetId;
-    }
-  }
-  if (!known[styleKey(currentMonth)]) {
-    await initializeMonthlyTemplate(spreadsheetId,accessToken,currentMonth,Number(known[currentMonth]));
-    known[styleKey(currentMonth)] = TEMPLATE_VERSION;
-  }
-  if (!known[styleKey(JOURNAL)]) {
-    await ensureJournalHeader(spreadsheetId,accessToken);
-    known[styleKey(JOURNAL)] = TEMPLATE_VERSION;
-  }
-  return { known, spreadsheetUrl: meta.spreadsheetUrl || `https://docs.google.com/spreadsheets/d/${spreadsheetId}/edit` };
-}
-async function createSpreadsheet(accessToken: string, currentMonth: string) {
-  const created = await googleJson(SHEETS_BASE, accessToken, {
-    method: 'POST', headers: { 'Content-Type':'application/json' },
-    body: JSON.stringify({
-      properties: { title: 'FIBRE OPS — Sauvegarde interventions' },
-      sheets: [
-        { properties: { title: currentMonth, gridProperties: { frozenRowCount: 1 } } },
-        { properties: { title: JOURNAL, hidden: true, gridProperties: { frozenRowCount: 1 } } },
-      ],
-    }),
-  });
-  const known: Record<string, number> = {};
-  for (const s of created.sheets || []) known[s.properties.title] = s.properties.sheetId;
-  await initializeMonthlyTemplate(created.spreadsheetId,accessToken,currentMonth,Number(known[currentMonth]));
-  known[styleKey(currentMonth)] = TEMPLATE_VERSION;
-  await ensureJournalHeader(created.spreadsheetId,accessToken);
-  known[styleKey(JOURNAL)] = TEMPLATE_VERSION;
-  return { spreadsheetId: created.spreadsheetId as string, spreadsheetUrl: created.spreadsheetUrl as string, known };
-}
-function redirect(origin: string, status: 'connected'|'error', detail = '') {
-  const safeOrigin = allowedOrigin(origin) ? origin : PROD_ORIGIN;
-  const url = new URL(safeOrigin + '/');
-  url.searchParams.set('google_backup', status);
-  if (detail) url.searchParams.set('google_backup_reason', detail.slice(0, 120));
-  return Response.redirect(url.toString(), 302);
-}
-
-Deno.serve(async (req: Request) => {
-  if (req.method !== 'GET') return new Response('Méthode non autorisée', { status: 405, headers: { 'Cache-Control':'no-store' } });
-  const incoming = new URL(req.url);
-  const code = incoming.searchParams.get('code') || '';
-  const state = incoming.searchParams.get('state') || '';
-  const oauthError = incoming.searchParams.get('error') || '';
-
-  const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
-  const adminKey = secretKey();
-  const clientId = Deno.env.get('GOOGLE_DRIVE_CLIENT_ID') || '';
-  const clientSecret = Deno.env.get('GOOGLE_DRIVE_CLIENT_SECRET') || '';
-  const redirectUri = Deno.env.get('GOOGLE_DRIVE_REDIRECT_URI') || '';
-  if (!supabaseUrl || !adminKey || !clientId || !clientSecret || !redirectUri) return redirect(PROD_ORIGIN, 'error', 'server_config');
-
-  const admin = createClient(supabaseUrl, adminKey, { auth: { persistSession: false, autoRefreshToken: false } });
-  let returnOrigin = PROD_ORIGIN;
-  try {
-    if (!state) return redirect(PROD_ORIGIN, 'error', oauthError || 'missing_state');
-    const stateHash = await sha256(state);
-    const { data: savedState, error: stateError } = await admin.from('google_backup_oauth_states')
-      .select('user_id,expires_at,return_origin').eq('state_hash', stateHash).maybeSingle();
-    if (savedState?.return_origin && allowedOrigin(savedState.return_origin)) returnOrigin = savedState.return_origin;
-    if (stateError || !savedState || new Date(savedState.expires_at).getTime() < Date.now()) return redirect(returnOrigin, 'error', 'state_expired');
-    await admin.from('google_backup_oauth_states').delete().eq('state_hash', stateHash);
-    if (oauthError) return redirect(returnOrigin, 'error', oauthError);
-    if (!code) return redirect(returnOrigin, 'error', 'missing_code');
-
-    const tokenRes = await fetch(TOKEN_URL, {
-      method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams({
-        client_id: clientId, client_secret: clientSecret, code,
-        grant_type: 'authorization_code', redirect_uri: redirectUri,
-      }),
-    });
-    const tokenBody = await tokenRes.json().catch(() => ({}));
-    if (!tokenRes.ok || !tokenBody.access_token) throw new Error('token_exchange_failed');
-
-    const accessToken = String(tokenBody.access_token);
-    const userInfo = await googleJson(USERINFO_URL, accessToken).catch(() => ({}));
-    const { data: existingToken } = await admin.from('google_backup_tokens').select('refresh_token').eq('user_id', savedState.user_id).maybeSingle();
-    const refreshToken = String(tokenBody.refresh_token || existingToken?.refresh_token || '');
-    if (!refreshToken) throw new Error('refresh_token_missing');
-
-    const currentMonth = monthTitle(new Date().toISOString().slice(0,10));
-    const { data: existing } = await admin.from('google_backup_connections').select('spreadsheet_id,known_sheets').eq('user_id', savedState.user_id).maybeSingle();
-
-    let spreadsheetId = existing?.spreadsheet_id || '';
-    let spreadsheetUrl = '';
-    let known: Record<string, number> = {};
-    if (spreadsheetId) {
-      try {
-        const ensured = await ensureCoreSheets(spreadsheetId, accessToken, currentMonth, existing?.known_sheets || {});
-        spreadsheetUrl = ensured.spreadsheetUrl; known = ensured.known;
-      } catch {
-        spreadsheetId = '';
-      }
-    }
-    if (!spreadsheetId) {
-      const created = await createSpreadsheet(accessToken, currentMonth);
-      spreadsheetId = created.spreadsheetId; spreadsheetUrl = created.spreadsheetUrl; known = created.known;
-    }
-
-    const scopes = String(tokenBody.scope || 'openid email https://www.googleapis.com/auth/drive.file').split(/\s+/).filter(Boolean);
-    const { error: tokenError } = await admin.from('google_backup_tokens').upsert({
-      user_id: savedState.user_id, refresh_token: refreshToken, granted_scopes: scopes, updated_at: new Date().toISOString(),
-    });
-    if (tokenError) throw new Error('token_store_failed');
-
-    const now = new Date().toISOString();
-    const { error: connectionError } = await admin.from('google_backup_connections').upsert({
-      user_id: savedState.user_id,
-      google_email: userInfo?.email || null,
-      spreadsheet_id: spreadsheetId,
-      spreadsheet_url: spreadsheetUrl || `https://docs.google.com/spreadsheets/d/${spreadsheetId}/edit`,
-      status: 'connected',
-      known_sheets: known,
-      connected_at: now,
-      updated_at: now,
-      last_error: null,
-      last_error_at: null,
-      disconnected_at: null,
-    });
-    if (connectionError) throw new Error('connection_store_failed');
-
-    await admin.from('google_backup_jobs').update({
-      status: 'pending', attempts: 0, next_attempt_at: now, locked_at: null, updated_at: now,
-    }).eq('user_id', savedState.user_id).in('status', ['dead']);
-
-    let from = 0;
-    const pageSize = 500;
-    while (true) {
-      const { data: rows, error: rowsError } = await admin.from('interventions').select('*')
-        .eq('user_id', savedState.user_id).order('created_at', { ascending: true }).range(from, from + pageSize - 1);
-      if (rowsError) throw new Error('backfill_read_failed');
-      if (!rows?.length) break;
-      const jobs = rows.map((row: any) => ({ user_id: savedState.user_id, intervention_id: row.id, action: 'upsert', snapshot: row }));
-      const { error: jobsError } = await admin.from('google_backup_jobs').insert(jobs);
-      if (jobsError) throw new Error('backfill_queue_failed');
-      if (rows.length < pageSize) break;
-      from += pageSize;
-    }
-
-    return redirect(returnOrigin, 'connected');
-  } catch (error) {
-    console.error('GOOGLE_BACKUP_CALLBACK', error);
-    return redirect(returnOrigin, 'error', error instanceof Error ? error.message : 'callback_failed');
-  }
-});
+async function createSpreadsheet(accessToken:string,currentMonth:string){const created=await googleJson(SHEETS_BASE,accessToken,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({properties:{title:'FIBRE OPS — Sauvegarde interventions'},sheets:[{properties:{title:currentMonth,gridProperties:{frozenRowCount:1}}},{properties:{title:JOURNAL,hidden:true,gridProperties:{frozenRowCount:1}}}]})});const known:Record<string,number>={};for(const s of created.sheets||[])known[s.properties.title]=s.properties.sheetId;await initializeMonthlyTemplate(created.spreadsheetId,accessToken,currentMonth,Number(known[currentMonth]));known[styleKey(currentMonth)]=TEMPLATE_VERSION;await ensureJournalHeader(created.spreadsheetId,accessToken);known[styleKey(JOURNAL)]=TEMPLATE_VERSION;return{spreadsheetId:created.spreadsheetId as string,spreadsheetUrl:created.spreadsheetUrl as string,known}}
+function redirect(origin:string,status:'connected'|'error',detail=''){const safeOrigin=allowedOrigin(origin)?origin:PROD_ORIGIN;const url=new URL(safeOrigin+'/');url.searchParams.set('google_backup',status);if(detail)url.searchParams.set('google_backup_reason',detail.slice(0,120));return Response.redirect(url.toString(),302)}
+Deno.serve(async(req:Request)=>{if(req.method!=='GET')return new Response('Méthode non autorisée',{status:405,headers:{'Cache-Control':'no-store'}});const incoming=new URL(req.url),code=incoming.searchParams.get('code')||'',state=incoming.searchParams.get('state')||'',oauthError=incoming.searchParams.get('error')||'';const supabaseUrl=Deno.env.get('SUPABASE_URL')||'',adminKey=secretKey(),clientId=Deno.env.get('GOOGLE_DRIVE_CLIENT_ID')||'',clientSecret=Deno.env.get('GOOGLE_DRIVE_CLIENT_SECRET')||'',redirectUri=Deno.env.get('GOOGLE_DRIVE_REDIRECT_URI')||'';if(!supabaseUrl||!adminKey||!clientId||!clientSecret||!redirectUri)return redirect(PROD_ORIGIN,'error','server_config');const admin=createClient(supabaseUrl,adminKey,{auth:{persistSession:false,autoRefreshToken:false}});let returnOrigin=PROD_ORIGIN;try{if(!state)return redirect(PROD_ORIGIN,'error',oauthError||'missing_state');const stateHash=await sha256(state);const{data:savedState,error:stateError}=await admin.from('google_backup_oauth_states').select('user_id,expires_at,return_origin').eq('state_hash',stateHash).maybeSingle();if(savedState?.return_origin&&allowedOrigin(savedState.return_origin))returnOrigin=savedState.return_origin;if(stateError||!savedState||new Date(savedState.expires_at).getTime()<Date.now())return redirect(returnOrigin,'error','state_expired');await admin.from('google_backup_oauth_states').delete().eq('state_hash',stateHash);if(oauthError)return redirect(returnOrigin,'error',oauthError);if(!code)return redirect(returnOrigin,'error','missing_code');const tokenRes=await fetch(TOKEN_URL,{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({client_id:clientId,client_secret:clientSecret,code,grant_type:'authorization_code',redirect_uri:redirectUri})});const tokenBody=await tokenRes.json().catch(()=>({}));if(!tokenRes.ok||!tokenBody.access_token)throw new Error('token_exchange_failed');const accessToken=String(tokenBody.access_token),userInfo=await googleJson(USERINFO_URL,accessToken).catch(()=>({}));const{data:existingToken}=await admin.from('google_backup_tokens').select('refresh_token').eq('user_id',savedState.user_id).maybeSingle();const refreshToken=String(tokenBody.refresh_token||existingToken?.refresh_token||'');if(!refreshToken)throw new Error('refresh_token_missing');const currentMonth=monthTitle(new Date().toISOString().slice(0,10));const{data:existing}=await admin.from('google_backup_connections').select('spreadsheet_id,known_sheets').eq('user_id',savedState.user_id).maybeSingle();let spreadsheetId=existing?.spreadsheet_id||'',spreadsheetUrl='';let known:Record<string,number>={};if(spreadsheetId){try{const ensured=await ensureCoreSheets(spreadsheetId,accessToken,currentMonth,existing?.known_sheets||{});spreadsheetUrl=ensured.spreadsheetUrl;known=ensured.known}catch{spreadsheetId=''}}if(!spreadsheetId){const created=await createSpreadsheet(accessToken,currentMonth);spreadsheetId=created.spreadsheetId;spreadsheetUrl=created.spreadsheetUrl;known=created.known}const scopes=String(tokenBody.scope||'openid email https://www.googleapis.com/auth/drive.file').split(/\s+/).filter(Boolean);const{error:tokenError}=await admin.from('google_backup_tokens').upsert({user_id:savedState.user_id,refresh_token:refreshToken,granted_scopes:scopes,updated_at:new Date().toISOString()});if(tokenError)throw new Error('token_store_failed');const now=new Date().toISOString();const{error:connectionError}=await admin.from('google_backup_connections').upsert({user_id:savedState.user_id,google_email:userInfo?.email||null,spreadsheet_id:spreadsheetId,spreadsheet_url:spreadsheetUrl||`https://docs.google.com/spreadsheets/d/${spreadsheetId}/edit`,status:'connected',known_sheets:known,connected_at:now,updated_at:now,last_error:null,last_error_at:null,disconnected_at:null});if(connectionError)throw new Error('connection_store_failed');await admin.from('google_backup_jobs').update({status:'pending',attempts:0,next_attempt_at:now,locked_at:null,updated_at:now}).eq('user_id',savedState.user_id).in('status',['dead']);let from=0;const pageSize=500;while(true){const{data:rows,error:rowsError}=await admin.from('interventions').select('*').eq('user_id',savedState.user_id).order('created_at',{ascending:true}).range(from,from+pageSize-1);if(rowsError)throw new Error('backfill_read_failed');if(!rows?.length)break;const jobs=rows.map((row:any)=>({user_id:savedState.user_id,intervention_id:row.id,action:'upsert',snapshot:row}));const{error:jobsError}=await admin.from('google_backup_jobs').insert(jobs);if(jobsError)throw new Error('backfill_queue_failed');if(rows.length<pageSize)break;from+=pageSize}return redirect(returnOrigin,'connected')}catch(error){console.error('GOOGLE_BACKUP_CALLBACK',error);return redirect(returnOrigin,'error',error instanceof Error?error.message:'callback_failed')}});

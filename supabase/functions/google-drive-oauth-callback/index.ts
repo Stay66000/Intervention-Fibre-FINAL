@@ -14,6 +14,12 @@ function secretKey() {
   }
   return Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
 }
+function allowedOrigin(origin: string) {
+  try {
+    const u = new URL(origin);
+    return origin === PROD_ORIGIN || (u.protocol === 'https:' && !u.port && u.hostname.endsWith('.intervention-fibre-final.pages.dev'));
+  } catch { return false; }
+}
 async function sha256(value: string) {
   const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(value));
   return Array.from(new Uint8Array(digest), b => b.toString(16).padStart(2, '0')).join('');
@@ -76,8 +82,9 @@ async function createSpreadsheet(accessToken: string, currentMonth: string) {
   await writeHeaders(created.spreadsheetId, accessToken, currentMonth);
   return { spreadsheetId: created.spreadsheetId as string, spreadsheetUrl: created.spreadsheetUrl as string, known };
 }
-function redirect(status: 'connected'|'error', detail = '') {
-  const url = new URL(PROD_ORIGIN + '/');
+function redirect(origin: string, status: 'connected'|'error', detail = '') {
+  const safeOrigin = allowedOrigin(origin) ? origin : PROD_ORIGIN;
+  const url = new URL(safeOrigin + '/');
   url.searchParams.set('google_backup', status);
   if (detail) url.searchParams.set('google_backup_reason', detail.slice(0, 120));
   return Response.redirect(url.toString(), 302);
@@ -86,25 +93,29 @@ function redirect(status: 'connected'|'error', detail = '') {
 Deno.serve(async (req: Request) => {
   if (req.method !== 'GET') return new Response('Méthode non autorisée', { status: 405, headers: { 'Cache-Control':'no-store' } });
   const incoming = new URL(req.url);
-  if (incoming.searchParams.get('error')) return redirect('error', incoming.searchParams.get('error') || 'authorization_denied');
   const code = incoming.searchParams.get('code') || '';
   const state = incoming.searchParams.get('state') || '';
-  if (!code || !state) return redirect('error', 'missing_code_or_state');
+  const oauthError = incoming.searchParams.get('error') || '';
 
   const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
   const adminKey = secretKey();
   const clientId = Deno.env.get('GOOGLE_DRIVE_CLIENT_ID') || '';
   const clientSecret = Deno.env.get('GOOGLE_DRIVE_CLIENT_SECRET') || '';
   const redirectUri = Deno.env.get('GOOGLE_DRIVE_REDIRECT_URI') || '';
-  if (!supabaseUrl || !adminKey || !clientId || !clientSecret || !redirectUri) return redirect('error', 'server_config');
+  if (!supabaseUrl || !adminKey || !clientId || !clientSecret || !redirectUri) return redirect(PROD_ORIGIN, 'error', 'server_config');
 
   const admin = createClient(supabaseUrl, adminKey, { auth: { persistSession: false, autoRefreshToken: false } });
+  let returnOrigin = PROD_ORIGIN;
   try {
+    if (!state) return redirect(PROD_ORIGIN, 'error', oauthError || 'missing_state');
     const stateHash = await sha256(state);
     const { data: savedState, error: stateError } = await admin.from('google_backup_oauth_states')
-      .select('user_id,expires_at').eq('state_hash', stateHash).maybeSingle();
-    if (stateError || !savedState || new Date(savedState.expires_at).getTime() < Date.now()) return redirect('error', 'state_expired');
+      .select('user_id,expires_at,return_origin').eq('state_hash', stateHash).maybeSingle();
+    if (savedState?.return_origin && allowedOrigin(savedState.return_origin)) returnOrigin = savedState.return_origin;
+    if (stateError || !savedState || new Date(savedState.expires_at).getTime() < Date.now()) return redirect(returnOrigin, 'error', 'state_expired');
     await admin.from('google_backup_oauth_states').delete().eq('state_hash', stateHash);
+    if (oauthError) return redirect(returnOrigin, 'error', oauthError);
+    if (!code) return redirect(returnOrigin, 'error', 'missing_code');
 
     const tokenRes = await fetch(TOKEN_URL, {
       method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -181,9 +192,9 @@ Deno.serve(async (req: Request) => {
       from += pageSize;
     }
 
-    return redirect('connected');
+    return redirect(returnOrigin, 'connected');
   } catch (error) {
     console.error('GOOGLE_BACKUP_CALLBACK', error);
-    return redirect('error', error instanceof Error ? error.message : 'callback_failed');
+    return redirect(returnOrigin, 'error', error instanceof Error ? error.message : 'callback_failed');
   }
 });

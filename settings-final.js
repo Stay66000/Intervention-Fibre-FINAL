@@ -59,22 +59,24 @@
     const entry=$('foAdvancedSettingsEntry');
     if(!entry)return;
     entry.classList.add('fo-settings-entry-final');
-    entry.innerHTML='<div class="fo-settings-entry-icon">⚙️</div><div class="fo-settings-entry-copy"><h4>Réglages</h4><p>Compte, préférences terrain, apparence, sauvegardes et sécurité.</p></div><button class="btn-primary" id="foOpenSettingsFinal" type="button">Ouvrir</button>';
-    entry.querySelector('#foOpenSettingsFinal')?.addEventListener('click',openSettings);
+    if(!$('foOpenSettingsFinal')){
+      entry.innerHTML='<div class="fo-settings-entry-icon">⚙️</div><div class="fo-settings-entry-copy"><h4>Réglages</h4><p>Compte, préférences terrain, apparence, sauvegardes et sécurité.</p></div><button class="btn-primary" id="foOpenSettingsFinal" type="button">Ouvrir</button>';
+      entry.querySelector('#foOpenSettingsFinal')?.addEventListener('click',openSettings);
+    }
   }
 
   function pageTitle(){
     const title=document.querySelector('#foSettingsPage .fo-settings-page-title');
     const sub=document.querySelector('#foSettingsPage .fo-settings-page-sub');
-    if(title)title.textContent='Réglages';
-    if(sub)sub.textContent='Compte, terrain, apparence, sauvegardes et sécurité';
-    const back=$('foSettingsBack');if(back)back.textContent='← Profil';
+    if(title&&title.textContent!=='Réglages')title.textContent='Réglages';
+    const wanted='Compte, terrain, apparence, sauvegardes et sécurité';
+    if(sub&&sub.textContent!==wanted)sub.textContent=wanted;
+    const back=$('foSettingsBack');if(back&&back.textContent!=='← Profil')back.textContent='← Profil';
   }
 
   function reorderSections(){
     const content=document.querySelector('#foSettingsPage .fo-settings-page-content');
     if(!content)return;
-    const order=['foSettingsAccountSection','foSettingsFieldSection','foSettingsAppearanceSection','foSettingsDataSection','foSettingsAppSection','foSettingsPrivacySection','foSettingsAdminSection'];
     const account=$('foSettingsAccount')?.closest('.fo-settings-section');
     const data=$('foSettingsData')?.closest('.fo-settings-section');
     const app=$('foSettingsApp')?.closest('.fo-settings-section');
@@ -83,7 +85,8 @@
     if(data&&!data.id)data.id='foSettingsDataSection';
     if(app&&!app.id)app.id='foSettingsAppSection';
     if(privacy&&!privacy.id)privacy.id='foSettingsPrivacySection';
-    order.forEach(id=>{const section=$(id);if(section)content.appendChild(section)});
+    const order=['foSettingsAccountSection','foSettingsFieldSection','foSettingsAppearanceSection','foSettingsDataSection','foSettingsAppSection','foSettingsPrivacySection','foSettingsAdminSection'];
+    order.forEach(id=>{const section=$(id);if(section&&section.parentElement===content)content.appendChild(section)});
   }
 
   function openSettings(){

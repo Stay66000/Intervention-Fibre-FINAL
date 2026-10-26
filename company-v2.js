@@ -98,7 +98,7 @@
   function mountBackupPrivacy(){const card=byId('backupStatusCard');if(!card||byId('companyV2PriceShield'))return;const s=currentWorkStatus();if(!s?.hide_prices)return;const note=document.createElement('div');note.id='companyV2PriceShield';note.className='company-v2-price-shield';note.innerHTML='<b>🔒 Sauvegarde sans prix</b> · ta société masque tes tarifs. Ton Google Sheets personnel conserve les informations terrain et le statut Réussite / Échec, mais aucun montant.';card.querySelector('h3')?.insertAdjacentElement('afterend',note)}
 
   function patchCompanyEdit(){
-    const btn=byId('m-save-btn');if(!btn||btn.dataset.companyV2Patched)return;btn.dataset.companyV2Patched='1';const legacy=btn.onclick;
+    const btn=byId('m-save-btn');if(!btn||btn.dataset.companyV2Patched||btn.dataset.companyV2SafeEdit==='1')return;btn.dataset.companyV2Patched='1';const legacy=btn.onclick;
     btn.onclick=async function(event){
       let companyTech=false;try{companyTech=typeof isCompanyTechnician==='function'&&isCompanyTechnician()}catch{}
       if(!companyTech)return legacy?.call(this,event);

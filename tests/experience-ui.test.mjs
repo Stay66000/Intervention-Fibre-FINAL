@@ -27,6 +27,24 @@ async function fixture({hidden=false}={}){
   const click=id=>w.document.getElementById(id).click();
   return {dom,w,run,click,close:()=>dom.window.close()};
 }
+test('company refresh preserves the safe technician editor and V2 date parameter',async()=>{
+ const f=await fixture({hidden:true});try{
+  f.run(`globalThis.rpcCalls=[];supabase.rpc=async(name,args)=>{rpcCalls.push({name,args});return {data:[],error:null}};
+    loadAll=async()=>{};renderAll=()=>{};editId='row-a';
+    document.getElementById('f-date').value='2026-10-26';
+    document.getElementById('m-date').value='2026-10-26';
+    document.getElementById('m-num').value='edited';`);
+  f.run(read('company-v2.js'));f.run(read('company-v2-runtime-fix.js'));
+  f.w.document.dispatchEvent(new f.w.Event('DOMContentLoaded'));
+  const safe=f.w.document.getElementById('m-save-btn').onclick;
+  f.run('FibreCompanyV2.refresh()');
+  assert.equal(f.w.document.getElementById('m-save-btn').onclick,safe);
+  await safe.call(f.w.document.getElementById('m-save-btn'),new f.w.Event('click'));
+  const call=f.w.rpcCalls.find(c=>c.name==='company_v2_update_my_intervention');
+  assert.ok(call);assert.equal(call.args.p_intervention_date,'2026-10-26');
+  assert.equal(call.args.p_date,undefined);assert.equal(call.args.p_reference,'edited');
+ }finally{f.close()}
+});
 test('five destinations route correctly and old settings remain functional',async()=>{
  const f=await fixture();try{
   assert.equal(f.w.document.querySelector('.view.active').id,'view-saisie');

@@ -3346,8 +3346,25 @@ async function enterApp(){
   window.FibreExperience?.ready();
   updateStatus('Synchronisé');
 }
+const sheetSupplementChecks=new Map();
+async function reconcileLegacySheetSupplements(){
+  if(!user?.id||currentCompanyId()||hasTeam()||typeof supabase?.rpc!=='function')return;
+  const account=user.id;
+  if(!sheetSupplementChecks.has(account)){
+    const check=(async()=>{
+      const {data,error}=await supabase.rpc('reconcile_my_legacy_sheet_supplements');
+      if(error)throw error;
+      if(user?.id===account&&Number(data?.corrected_count)>0)
+        toast(`${data.corrected_count} complément(s) Sheets récupéré(s) · +${money(data.added_amount)}`);
+    })();
+    sheetSupplementChecks.set(account,check);
+  }
+  try{await sheetSupplementChecks.get(account)}
+  catch(error){sheetSupplementChecks.delete(account);console.warn('[Compléments Sheets]',error?.message||error)}
+}
 async function loadAll(){
   updateStatus('Chargement…',true);
+  await reconcileLegacySheetSupplements();
 
   if(isCompanyTechnician()){
     const cid=currentCompanyId();

@@ -27,6 +27,21 @@ async function fixture({hidden=false}={}){
   const click=id=>w.document.getElementById(id).click();
   return {dom,w,run,click,close:()=>dom.window.close()};
 }
+test('legacy supplement reconciliation runs once per account and retries after failure',async()=>{
+ const f=await fixture();try{
+  f.run(`globalThis.sheetChecks=0;supabase.rpc=async()=>{sheetChecks++;return {data:{corrected_count:1,added_amount:37.6},error:null}}`);
+  await f.run('Promise.all([reconcileLegacySheetSupplements(),reconcileLegacySheetSupplements()])');
+  await f.run('reconcileLegacySheetSupplements()');
+  assert.equal(f.w.sheetChecks,1);assert.match(f.w.document.getElementById('toast').textContent,/37,60/);
+  f.run(`user={id:'account-b'};supabase.rpc=async()=>{sheetChecks++;return {data:null,error:{message:'test failure'}}}`);
+  await f.run('reconcileLegacySheetSupplements()');
+  f.run(`supabase.rpc=async()=>{sheetChecks++;return {data:{corrected_count:0,added_amount:0},error:null}}`);
+  await f.run('reconcileLegacySheetSupplements()');
+  assert.equal(f.w.sheetChecks,3);
+  f.run("companyContext={company_id:'company-a'};user={id:'account-c'}");
+  await f.run('reconcileLegacySheetSupplements()');assert.equal(f.w.sheetChecks,3);
+ }finally{f.close()}
+});
 test('company refresh preserves the safe technician editor and V2 date parameter',async()=>{
  const f=await fixture({hidden:true});try{
   f.run(`globalThis.rpcCalls=[];supabase.rpc=async(name,args)=>{rpcCalls.push({name,args});return {data:[],error:null}};

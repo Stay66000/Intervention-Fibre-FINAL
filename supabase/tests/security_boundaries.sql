@@ -35,7 +35,19 @@ set local role authenticated;
 insert into public.interventions(id,user_id,company_id,operator,intervention_type_id,result,reference)
 select i.id,u.id,c.id,'orange',t.id,'Réussite','SECURITY_FIXTURE_A'
 from security_test_ids u,security_test_ids c,security_test_ids t,security_test_ids i where u.name='tech_a' and c.name='company_a' and t.name='type_a' and i.name='intervention_a';
-do $$ begin
+do $$ declare changed integer; target uuid; begin
+  select id into target from security_test_ids where name='intervention_a';
+  if exists(select 1 from public.interventions where id=target) then raise exception 'Technician direct price read accepted'; end if;
+  if exists(select 1 from public.intervention_types where company_id=(select id from security_test_ids where name='company_a')) then raise exception 'Technician direct agency catalog read accepted'; end if;
+  if exists(select 1 from public.intervention_payments where intervention_id=target) then raise exception 'Hidden technician payment read accepted'; end if;
+  if exists(select 1 from public.company_technician_tariffs where user_id=auth.uid()) then raise exception 'Hidden technician tariff read accepted'; end if;
+  update public.interventions set notes='direct bypass' where id=target;
+  get diagnostics changed=row_count;
+  if changed<>0 then raise exception 'Technician direct update bypass accepted'; end if;
+  if not public.company_v2_update_my_intervention(target,current_date,'SECURITY_FIXTURE_A','Updated terrain','Updated note','{"price":999,"terrain":"kept"}') then raise exception 'V2 terrain edit failed'; end if;
+  if not exists(select 1 from public.company_v2_get_my_interventions() where id=target and address='Updated terrain' and operator_data->>'terrain'='kept' and not operator_data ? 'price') then raise exception 'V2 terrain edit or masking failed'; end if;
+  if exists(select 1 from public.company_get_my_interventions() where id=target and operator_data ? 'price') then raise exception 'Legacy RPC leaked price'; end if;
+  if not exists(select 1 from public.company_get_my_catalog() where id=(select id from security_test_ids where name='type_a') and amount=0) then raise exception 'Masked catalogue unavailable'; end if;
   if not exists(select 1 from public.company_get_my_interventions() where reference='SECURITY_FIXTURE_A' and my_payout=0) then raise exception 'Current prices must be hidden'; end if;
   if not exists(select 1 from public.get_my_company_intervention_history() where reference='SECURITY_FIXTURE_A' and my_payout=0) then raise exception 'Historical prices must be hidden'; end if;
   if exists(select 1 from public.company_admin_get_interventions()) then raise exception 'Technician reached admin RPC'; end if;

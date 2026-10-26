@@ -1,0 +1,37 @@
+/* FIBRE OPS — Société V2 (branche de test) */
+.company-v2-mode-pending .onboard-steps,
+.company-v2-mode-pending .onboard-page{display:none!important}
+.company-v2-chooser{display:grid;gap:12px}
+.company-v2-chooser-head{margin-bottom:2px}
+.company-v2-chooser-head h2{font-family:var(--font-num);font-size:22px;margin:0 0 5px}
+.company-v2-chooser-head p{color:var(--ink-muted);font-size:13px;margin:0}
+.company-v2-choice-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.company-v2-choice{border:1px solid var(--line);border-radius:16px;background:var(--surface-alt);padding:15px;text-align:left;cursor:pointer;min-height:142px}
+.company-v2-choice:hover{border-color:color-mix(in srgb,var(--accent) 55%,var(--line));box-shadow:0 0 18px var(--glow)}
+.company-v2-choice .company-v2-icon{width:38px;height:38px;border-radius:12px;display:grid;place-items:center;background:var(--accent-soft);margin-bottom:10px;font-size:20px}
+.company-v2-choice b{display:block;font-size:14px;margin-bottom:5px}
+.company-v2-choice small{display:block;color:var(--ink-muted);line-height:1.4}
+.company-v2-back{margin-bottom:10px}
+.company-v2-form{display:grid;gap:10px}
+.company-v2-form-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.company-v2-ops{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.company-v2-op{display:flex;align-items:center;gap:8px;padding:10px 11px;border:1px solid var(--line);border-radius:12px;background:var(--surface-alt);font-weight:700}
+.company-v2-op input{width:18px;height:18px;accent-color:var(--accent)}
+.company-v2-status{font-size:12px;color:var(--ink-muted);min-height:18px}
+.company-v2-status.ok{color:var(--success)}
+.company-v2-status.bad{color:var(--danger)}
+.company-v2-invites{display:grid;gap:9px}
+.company-v2-invite{border:1px solid var(--line);border-radius:13px;background:var(--surface-alt);padding:12px}
+.company-v2-invite b{display:block;margin-bottom:3px}.company-v2-invite small{color:var(--ink-muted)}
+.company-v2-invite-actions{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+.company-v2-admin-card{border:1px solid color-mix(in srgb,var(--accent) 30%,var(--line));border-radius:18px;background:linear-gradient(145deg,color-mix(in srgb,var(--accent-soft) 40%,var(--surface)),var(--surface));padding:15px;margin-bottom:14px}
+.company-v2-admin-card h3{margin:0 0 4px}.company-v2-admin-card>p{color:var(--ink-muted);font-size:12.5px;margin:0 0 12px}
+.company-v2-tariff-list{display:grid;gap:8px}
+.company-v2-tariff-row{display:grid;grid-template-columns:minmax(0,1fr) 120px;gap:8px;align-items:center;border:1px solid var(--line);background:var(--surface-alt);border-radius:12px;padding:10px}
+.company-v2-tariff-row b{font-size:13px}.company-v2-tariff-row small{display:block;color:var(--ink-muted);font-size:10.5px;margin-top:2px}
+.company-v2-tariff-row input{width:100%;min-height:40px;border:1px solid var(--line);background:var(--surface);border-radius:10px;padding:8px 9px}
+.company-v2-price-shield{border:1px solid color-mix(in srgb,var(--success) 38%,var(--line));background:color-mix(in srgb,var(--success-bg) 65%,var(--surface));color:var(--ink);border-radius:12px;padding:10px 12px;margin:10px 0;font-size:12px;line-height:1.45}
+.company-v2-price-shield b{color:var(--success)}
+.company-v2-pill{display:inline-flex;padding:4px 8px;border-radius:999px;background:var(--accent-soft);color:var(--accent-text);font-size:10px;font-weight:800}
+@media(max-width:700px){.company-v2-choice-grid{grid-template-columns:1fr}.company-v2-choice{min-height:0}.company-v2-form-grid{grid-template-columns:1fr}.company-v2-tariff-row{grid-template-columns:minmax(0,1fr) 105px}}
+@media(max-width:420px){.company-v2-ops{grid-template-columns:1fr}.company-v2-admin-card{padding:13px}.company-v2-invite-actions{display:grid;grid-template-columns:1fr}.company-v2-invite-actions>*{width:100%}}

@@ -136,12 +136,19 @@
     try{if(location.hash!=='#reglages-avances')history.pushState({foSettings:true},'',location.pathname+location.search+'#reglages-avances')}catch{}
   }
 
+  function clearSettingsRoute(){
+    try{
+      if(location.hash==='#reglages-avances')history.replaceState(null,'',location.pathname+location.search);
+    }catch{}
+  }
+
   function closeSettingsHub(reopenQuick=false){
     const page=document.getElementById('foSettingsPage');
     page?.classList.remove('active');
     page?.setAttribute('aria-hidden','true');
     settingsHubOpen=false;
     document.body.classList.remove('fo-settings-page-open');
+    clearSettingsRoute();
     if(reopenQuick)setTimeout(()=>{if(typeof navigateView==='function')navigateView('profil');else document.getElementById('settingsOverlay')?.classList.add('active')},40);
   }
 
@@ -225,7 +232,8 @@
     addPrivacySettings();
     moveAdvancedSettings();
     bindDateProtection();
-    if(location.hash==='#reglages-avances')setTimeout(openSettingsHub,80);
+    // Settings are a temporary panel, not a persisted startup destination.
+    clearSettingsRoute();
   }
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();
 

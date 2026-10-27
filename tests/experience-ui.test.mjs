@@ -57,6 +57,35 @@ test('joining a team keeps personal history labelled correctly across cards, das
   assert.equal(f.run("interventions.find(e=>e.id==='personal').workMode"),'Personal');
  }finally{f.close()}
 });
+test('settings do not reopen from a stale URL and closing clears only their own fragment',async()=>{
+ const f=await fixture(),observers=[];
+ const NativeObserver=f.w.MutationObserver;
+ f.w.MutationObserver=class extends NativeObserver{constructor(callback){super(callback);observers.push(this)}};
+ try{
+  f.w.history.replaceState(null,'','/test?keep=1#reglages-avances');
+  f.run(read('fibre-compliance.js'));
+  if(f.w.document.readyState==='loading')f.w.document.dispatchEvent(new f.w.Event('DOMContentLoaded'));
+  await new Promise(resolve=>setTimeout(resolve,120));
+  assert.equal(f.w.location.hash,'');
+  assert.equal(f.w.location.search,'?keep=1');
+  assert.equal(f.w.document.getElementById('foSettingsPage').classList.contains('active'),false);
+  assert.equal(f.w.document.querySelector('.view.active').id,'view-saisie');
+  f.click('foOpenAdvancedSettings');
+  assert.equal(f.w.location.hash,'#reglages-avances');
+  assert.equal(f.w.document.getElementById('foSettingsPage').classList.contains('active'),true);
+  f.click('foSettingsBack');
+  await new Promise(resolve=>setTimeout(resolve,60));
+  assert.equal(f.w.location.hash,'');
+  assert.equal(f.w.location.pathname,'/test');
+  assert.equal(f.w.location.search,'?keep=1');
+  assert.equal(f.w.document.getElementById('foSettingsPage').classList.contains('active'),false);
+  assert.equal(f.w.document.querySelector('.view.active').id,'view-profil');
+  f.click('foOpenAdvancedSettings');
+  f.w.history.replaceState(null,'','/test?keep=1#other');
+  f.click('foSettingsBack');
+  assert.equal(f.w.location.hash,'#other');
+ }finally{observers.forEach(observer=>observer.disconnect());f.close()}
+});
 test('legacy supplement reconciliation runs once per account and retries after failure',async()=>{
  const f=await fixture();try{
   f.run(`globalThis.sheetChecks=0;supabase.rpc=async()=>{sheetChecks++;return {data:{corrected_count:1,added_amount:37.6},error:null}}`);

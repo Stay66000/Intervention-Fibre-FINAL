@@ -64,7 +64,7 @@
     const row=interventions.find(item=>item.id===id);if(!row)return;
     detailId=id;previousFocus=document.activeElement;
     byId('interventionSheetTitle').textContent=row.num||'Sans référence';
-    const mode=row.workMode==='Personal'?'Personnel':row.workMode==='Solo'?'Solo · '+memberName(row.soloUserId):'Binôme';
+    const mode=interventionWorkModeLabel(row);
     const field=(label,value,wide=false)=>`<div${wide?' class="wide"':''}><dt>${esc(label)}</dt><dd>${esc(value||'—')}</dd></div>`;
     byId('interventionSheetBody').innerHTML=`<div class="detail-total">${companyPricesHidden()?'Prix masqué':money(row.montant)}</div><p class="experience-muted">${row.readOnlyHistory?'Historique société conservé en lecture seule.':'Montant appliqué et identité financière conservés à l’enregistrement.'}</p><dl class="experience-detail-grid">${field('Date',fr(row.date))}${field('Résultat',row.statut)}${field('Opérateur',opLabel(row.op))}${field('Typologie',row.typo)}${field('Mode',mode)}${field('Origine',row.companyName||(row.companyId?companyContext?.company_name:'Espace personnel'))}${field('Adresse',row.addr,true)}${field('Commentaire',row.comment,true)}${row.supplementAmount&&!companyPricesHidden()?field('Complément',money(row.supplementAmount)+' · '+row.supplementComment,true):''}</dl>${row.addr?`<a class="btn-ghost" href="https://maps.google.com/?q=${encodeURIComponent(row.addr)}" target="_blank" rel="noopener noreferrer">Ouvrir l’itinéraire ↗</a>`:''}`;
     byId('interventionSheetEdit').hidden=!!row.readOnlyHistory;

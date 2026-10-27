@@ -27,6 +27,36 @@ async function fixture({hidden=false}={}){
   const click=id=>w.document.getElementById(id).click();
   return {dom,w,run,click,close:()=>dom.window.close()};
 }
+test('joining a team keeps personal history labelled correctly across cards, dashboard and editors',async()=>{
+ const f=await fixture();try{
+  f.run(`team={id:'team-a'};teamMembers=[{id:user.id,first_name:'Brendan'},{id:'account-b',first_name:'Partner'}];
+    const original=interventions[0];
+    interventions=[{...original,id:'personal',num:'PERSONAL',workMode:'Personal',montant:100},
+      {...original,id:'solo',num:'SOLO',workMode:'Solo',soloUserId:user.id,teamId:team.id,montant:60},
+      {...original,id:'pair',num:'PAIR',workMode:'Binôme',soloUserId:null,teamId:team.id,montant:160}];
+    updateIdentityUI();renderAll();navigateView('historique');`);
+  const chip=id=>f.w.document.querySelector(`#histList [data-id="${id}"] .mode-chip`);
+  assert.equal(chip('personal').textContent,'Personnel');
+  assert.equal(chip('solo').textContent,'Solo · Brendan');
+  assert.equal(chip('pair').textContent,'Binôme');
+  assert.match(f.w.document.getElementById('splitTotals').textContent,/Personnel 100,00/);
+  assert.deepEqual([...f.w.document.querySelectorAll('#dashRecent .chip')].map(e=>e.textContent).filter(t=>['Personnel','Solo · Brendan','Binôme'].includes(t)).sort(),['Binôme','Personnel','Solo · Brendan']);
+  f.run("openEdit('personal')");
+  assert.equal(f.w.document.getElementById('m-work-mode').dataset.val,'Personal');
+  assert.equal(f.w.document.getElementById('m-personal-mode').hidden,false);
+  assert.equal(f.w.document.querySelector('#m-work-mode button.selected').textContent.trim(),'👤 Personnel');
+  f.run("openEdit('pair')");assert.equal(f.w.document.getElementById('m-personal-mode').hidden,true);
+  f.run("FibreExperience.openIntervention('personal')");
+  assert.match(f.w.document.getElementById('interventionSheetBody').textContent,/Personnel/);
+  assert.equal(f.run('interventions.reduce((s,e)=>s+personalPart(e),0)'),240);
+  const filter=f.w.document.getElementById('histWork');
+  filter.value='Binôme';filter.dispatchEvent(new f.w.Event('change'));
+  assert.deepEqual([...f.w.document.querySelectorAll('#histList .rw')].map(e=>e.dataset.id),['pair']);
+  filter.value='Personal';filter.dispatchEvent(new f.w.Event('change'));
+  assert.deepEqual([...f.w.document.querySelectorAll('#histList .rw')].map(e=>e.dataset.id),['personal']);
+  assert.equal(f.run("interventions.find(e=>e.id==='personal').workMode"),'Personal');
+ }finally{f.close()}
+});
 test('legacy supplement reconciliation runs once per account and retries after failure',async()=>{
  const f=await fixture();try{
   f.run(`globalThis.sheetChecks=0;supabase.rpc=async()=>{sheetChecks++;return {data:{corrected_count:1,added_amount:37.6},error:null}}`);

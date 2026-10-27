@@ -2160,6 +2160,7 @@ body.is-offline .sync-pill{border-color:color-mix(in srgb,var(--danger) 45%,var(
 <div class="field team-only" id="m-work-mode-field">
 <label>Mode de travail :</label>
 <div class="seg" id="m-work-mode">
+<button data-val="Personal" id="m-personal-mode" type="button" hidden>👤 Personnel</button>
 <button data-val="Binôme" type="button">👥 Binôme</button>
 <button data-val="Solo" type="button">👤 Solo</button>
 </div>
@@ -2986,6 +2987,11 @@ function companyPricesHidden(){return isCompanyTechnician()&&companyEmploymentTy
 function companyEmploymentLabel(){return companyEmploymentType()==='salaried'?'Salarié':'Auto-entrepreneur'}
 function isCompanyManager(){return companyContext?.member_role==='admin'&&companyContext?.member_status==='active'}
 function memberName(id){const m=teamMembers.find(x=>x.id===id);return m?([m.first_name,m.last_name].filter(Boolean).join(' ')||m.email):'Technicien'}
+function interventionWorkModeLabel(e){
+  if(e?.workMode==='Binôme')return 'Binôme';
+  if(e?.workMode==='Solo')return 'Solo · '+memberName(e.soloUserId);
+  return 'Personnel';
+}
 function myMember(){return teamMembers.find(x=>x.id===user?.id)}
 function partnerMember(){return teamMembers.find(x=>x.id!==user?.id)}
 function personalPart(e,uid=user?.id){
@@ -3800,6 +3806,7 @@ function renderHist(){
   if(hasTeam()){
     const bin=sum(all.filter(e=>e.workMode==='Binôme')),solo=sum(all.filter(e=>e.workMode==='Solo'));
     split.push(`Binôme ${money(bin)}`,`Solo ${money(solo)}`);
+    if(all.some(e=>e.workMode==='Personal'))split.push(`Personnel ${money(sum(all.filter(e=>e.workMode==='Personal')))}`);
   }
   $('splitTotals').textContent=companyPricesHidden()?'Montants masqués par la société':split.join('  ·  ');
   const l=window.FibreExperience?window.FibreExperience.historyRows():all.slice().sort((a,b)=>b.date.localeCompare(a.date));
@@ -3808,7 +3815,7 @@ function renderHist(){
   for(const e of l){
     if(e.date!==last){last=e.date;h+=`<div class="dh"><span>${fr(e.date)}</span><b>${companyPricesHidden()?'—':money(sum(l.filter(x=>x.date===e.date)))}</b></div>`}
     const col=opColor(e.op);
-    const mode=hasTeam()?(e.workMode==='Solo'?`<span class="mode-chip solo">Solo · ${esc(memberName(e.soloUserId))}</span>`:`<span class="mode-chip binome">Binôme</span>`):'';
+    const mode=hasTeam()?`<span class="mode-chip ${e.workMode==='Binôme'?'binome':e.workMode==='Solo'?'solo':'personal'}">${esc(interventionWorkModeLabel(e))}</span>`:'';
     h+=`<div class="rw ${e.op==='orange'?'op-o':e.op==='sfr'?'op-s':''} ${e.statut==='Échec'?'hist-fail':''}" style="--row-op:${col};box-shadow:var(--shadow),0 0 15px color-mix(in srgb,${col} 16%,transparent)" data-id="${e.id}" role="button" tabindex="0" aria-label="${esc('Ouvrir intervention '+(e.num||'sans référence'))}">
       <div class="r1"><span>${e.statut==='Réussite'?'👍':'❌'} <b>${esc(e.num||'Sans réf')}</b></span><span class="tarif-val" style="color:${col}">${companyPricesHidden()?'—':money(e.montant)}</span></div>
       <div class="r2"><span class="badge-typo">${esc(e.typo)}</span><span class="badge-op" style="color:${col}">${esc(opLabel(e.op))}</span>${mode}${supplementHistoryChip(e)}${e.readOnlyHistory?`<span class="history-company-chip">🏢 ${esc(e.companyName||'Historique société')}</span>`:''}</div>
@@ -3861,7 +3868,8 @@ function openEdit(id){
   seg.dataset.val=e.op;setSeg('m-op-seg',e.op);fillTypeSelect($('m-typo'),e.op,e.typeId);
   $('m-statut-seg').dataset.val=e.statut;setSeg('m-statut-seg',e.statut);
   if(hasTeam()){
-    const mode=e.workMode==='Solo'?'Solo':'Binôme';
+    const mode=['Solo','Binôme'].includes(e.workMode)?e.workMode:'Personal';
+    $('m-personal-mode').hidden=mode!=='Personal';
     $('m-work-mode').dataset.val=mode;setSeg('m-work-mode',mode);
     $('m-solo-tech').value=e.soloUserId||user.id;
     $('m-solo-tech-field').style.display=mode==='Solo'?'block':'none';
@@ -4081,7 +4089,7 @@ function renderDashboard(){
   $('dashRate').textContent=s.pct+'%';$('dashRateBar').style.width=s.pct+'%';$('dashRateSub').textContent=`${s.ok} sur ${s.total} réussie${s.ok>1?'s':''}`;
   renderChart();
   const recent=all.slice().sort((a,b)=>(b.date+b.created_at).localeCompare(a.date+a.created_at)).slice(0,5);
-  $('dashRecent').innerHTML=recent.length?recent.map(e=>`<div class="act"><span class="act-ico${e.statut==='Échec'?' fail':''}">${e.statut==='Échec'?'✕':'✓'}</span><div class="act-main"><b>${esc(e.typo)}<i>${esc(e.num)}</i></b><div class="act-meta"><span>${e.date===today?'Aujourd’hui':fr(e.date).slice(0,5)}</span><em class="chip" style="color:${opColor(e.op)}">${esc(opLabel(e.op))}</em>${hasTeam()?`<em class="chip">${e.workMode==='Solo'?'Solo · '+esc(memberName(e.soloUserId)):'Binôme'}</em>`:''}</div></div><div class="act-amt">${hiddenPrices?'—':money(e.montant)}</div></div>`).join(''):'<div class="empty">Aucune intervention pour le moment.</div>';
+  $('dashRecent').innerHTML=recent.length?recent.map(e=>`<div class="act"><span class="act-ico${e.statut==='Échec'?' fail':''}">${e.statut==='Échec'?'✕':'✓'}</span><div class="act-main"><b>${esc(e.typo)}<i>${esc(e.num)}</i></b><div class="act-meta"><span>${e.date===today?'Aujourd’hui':fr(e.date).slice(0,5)}</span><em class="chip" style="color:${opColor(e.op)}">${esc(opLabel(e.op))}</em>${hasTeam()?`<em class="chip">${esc(interventionWorkModeLabel(e))}</em>`:''}</div></div><div class="act-amt">${hiddenPrices?'—':money(e.montant)}</div></div>`).join(''):'<div class="empty">Aucune intervention pour le moment.</div>';
   $('dashSmartNote').textContent=hiddenPrices
     ? (todayList.length?`${todayList.length} intervention${todayList.length>1?'s':''} aujourd’hui · ${okToday} réussie${okToday>1?'s':''}.`:'Aucune intervention aujourd’hui.')
     : (todayList.length?`${todayList.length} intervention${todayList.length>1?'s':''} aujourd’hui. ${todayCA>=goal?'Objectif atteint.':`Il reste ${money(Math.max(0,goal-todayCA))} pour l’objectif.`}`:`Aucune intervention aujourd’hui. Objectif : ${money(goal)}.`);

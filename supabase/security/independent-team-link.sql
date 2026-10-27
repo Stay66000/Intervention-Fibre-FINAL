@@ -107,11 +107,7 @@ begin
   -- Joining a team must never rewrite the financial identity of historical rows.
   -- Imported history is reconciled separately against the source, with explicit scope.
 
-  update public.fuel_expenses
-  set team_id=v_team,paid_by_user_id=coalesce(paid_by_user_id,user_id)
-  where user_id in (v_inv.inviter_user_id,v_me)
-    and team_id is null
-    and company_id is null;
+  -- Personal fuel history also keeps its original scope.
 
   update public.team_invites
   set status='accepted',accepted_at=now()

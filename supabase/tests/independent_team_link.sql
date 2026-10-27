@@ -2,7 +2,7 @@
 begin;
 do $$
 declare
-  a uuid; b uuid; outsider uuid; typ uuid; hist uuid; linked uuid;
+  a uuid; b uuid; outsider uuid; typ uuid; hist uuid; linked uuid; fuel_row uuid; fuel_before jsonb;
   code text; mode text; before_row jsonb; after_row jsonb;
 begin
   foreach mode in array array['inviter','invitee','custom'] loop
@@ -18,6 +18,11 @@ begin
       (gen_random_uuid(),b,'orange','Partner fixture',150,true);
     insert into public.interventions(id,user_id,operator,intervention_type_id,result,reference,work_mode,solo_user_id)
     values(hist,a,'orange',typ,'Réussite','TEAM_LINK_FIXTURE','Personal',a);
+    perform set_config('request.jwt.claim.sub',a::text,true);
+    fuel_row:=gen_random_uuid();
+    insert into public.fuel_expenses(id,user_id,expense_date,amount,paid_by_user_id)
+      values(fuel_row,a,current_date,75,a);
+    select to_jsonb(f) into fuel_before from public.fuel_expenses f where id=fuel_row;
     select to_jsonb(i) into before_row from public.interventions i where id=hist;
     perform set_config('request.jwt.claim.sub',a::text,true);
     code:=public.create_team_invite(b::text||'@team-link-test.invalid');
@@ -32,6 +37,8 @@ begin
     perform set_config('request.jwt.claim.sub',b::text,true);
     linked:=public.accept_team_invite_with_tariffs(code,mode,
       '[{"operator":"orange","name":"Historical fixture","amount":160}]');
+    if fuel_before is distinct from (select to_jsonb(f) from public.fuel_expenses f where id=fuel_row) then
+      raise exception 'TEST: private fuel history changed'; end if;
     if (select count(*) from public.team_members where team_id=linked and status='active')<>2 then
       raise exception 'TEST: pair missing';
     end if;

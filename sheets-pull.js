@@ -149,5 +149,8 @@
     ui.audit.onclick=()=>audit(true);ui.import.onclick=importMissing;return true;
   }
   function start(){if(!ensureUi()){setTimeout(start,400);return}if(!canUse()){setStatus('Connexion au compte principal…');setTimeout(start,800);return}setStatus('Prêt · FIBRE OPS est relié au classeur TEST. Compare d’abord, puis importe uniquement les lignes sûres.')}
-  start();
+  // Interface d'import TEST retirée de la version visible.
+  // Le bridge Sheets sortant reste géré séparément par sheets-bridge.js.
+  const oldBlock=document.getElementById('sheetsSandboxBlock');
+  if(oldBlock)oldBlock.remove();
 })();

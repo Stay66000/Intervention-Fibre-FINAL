@@ -1,7 +1,11 @@
-const CACHE='fibre-ops-v4-terrain-1.0';
+const CACHE='fibre-ops-roadmap-v2-1';
 const CACHE_PREFIX='fibre-ops-';
-const APP_SHELL='./index.html';
-const CORE=['./manifest.webmanifest','./icons/icon-192.png','./icons/icon-512.png'];
+const OFFLINE='./offline.html';
+const CORE=[
+  './manifest.webmanifest','./icons/icon-192.png','./icons/icon-512.png',OFFLINE,
+  './roadmap-v2.css','./offline-v2.js','./capture-v2.js','./billing-roadmap-v2.js','./finance-v2.js',
+  './company-v2.css','./company-v2.js','./company-v2-runtime-fix.js','./experience.css','./experience.js'
+];
 
 self.addEventListener('install',event=>{
   event.waitUntil((async()=>{
@@ -19,38 +23,24 @@ self.addEventListener('activate',event=>{
   })());
 });
 
-function freshRequest(req){
-  return new Request(req,{cache:'no-store'});
-}
-
+function freshRequest(req){return new Request(req,{cache:'no-store'})}
 async function cachePut(key,response){
   if(!response||!response.ok)return;
   try{
-    // CSP nonce pages and authenticated replies must never enter the offline cache.
     if((response.headers.get('cache-control')||'').includes('no-store')||response.headers.get('content-type')?.includes('text/html'))return;
-    const cache=await caches.open(CACHE);
-    await cache.put(key,response);
-  }catch(e){
-    console.warn('[FIBRE OPS SW] cache write skipped',e);
-  }
+    const cache=await caches.open(CACHE);await cache.put(key,response);
+  }catch(e){console.warn('[FIBRE OPS SW] cache write skipped',e)}
 }
 
 self.addEventListener('fetch',event=>{
-  const req=event.request;
-  if(req.method!=='GET')return;
-
+  const req=event.request;if(req.method!=='GET')return;
   const url=new URL(req.url);
   if(url.origin!==self.location.origin||url.pathname.startsWith('/api/')||url.searchParams.has('code')||url.searchParams.has('token_hash'))return;
 
   if(req.mode==='navigate'){
     event.respondWith((async()=>{
-      try{
-        const network=await fetch(freshRequest(req));
-        if(network?.ok)await cachePut(APP_SHELL,network.clone());
-        return network;
-      }catch(e){
-        return (await caches.match(APP_SHELL))||Response.error();
-      }
+      try{return await fetch(freshRequest(req))}
+      catch(e){return (await caches.match(OFFLINE))||Response.error()}
     })());
     return;
   }
@@ -60,8 +50,6 @@ self.addEventListener('fetch',event=>{
       const network=await fetch(freshRequest(req));
       if(network?.ok)await cachePut(req,network.clone());
       return network;
-    }catch(e){
-      return (await caches.match(req))||Response.error();
-    }
+    }catch(e){return (await caches.match(req))||Response.error()}
   })());
 });

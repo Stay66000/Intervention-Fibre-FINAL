@@ -1640,7 +1640,7 @@ body.is-offline .sync-pill{border-color:color-mix(in srgb,var(--danger) 45%,var(
 </div>
 <div class="field">
 <label for="f-num">N° intervention / Réf</label>
-<input autocomplete="off" id="f-num" inputmode="numeric" placeholder="Ex : 0468934875 (10 chiffres obligatoires)" type="text"/>
+<input autocomplete="off" id="f-num" inputmode="numeric" placeholder="ND / référence — chez Free : jeton" type="text"/>
 </div>
 <div class="field">
 <label for="f-typo">Typologie raccordement</label>
@@ -6207,7 +6207,7 @@ window.addEventListener('online',()=>{syncNetworkUI();updateStatus('En ligne');t
 window.addEventListener('offline',()=>{syncNetworkUI();updateStatus('Hors-ligne');toast('Connexion perdue')});
 syncNetworkUI();
 
-// OCR Orange / SFR : extraction adaptée aux écrans terrain.
+// OCR Orange / SFR / Free : extraction adaptée aux écrans terrain.
 function cleanOcrLine(v){return String(v||'')
   .replace(/[©®@●◉•◆◇►▶◀◁]+/g,' ')
   .replace(/[\[\(]\s*(?:P[I1l]T|P[Rr]{1,2}|Prr)\s*[\]\)]/gi,' ')
@@ -6215,7 +6215,7 @@ function cleanOcrLine(v){return String(v||'')
   .replace(/\s+/g,' ')
   .replace(/\s+([,.;:])/g,'$1')
   .trim()}
-function addressStopLine(v){const s=cleanOcrLine(v);return /^(?:client|nd\b|re\s*pc\b|coordonn(?:ée|e)es?|libell(?:é|e)\s+immeuble|cr(?:é|e)neau|t(?:é|e)l(?:\.|\s)|b(?:â|a)timent|parcours|d(?:é|e)tail\s+parcours|historique|intervention|description\s+de\s+l['’]intervention|avec\s+rendez|marge|bloc[- ]note)/i.test(s)}
+function addressStopLine(v){const s=cleanOcrLine(v);return /^(?:hexacl(?:é|e)|(?:é|e)tage|escalier|digicode|r(?:é|e)sidence|porte|contact|mobile|fixe|commentaire|mod(?:è|e)le|commande|jeton|client|nd\b|re\s*pc\b|coordonn(?:ée|e)es?|libell(?:é|e)\s+immeuble|cr(?:é|e)neau|t(?:é|e)l(?:\.|\s)|b(?:â|a)timent|parcours|d(?:é|e)tail\s+parcours|historique|intervention|description\s+de\s+l['’]intervention|avec\s+rendez|marge|bloc[- ]note)/i.test(s)}
 function cleanAddress(v){return cleanOcrLine(v)
   .replace(/^adresse(?:\s+(?:de\s+)?raccordement)?\s*[:\-]?\s*/i,'')
   .replace(/^[\[\(]?P[Rr]{1,2}[\]\)]?\s*/i,'')
@@ -6223,21 +6223,31 @@ function cleanAddress(v){return cleanOcrLine(v)
   .replace(/\s+/g,' ')
   .replace(/\s+,/g,',')
   .trim()}
-function takeAddress(lines,start,first=''){const parts=[];let seed=cleanAddress(first);if(seed)parts.push(seed);for(let j=start;j<Math.min(lines.length,start+4);j++){let s=cleanOcrLine(lines[j]);if(!s||addressStopLine(s))break;s=cleanAddress(s);if(!s)continue;if(/^(?:voir plus|aucune activit(?:é|e)|d(?:é|e)clarer)$/i.test(s))break;parts.push(s);if(/\b\d{5}\b/.test(s))break}let out=parts.join(', ').replace(/,\s*,+/g,', ').replace(/\s+/g,' ').trim();return out}
+function takeAddress(lines,start,first=''){const parts=[];let seed=cleanAddress(first);if(seed)parts.push(seed);if(/\b\d{5}\b/.test(seed))return seed;for(let j=start;j<Math.min(lines.length,start+4);j++){let s=cleanOcrLine(lines[j]);if(!s||addressStopLine(s))break;s=cleanAddress(s);if(!s)continue;if(/^(?:voir plus|aucune activit(?:é|e)|d(?:é|e)clarer)$/i.test(s))break;parts.push(s);if(/\b\d{5}\b/.test(s))break}let out=parts.join(', ').replace(/,\s*,+/g,', ').replace(/\s+/g,' ').trim();return out}
 function parseCap(t){
   t=String(t||'').replace(/\b[Oo](?=(?:[ .]?\d){8,10})/g,'0');
   const rawLines=t.split(/\n+/).map(x=>x.trim()).filter(Boolean);
   const lines=rawLines.map(cleanOcrLine).filter(Boolean);
   const low=t.toLowerCase();
-  let op=/osiris|si-oss\.sfr|adresse\s+raccordement|mon\s+compte\s+rendu|parcours\s+abonn/i.test(low)?'sfr':/prod[_ -]?propme|refint|description\s+de\s+l['’]intervention|avec\s+rendez/i.test(low)?'orange':'';
+  const freeScreen=/\bjeton\b/i.test(t)||/pose\s+de\s+PTO\s+ZMD/i.test(t);
+  let op=freeScreen?'free':/osiris|si-oss\.sfr|adresse\s+raccordement|mon\s+compte\s+rendu|parcours\s+abonn/i.test(low)?'sfr':/prod[_ -]?propme|refint|description\s+de\s+l['’]intervention|avec\s+rendez/i.test(low)?'orange':'';
 
   let nd='';
+  // Free : le jeton est la référence ND ; ne jamais prendre Hexaclé, PTO ou téléphone.
+  if(op==='free'){
+    for(let i=0;i<lines.length;i++){
+      const m=lines[i].match(/\bjeton\s*[:.\-]?\s*([0-9OoIl][0-9OoIl .]*)$/i);
+      const next=/^jeton\s*[:.\-]?$/i.test(lines[i])?lines[i+1]:'';
+      const value=(m?.[1]||next||'').replace(/[Oo]/g,'0').replace(/[Il]/g,'1').replace(/[ .]/g,'');
+      if(/^\d{6,12}$/.test(value)){nd=value;break}
+    }
+  }
   // Orange : priorité au champ ND.
-  for(const line of lines){const m=line.match(/\bND\s*[:.\-]?\s*(0?\d(?:[ .]?\d){8,9})\b/i);if(m){nd=m[1].replace(/\D/g,'');break}}
+  if(op!=='free')for(const line of lines){const m=line.match(/\bND\s*[:.\-]?\s*(0?\d(?:[ .]?\d){8,9})\b/i);if(m){nd=m[1].replace(/\D/g,'');break}}
   // SFR : la référence de 9 chiffres est généralement seule en haut de l'écran.
-  if(!nd){for(const line of lines){const d=line.replace(/\D/g,'');if(/^\d{9,10}$/.test(d)&&/^[^A-Za-zÀ-ÖØ-öø-ÿ]*\d[\d .-]*$/.test(line)){nd=d;break}}}
+  if(!nd&&op!=='free'){for(const line of lines){const d=line.replace(/\D/g,'');if(/^\d{9,10}$/.test(d)&&/^[^A-Za-zÀ-ÖØ-öø-ÿ]*\d[\d .-]*$/.test(line)){nd=d;break}}}
   // Secours générique.
-  if(!nd){const nums=(t.match(/\b\d[\d\s.]{7,11}\d\b/g)||[]).map(x=>x.replace(/\D/g,'')).filter(x=>x.length===9||x.length===10);nd=nums[0]||''}
+  if(!nd&&op!=='free'){const nums=(t.match(/\b\d[\d\s.]{7,11}\d\b/g)||[]).map(x=>x.replace(/\D/g,'')).filter(x=>x.length===9||x.length===10);nd=nums[0]||''}
   if(!op)op=nd.length===9?'sfr':nd.length===10?'orange':'orange';
 
   let addr='';
@@ -6246,7 +6256,7 @@ function parseCap(t){
       const m=lines[i].match(/adresse\s+(?:de\s+)?raccordement\s*[:\-]?\s*(.*)$/i);
       if(m){addr=takeAddress(lines,i+1,m[1]);break}
     }
-  }else if(op==='orange'){
+  }else if(op==='orange'||op==='free'){
     for(let i=0;i<lines.length;i++){
       // On cherche le bloc « Adresse », pas « Description de l'intervention ».
       const m=lines[i].match(/^adresse\s*[:\-]?\s*(.*)$/i);
@@ -6257,13 +6267,23 @@ function parseCap(t){
   if(!addr){
     for(let i=0;i<lines.length;i++){
       const s=cleanAddress(lines[i]);
-      if(/\b(?:rue|avenue|boulevard|chemin|impasse|place|all(?:é|e)e|route)\b/i.test(s)){addr=s;if(!/\b\d{5}\b/.test(addr)&&lines[i+1]&&/\b\d{5}\b/.test(lines[i+1]))addr+=', '+cleanAddress(lines[i+1]);break}
+      if(/\b(?:cami|rue|avenue|boulevard|chemin|impasse|place|all(?:é|e)e|route)\b/i.test(s)){addr=s;if(!/\b\d{5}\b/.test(addr)&&lines[i+1]&&/\b\d{5}\b/.test(lines[i+1]))addr+=', '+cleanAddress(lines[i+1]);break}
+    }
+  }
+  if(op==='free'){
+    // Mise en forme sûre : conserver les noms de voies, sans correction inventée.
+    addr=cleanAddress(addr).replace(/,?\s+(\d{5})\s+/,', $1 ');
+    if(addr===addr.toUpperCase()){
+      addr=addr.toLowerCase().replace(/(^|[ ,’'\-])([a-zà-öø-ÿ])/g,(_,sep,c)=>sep+c.toUpperCase())
+        .replace(/\b(Avenue|Rue|Boulevard|Chemin|Impasse|Place|Route)\b/g,w=>w.toLowerCase())
+        .replace(/\b(Del|De|Du|Des)\b/g,w=>w.toLowerCase())
+        .replace(/\bBarcares\b/g,'Barcarès');
     }
   }
   return{nd,addr:cleanAddress(addr),op}
 }
 function loadT(){if(window.Tesseract)return Promise.resolve();return new Promise((ok,ko)=>{const s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js';s.onload=ok;s.onerror=()=>ko(new Error('module de lecture indisponible'));document.head.appendChild(s)})}
-let capUrl='';$('cap-file').onchange=async function(){const f=this.files[0];this.value='';if(!f)return;$('cap-msg').textContent='⏳ Lecture de la capture…';if(capUrl)URL.revokeObjectURL(capUrl);capUrl=URL.createObjectURL(f);$('cap-img').src=capUrl;$('cap-link').style.display='inline';$('cap-link').textContent='📎 Voir la capture';try{await loadT();const r=await Tesseract.recognize(f,'fra'),text=r.data.text,p=parseCap(text);$('cap-raw').textContent=text;if(p.nd)$('f-num').value=p.nd;if(p.addr)$('f-addr').value=p.addr;if(activeOps().includes(p.op)){form.operator=p.op;populateOperatorUI();setSeg('f-op',p.op);fillTypeSelect($('f-typo'),p.op,'')}preview();saveDraft();$('cap-msg').textContent=(p.nd||p.addr)?`✓ Informations détectées (${opLabel(p.op)})`:'⚠️ Rien trouvé : saisis à la main'}catch(e){$('cap-msg').textContent='⚠️ Lecture impossible : '+e.message}};$('cap-link').onclick=()=>{const img=$('cap-img'),show=img.style.display==='none';img.style.display=show?'block':'none';$('cap-link').textContent=show?'📎 Masquer la capture':'📎 Voir la capture'};
+let capUrl='';$('cap-file').onchange=async function(){const f=this.files[0];this.value='';if(!f)return;$('cap-msg').textContent='⏳ Lecture de la capture…';if(capUrl)URL.revokeObjectURL(capUrl);capUrl=URL.createObjectURL(f);$('cap-img').src=capUrl;$('cap-link').style.display='inline';$('cap-link').textContent='📎 Voir la capture';try{await loadT();const r=await Tesseract.recognize(f,'fra'),text=r.data.text,p=parseCap(text);$('cap-raw').textContent=text;if(p.nd)$('f-num').value=p.nd;if(p.addr)$('f-addr').value=p.addr;if(activeOps().includes(p.op)){form.operator=p.op;form.typeId='';populateOperatorUI();setSeg('f-op',p.op);fillTypeSelect($('f-typo'),p.op,'')}preview();saveDraft();$('cap-msg').textContent=(p.nd||p.addr)?`✓ Informations détectées (${opLabel(p.op)})`:'⚠️ Rien trouvé : saisis à la main'}catch(e){$('cap-msg').textContent='⚠️ Lecture impossible : '+e.message}};$('cap-link').onclick=()=>{const img=$('cap-img'),show=img.style.display==='none';img.style.display=show?'block':'none';$('cap-link').textContent=show?'📎 Masquer la capture':'📎 Voir la capture'};
 
 // General events
 $('f-date').value=$('fuel-date').value=iso();document.addEventListener('keydown',e=>{if(e.key!=='Escape')return;$('detailModal').classList.remove('active');$('fuelModal').classList.remove('active');$('settingsOverlay').classList.remove('active');['billingPreviewModal','teamTariffModal'].forEach(id=>{const m=$(id);if(m){m.classList.remove('active');if(id==='teamTariffModal')m.style.display=''}});if($('billingSellerModal')?.classList.contains('active'))billingCloseSellerModal(false)});

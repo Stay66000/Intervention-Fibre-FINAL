@@ -18,6 +18,7 @@ export async function onRequest(context) {
         element.append('<link rel="stylesheet" href="/settings-final.css?v=1">', { html: true });
         element.append('<link rel="stylesheet" href="/mobile-ui-hotfix.css?v=1">', { html: true });
         element.append('<link rel="stylesheet" href="/company-v2.css?v=1">', { html: true });
+        element.append('<link rel="stylesheet" href="/roadmap-v2.css?v=2">', { html: true });
       }
     } })
     .on('body', { element(element) {
@@ -28,6 +29,10 @@ export async function onRequest(context) {
         element.append('<script nonce="'+nonce+'" src="/settings-final.js?v=1"></script>', { html: true });
         element.append('<script nonce="'+nonce+'" src="/company-v2.js?v=1"></script>', { html: true });
         element.append('<script nonce="'+nonce+'" src="/company-v2-runtime-fix.js?v=1"></script>', { html: true });
+        element.append('<script nonce="'+nonce+'" src="/capture-v2.js?v=2"></script>', { html: true });
+        element.append('<script nonce="'+nonce+'" src="/offline-v2.js?v=2"></script>', { html: true });
+        element.append('<script nonce="'+nonce+'" src="/billing-roadmap-v2.js?v=2"></script>', { html: true });
+        element.append('<script nonce="'+nonce+'" src="/finance-v2.js?v=2"></script>', { html: true });
         element.append('<script nonce="'+nonce+'" src="/preview-auth-redirect.js?v=1"></script>', { html: true });
       }
     } })

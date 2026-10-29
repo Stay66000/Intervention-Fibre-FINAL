@@ -7,9 +7,9 @@
   display:none !important;
 }
 
-/* Le bouton central + doit toujours rester au-dessus de la page et entièrement visible sur iPhone/Safari. */
+/* Navigation above page content, below settings (80) and dialogs (100). */
 nav.tabbar{
-  z-index:120 !important;
+  z-index:60 !important;
   overflow:visible !important;
 }
 .tabbar button.primary{

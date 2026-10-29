@@ -87,7 +87,7 @@
 #detailModal .seg{flex-wrap:wrap}
 #detailModal .seg button{flex:1 1 70px;font-size:12px}
 #detailModal .finance-lock-note{font-size:12px;line-height:1.4}
-.intervention-edit-actions{display:flex;gap:8px;position:sticky;bottom:-14px;background:var(--surface);padding:12px 0;margin-top:12px;border-top:1px solid var(--line);z-index:2}
+.intervention-edit-actions{display:flex;gap:8px;position:sticky;bottom:0;background:var(--surface);padding:12px 0 max(12px,env(safe-area-inset-bottom));margin-top:12px;border-top:1px solid var(--line);z-index:2}
 .intervention-edit-actions .btn-primary{box-shadow:0 0 14px var(--accent-soft)}
 #detailModal.readonly-history .intervention-edit-actions{display:none}
 @media(prefers-reduced-motion:reduce){#detailModal .modal-card,#foSettingsPage.active{animation:none}}

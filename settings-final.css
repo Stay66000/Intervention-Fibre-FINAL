@@ -69,3 +69,25 @@
   .fo-accordion-title small{font-size:11.5px}
   #foSettingsPage .fo-final-section-head h2{font-size:16px}
 }
+
+/* Temporary panels stay over the current view and below nested dialogs. */
+#foSettingsPage{z-index:80;background:rgba(5,9,14,.7);padding:12px;backdrop-filter:blur(8px);overflow:hidden}
+#foSettingsPage.active{display:flex;align-items:center;justify-content:center}
+#foSettingsPage .fo-settings-page-shell{width:100%;max-width:700px;min-height:0;max-height:calc(100dvh - 24px);overflow:auto;overscroll-behavior:contain;background:var(--surface);border:1px solid var(--border-strong);border-radius:20px;padding-bottom:env(safe-area-inset-bottom);box-shadow:0 0 28px var(--accent-soft)}
+#foSettingsPage .fo-settings-page-head{padding:12px;background:var(--surface)}
+#foSettingsPage .fo-settings-page-title{font-size:17px}
+#foSettingsPage .fo-settings-page-sub{font-size:12px}
+#foSettingsPage .fo-final-section-head h2{font-size:15px}
+#detailModal{padding:max(10px,env(safe-area-inset-top)) 10px max(10px,env(safe-area-inset-bottom))}
+#detailModal .modal-card{max-width:490px;max-height:calc(100dvh - 32px);padding:14px;border-color:color-mix(in srgb,var(--accent) 40%,var(--line));box-shadow:0 0 25px var(--accent-soft);overscroll-behavior:contain;scroll-padding:65px 0 80px}
+#detailModal .modal-header{position:sticky;top:-14px;z-index:2;background:var(--surface);padding:12px 0;margin-top:-2px}
+#detailModal .modal-title{font-size:16px;overflow-wrap:anywhere}
+#detailModal .field{margin-bottom:10px;min-width:0}
+#detailModal input,#detailModal select,#detailModal textarea{min-width:0;max-width:100%;font-size:16px}
+#detailModal .seg{flex-wrap:wrap}
+#detailModal .seg button{flex:1 1 70px;font-size:12px}
+#detailModal .finance-lock-note{font-size:12px;line-height:1.4}
+.intervention-edit-actions{display:flex;gap:8px;position:sticky;bottom:-14px;background:var(--surface);padding:12px 0;margin-top:12px;border-top:1px solid var(--line);z-index:2}
+.intervention-edit-actions .btn-primary{box-shadow:0 0 14px var(--accent-soft)}
+#detailModal.readonly-history .intervention-edit-actions{display:none}
+@media(prefers-reduced-motion:reduce){#detailModal .modal-card,#foSettingsPage.active{animation:none}}

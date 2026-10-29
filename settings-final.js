@@ -150,7 +150,7 @@
     const back=$('foSettingsBack');
     if(pageTitle)pageTitle.textContent='Réglages';
     if(pageSub)pageSub.textContent='Apparence, données, sécurité et configuration de FIBRE OPS.';
-    if(back)back.textContent='← Profil';
+    if(back)back.textContent='✕ Fermer';
 
     if(!openBridgeButton)openBridgeButton=$('foOpenAdvancedSettings');
 

@@ -62,6 +62,7 @@
   function setLayout(layout){byId('histCards').setAttribute('aria-pressed',String(layout!=='table'));byId('histTable').setAttribute('aria-pressed',String(layout==='table'))}
   function openIntervention(id){
     const row=interventions.find(item=>item.id===id);if(!row)return;
+    if(!row.readOnlyHistory){openEdit(id);byId('m-date').focus();return;}
     detailId=id;previousFocus=document.activeElement;
     byId('interventionSheetTitle').textContent=row.num||'Sans référence';
     const mode=interventionWorkModeLabel(row);

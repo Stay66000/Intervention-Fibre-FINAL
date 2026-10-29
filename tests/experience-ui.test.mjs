@@ -209,3 +209,12 @@ test('production settings panel preserves history, controls and nested dialog la
   assert.equal(new Set(ids).size,ids.length);
  }finally{observers.forEach(o=>o.disconnect());f.close()}
 });
+
+test('mobile navigation stays below settings and intervention validation actions',()=>{
+ const nav=Number(read('mobile-ui-hotfix.css').match(/nav\.tabbar\s*\{\s*z-index:(\d+)/)[1]);
+ const settingsLayer=Number(read('settings-final.css').match(/#foSettingsPage\{z-index:(\d+)/)[1]);
+ const modalLayer=Number(read('index.html').match(/\.modal-overlay\{[^}]*z-index:(\d+)/)[1]);
+ assert.ok(nav<settingsLayer&&settingsLayer<modalLayer);
+ assert.match(read('settings-final.css'),/\.intervention-edit-actions\{[^}]*position:sticky;bottom:0/);
+ assert.match(read('settings-final.css'),/\.intervention-edit-actions\{[^}]*env\(safe-area-inset-bottom\)/);
+});

@@ -47,10 +47,13 @@
     page.id='foSettingsPage';
     page.className='fo-settings-page';
     page.setAttribute('aria-hidden','true');
+    page.setAttribute('role','dialog');
+    page.setAttribute('aria-modal','true');
+    page.setAttribute('aria-label','Réglages');
     page.innerHTML=`
       <div class="fo-settings-page-shell">
         <header class="fo-settings-page-head">
-          <button class="btn-ghost fo-settings-back" id="foSettingsBack" type="button">← Retour</button>
+          <button class="btn-ghost fo-settings-back" id="foSettingsBack" type="button">✕ Fermer</button>
           <div>
             <div class="fo-settings-page-title">Réglages avancés</div>
             <div class="fo-settings-page-sub">Compte, organisation, données et confidentialité</div>
@@ -66,8 +69,8 @@
       </div>`;
     document.body.appendChild(page);
 
-    document.getElementById('foSettingsBack')?.addEventListener('click',()=>closeSettingsHub(true));
-    page.addEventListener('click',e=>{if(e.target===page)closeSettingsHub(true)});
+    document.getElementById('foSettingsBack')?.addEventListener('click',()=>closeSettingsHub(false));
+    page.addEventListener('click',e=>{if(e.target===page)closeSettingsHub(false)});
   }
 
   function settingsHeading(block){
@@ -122,6 +125,7 @@
     grid.appendChild(block);
   }
 
+  let settingsPreviousFocus=null;
   function openSettingsHub(){
     createSettingsHub();
     moveAdvancedSettings();
@@ -131,9 +135,11 @@
     document.getElementById('settingsOverlay')?.classList.remove('active');
     page.classList.add('active');
     page.setAttribute('aria-hidden','false');
+    settingsPreviousFocus=document.activeElement;
     settingsHubOpen=true;
+    document.getElementById('foSettingsBack')?.focus();
     document.body.classList.add('fo-settings-page-open');
-    try{if(location.hash!=='#reglages-avances')history.pushState({foSettings:true},'',location.pathname+location.search+'#reglages-avances')}catch{}
+    // Temporary dialog: keep the current view and URL intact.
   }
 
   function clearSettingsRoute(){
@@ -149,6 +155,7 @@
     settingsHubOpen=false;
     document.body.classList.remove('fo-settings-page-open');
     clearSettingsRoute();
+    if(settingsPreviousFocus?.isConnected)settingsPreviousFocus.focus();
     if(reopenQuick)setTimeout(()=>{if(typeof navigateView==='function')navigateView('profil');else document.getElementById('settingsOverlay')?.classList.add('active')},40);
   }
 
@@ -221,8 +228,17 @@
     if(hiddenFor>45000&&!dateTouchedByUser)syncInterventionDate(true);
   });
   window.addEventListener('pageshow',()=>{pageBecameVisibleAt=Date.now();if(!dateTouchedByUser)syncInterventionDate(true)});
-  window.addEventListener('popstate',()=>{if(settingsHubOpen&&location.hash!=='#reglages-avances')closeSettingsHub(true)});
-  document.addEventListener('keydown',e=>{if(e.key==='Escape'&&settingsHubOpen){e.preventDefault();closeSettingsHub(true)}});
+  window.addEventListener('popstate',()=>{if(settingsHubOpen&&location.hash!=='#reglages-avances')closeSettingsHub(false)});
+  document.addEventListener('keydown',e=>{
+    if(!settingsHubOpen||document.querySelector('.modal-overlay.active,.admin-beta-overlay.active'))return;
+    if(e.key==='Escape'){e.preventDefault();closeSettingsHub(false)}
+    if(e.key==='Tab'){
+      const nodes=[...document.getElementById('foSettingsPage').querySelectorAll('button,a[href],input,select,textarea,[tabindex="0"]')].filter(n=>!n.disabled&&n.getClientRects().length);
+      const first=nodes[0],last=nodes[nodes.length-1];
+      if(first&&e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus()}
+      else if(last&&!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus()}
+    }
+  });
   setInterval(()=>{if(!dateTouchedByUser)syncInterventionDate(false)},60000);
 
   function init(){

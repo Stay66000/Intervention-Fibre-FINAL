@@ -2123,7 +2123,7 @@ body.is-offline .sync-pill{border-color:color-mix(in srgb,var(--danger) 45%,var(
 <!-- MODALE D'ÉDITION -->
 <div class="modal-overlay" id="interventionSheet"><div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="interventionSheetTitle" tabindex="-1"><div class="modal-header"><div><div class="experience-kicker">Fiche intervention</div><h2 id="interventionSheetTitle"></h2></div><button class="btn-ghost" id="closeInterventionSheet" type="button">Fermer</button></div><div id="interventionSheetBody"></div><div class="experience-actions"><button class="btn-primary" id="interventionSheetEdit" type="button">Modifier les informations</button><button class="btn-soft" id="interventionSheetBack" type="button">Retour à l’historique</button></div></div></div>
 
-<div class="modal-overlay" id="detailModal">
+<div class="modal-overlay" id="detailModal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
 <div class="modal-card">
 <div class="modal-header">
 <div class="modal-title" id="modalTitle">Modifier l'intervention</div>
@@ -2188,7 +2188,7 @@ body.is-offline .sync-pill{border-color:color-mix(in srgb,var(--danger) 45%,var(
 </div>
 <!-- FIBRE OPS INTERVENTION SUPPLEMENTS END -->
 
-<div style="display:flex; gap:8px; margin-top:14px;">
+<div class="intervention-edit-actions">
 <button class="btn-primary" id="m-save-btn">Mettre à jour</button>
 <button class="btn-ghost" id="m-del-btn" style="color:var(--danger); border-color:var(--danger);">Supprimer</button>
 </div>
@@ -6367,7 +6367,7 @@ if(supabase){
 </script></div>
 <!-- FIBRE OPS SAVED SUPPLEMENTS START -->
 <script src="./experience-core.js?v=1"></script>
-<script src="./experience.js?v=1"></script>
+<script src="./experience.js?v=2"></script>
 <script src="./supplement-presets.js?v=2"></script>
 <!-- FIBRE OPS SAVED SUPPLEMENTS END -->
 <!-- FIBRE OPS TUTORIAL START -->

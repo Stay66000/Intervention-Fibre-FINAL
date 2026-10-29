@@ -47,7 +47,7 @@ test('joining a team keeps personal history labelled correctly across cards, das
   assert.equal(f.w.document.querySelector('#m-work-mode button.selected').textContent.trim(),'👤 Personnel');
   f.run("openEdit('pair')");assert.equal(f.w.document.getElementById('m-personal-mode').hidden,true);
   f.run("FibreExperience.openIntervention('personal')");
-  assert.match(f.w.document.getElementById('interventionSheetBody').textContent,/Personnel/);
+  assert.equal(f.w.document.getElementById('detailModal').classList.contains('active'),true);
   assert.equal(f.run('interventions.reduce((s,e)=>s+personalPart(e),0)'),240);
   const filter=f.w.document.getElementById('histWork');
   filter.value='Binôme';filter.dispatchEvent(new f.w.Event('change'));
@@ -71,7 +71,7 @@ test('settings do not reopen from a stale URL and closing clears only their own 
   assert.equal(f.w.document.getElementById('foSettingsPage').classList.contains('active'),false);
   assert.equal(f.w.document.querySelector('.view.active').id,'view-saisie');
   f.click('foOpenAdvancedSettings');
-  assert.equal(f.w.location.hash,'#reglages-avances');
+  assert.equal(f.w.location.hash,'');
   assert.equal(f.w.document.getElementById('foSettingsPage').classList.contains('active'),true);
   f.click('foSettingsBack');
   await new Promise(resolve=>setTimeout(resolve,60));
@@ -79,7 +79,7 @@ test('settings do not reopen from a stale URL and closing clears only their own 
   assert.equal(f.w.location.pathname,'/test');
   assert.equal(f.w.location.search,'?keep=1');
   assert.equal(f.w.document.getElementById('foSettingsPage').classList.contains('active'),false);
-  assert.equal(f.w.document.querySelector('.view.active').id,'view-profil');
+  assert.equal(f.w.document.querySelector('.view.active').id,'view-saisie');
   f.click('foOpenAdvancedSettings');
   f.w.history.replaceState(null,'','/test?keep=1#other');
   f.click('foSettingsBack');
@@ -135,10 +135,10 @@ test('history filters, table and detail sheet preserve read-only access and esca
   f.run("navigateView('historique')");f.click('histTable');
   assert.equal(f.w.document.querySelectorAll('.experience-table tbody tr').length,1);
   f.w.document.querySelector('.experience-table .rw').click();
-  assert.ok(f.w.document.getElementById('interventionSheet').classList.contains('active'));
-  assert.equal(f.w.document.querySelector('#interventionSheetBody img'),null);
-  assert.match(f.w.document.getElementById('interventionSheetBody').textContent,/<img src=x/);
-  f.click('closeInterventionSheet');
+  assert.ok(f.w.document.getElementById('detailModal').classList.contains('active'));
+  assert.equal(f.w.document.getElementById('interventionSheet').classList.contains('active'),false);
+  assert.equal(f.w.document.getElementById('m-comment').value,'<img src=x onerror=alert(1)>');
+  f.click('closeModal');
   f.run("interventions[0].readOnlyHistory=true;FibreExperience.openIntervention('row-a')");
   assert.equal(f.w.document.getElementById('interventionSheetEdit').hidden,true);
   f.click('closeInterventionSheet');
@@ -151,7 +151,7 @@ test('hidden company prices never appear in new finance, table or detail views',
  const f=await fixture({hidden:true});try{
   f.run("navigateView('finances')");assert.doesNotMatch(f.w.document.getElementById('view-finances').textContent,/123[,.]45/);
   f.run("navigateView('historique')");f.click('histTable');assert.doesNotMatch(f.w.document.getElementById('histList').textContent,/123[,.]45/);
-  f.run("FibreExperience.openIntervention('row-a')");assert.match(f.w.document.getElementById('interventionSheetBody').textContent,/Prix masqué/);assert.doesNotMatch(f.w.document.getElementById('interventionSheetBody').textContent,/123[,.]45/);
+  f.run("interventions[0].readOnlyHistory=true;FibreExperience.openIntervention('row-a')");assert.match(f.w.document.getElementById('interventionSheetBody').textContent,/Prix masqué/);assert.doesNotMatch(f.w.document.getElementById('interventionSheetBody').textContent,/123[,.]45/);
  }finally{f.close()}
 });
 test('save and continue keeps choices, clears client fields and prevents concurrent inserts',async()=>{
@@ -182,4 +182,30 @@ test('preferences are persisted per account without changing an existing draft',
   assert.equal(f.w.localStorage.getItem('fibreops_draft_account-a'),before);
   await f.w.document.getElementById('resetEntryDefaults').onclick();assert.equal(f.w.localStorage.getItem('fibreops_draft_account-a'),before);
  }finally{f.close()}
+});
+
+test('production settings panel preserves history, controls and nested dialog layering',async()=>{
+ const f=await fixture(),observers=[];
+ const NativeObserver=f.w.MutationObserver;
+ f.w.MutationObserver=class extends NativeObserver{constructor(cb){super(cb);observers.push(this)}};
+ try{
+  f.run(read('fibre-compliance.js'));f.run(read('settings-final.js'));
+  await new Promise(resolve=>setTimeout(resolve,120));
+  f.run("navigateView('historique')");
+  f.click('settingsBtn');
+  const page=f.w.document.getElementById('foSettingsPage');
+  assert.equal(page.classList.contains('active'),true);
+  assert.equal(page.getAttribute('role'),'dialog');
+  assert.equal(f.w.location.hash,'');
+  assert.equal(f.w.document.querySelector('.view.active').id,'view-historique');
+  assert.ok(page.querySelector('#themeToggle'));
+  assert.ok(page.querySelector('#changePasswordBtn')||page.textContent.includes('Sécurité'));
+  assert.match(read('settings-final.css'),/#foSettingsPage\{z-index:80/);
+  f.click('foSettingsBack');
+  assert.equal(page.classList.contains('active'),false);
+  assert.equal(f.w.document.body.classList.contains('fo-settings-page-open'),false);
+  assert.equal(f.w.document.querySelector('.view.active').id,'view-historique');
+  const ids=[...f.w.document.querySelectorAll('[id]')].map(n=>n.id);
+  assert.equal(new Set(ids).size,ids.length);
+ }finally{observers.forEach(o=>o.disconnect());f.close()}
 });

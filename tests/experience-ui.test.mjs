@@ -209,3 +209,14 @@ test('production settings panel preserves history, controls and nested dialog la
   assert.equal(new Set(ids).size,ids.length);
  }finally{observers.forEach(o=>o.disconnect());f.close()}
 });
+test('an ambiguous save retry keeps its client event ID and treats a confirmed uniqueness conflict as saved',async()=>{
+ const f=await fixture();try{
+  f.run(`window.submissions=[];window.phase=0;supabase.from=()=>({
+    insert:async payload=>{window.submissions.push({...payload});return window.phase++===0?{error:{status:0,message:'Connection lost'}}:{error:{details:{code:'23505'}}}},
+    select:()=>({eq:()=>({eq:()=>({maybeSingle:async()=>({data:{id:'already-created'},error:null})})})})
+  });loadAll=async()=>{};form.typeId='type-a';populateOperatorUI();$('f-num').value='NEW-RETRY';`);
+  await f.run('saveIntervention(false)');assert.equal(f.w.document.getElementById('entrySaveStatus').dataset.state,'error');
+  await f.run('saveIntervention(false)');assert.equal(f.w.submissions.length,2);assert.equal(f.w.submissions[0].client_event_id,f.w.submissions[1].client_event_id);
+  assert.equal(f.w.document.getElementById('entrySaveStatus').dataset.state,'success');assert.equal(f.w.localStorage.getItem('fibreops_submission_account-a'),null);
+ }finally{f.close()}
+});

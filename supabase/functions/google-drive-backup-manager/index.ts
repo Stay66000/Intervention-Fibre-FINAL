@@ -1,6 +1,8 @@
 import 'jsr:@supabase/functions-js/edge-runtime.d.ts';
 import { createClient } from 'npm:@supabase/supabase-js@2.95.3';
 
+import {syncUser,check} from '../_shared/google-backup-sync.ts';
+
 const PROD_ORIGIN = 'https://intervention-fibre-final.pages.dev';
 
 function secretKey() {
@@ -50,7 +52,7 @@ Deno.serve(async (req: Request) => {
   if (action === 'status') {
     const [{ data: connection }, pending, dead] = await Promise.all([
       admin.from('google_backup_connections')
-        .select('google_email,spreadsheet_url,status,connected_at,last_success_at,last_error_at,last_error,disconnected_at')
+        .select('google_email,spreadsheet_url,status,connected_at,last_success_at,last_error_at,last_error,disconnected_at,last_reconciled_at,last_reconcile_report,reconcile_requested')
         .eq('user_id', userId).maybeSingle(),
       admin.from('google_backup_jobs').select('id', { count: 'exact', head: true }).eq('user_id', userId).in('status', ['pending','processing']),
       admin.from('google_backup_jobs').select('id', { count: 'exact', head: true }).eq('user_id', userId).eq('status', 'dead'),
@@ -58,9 +60,18 @@ Deno.serve(async (req: Request) => {
     return json({
       ok: true,
       connection: connection || null,
-      pending: pending.count || 0,
+      pending: (pending.count || 0)+(connection?.reconcile_requested?1:0),
       failed: dead.count || 0,
     });
+  }
+
+  if (action === 'reconcile') {
+    const {data:connection,error}=await admin.from('google_backup_connections').select('status').eq('user_id',userId).maybeSingle();
+    if(error)return json({error:'État Google indisponible'},500);
+    if(connection?.status!=='connected')return json({ok:true,disconnected:true});
+    check(await admin.from('google_backup_connections').update({reconcile_requested:true,reconcile_attempts:0,reconcile_next_attempt_at:new Date().toISOString()}).eq('user_id',userId));
+    const result=await syncUser(admin,userId,true);
+    return json(result,result.ok?200:503);
   }
 
   if (action === 'retry') {
@@ -69,12 +80,14 @@ Deno.serve(async (req: Request) => {
     const now = new Date().toISOString();
     const { error } = await admin.from('google_backup_jobs').update({
       status: 'pending', attempts: 0, next_attempt_at: now, locked_at: null, last_error: null, updated_at: now,
-    }).eq('user_id', userId).in('status', ['dead']);
+    }).eq('user_id', userId).in('status', ['dead','pending']);
     if (error) return json({ error: 'Impossible de relancer les sauvegardes' }, 500);
+    await admin.rpc('google_backup_wake');
     return json({ ok: true });
   }
 
   if (action === 'disconnect') {
+    check(await admin.from('google_backup_connections').update({status:'disconnected',reconcile_requested:false}).eq('user_id',userId));
     const { data: token } = await admin.from('google_backup_tokens').select('refresh_token').eq('user_id', userId).maybeSingle();
     if (token?.refresh_token) {
       try {

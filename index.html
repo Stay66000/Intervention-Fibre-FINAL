@@ -2908,14 +2908,7 @@ body.is-offline .sync-pill{border-color:color-mix(in srgb,var(--danger) 45%,var(
 })();
 </script>
 
-<!-- FIBRE OPS TEST · pont Google Sheets sandbox uniquement -->
-<script>
-try{localStorage.setItem('fibre_ops_sheets_sandbox_enabled_v2','1')}catch(e){}
-</script>
-<script id="fibreSandboxAddressFixMain" src="./sandbox-address-fix.js?v=4&build=13"></script>
-<script id="fibreSheetsBridgeScriptMain" src="./sheets-bridge.js?v=4&build=13"></script>
-<script id="fibreSheetsPullScriptMain" src="./sheets-pull.js?v=10&build=13"></script>
-<!-- /FIBRE OPS TEST -->
+<!-- Google Sheets mirroring is owned by the server queue; no legacy browser writer. -->
 <script src="./fibre-backend-security.js?v=2"></script>
 
 <script>
@@ -3369,6 +3362,7 @@ async function reconcileLegacySheetSupplements(){
   catch(error){sheetSupplementChecks.delete(account);console.warn('[Compléments Sheets]',error?.message||error)}
 }
 async function loadAll(){
+  window.FibreGoogleBackup?.onAccountReady();
   updateStatus('Chargement…',true);
   await reconcileLegacySheetSupplements();
 
@@ -3735,7 +3729,7 @@ function preview(){
 }
 function daily(){const date=$('f-date').value;const l=interventions.filter(e=>e.date===date);$('dailyTotalDate').textContent=date?fr(date):'--/--/----';$('dailyTotalAmount').textContent=companyPricesHidden()?'—':money(sum(l))}
 
-let interventionSaving=false;
+let interventionSaving=false,interventionSubmission=null;
 async function saveIntervention(continueEntry=false){
   if(interventionSaving)return;
   const date=$('f-date').value,reference=$('f-num').value.trim(),address=$('f-addr').value.trim(),notes=$('f-comment').value.trim(),t=selectedType();
@@ -3760,8 +3754,22 @@ async function saveIntervention(continueEntry=false){
     intervention_date:date,operator:form.operator,intervention_type_id:t.id,
     result:form.result,reference:reference||null,address:address||null,notes:notes||null,operator_data:mergeSupplementOperatorData({},supplement)
   };
+  const submissionKey='fibreops_submission_'+user.id;
+  const signature=JSON.stringify(payload);
+  let submission=interventionSubmission;
+  try{submission=JSON.parse(localStorage.getItem(submissionKey)||'null')||submission}catch{}
+  if(!submission||submission.signature!==signature)submission={signature,id:crypto.randomUUID()};
+  interventionSubmission=submission;
+  try{localStorage.setItem(submissionKey,JSON.stringify(submission))}catch{}
+  payload.client_event_id=submission.id;
   const {error}=await supabase.from('interventions').insert(payload);
-  if(error)throw error;
+  if(error){
+    if((error.code||error.details?.code)!=='23505')throw error;
+    const existing=await supabase.from('interventions').select('id').eq('client_event_id',submission.id).eq('user_id',user.id).maybeSingle();
+    if(existing.error||!existing.data)throw error;
+  }
+  try{localStorage.removeItem(submissionKey)}catch{}
+  interventionSubmission=null;
   confirmed=true;
   window.FibreExperience?.databaseSaved();
 

@@ -24,7 +24,7 @@ export async function onRequest(context) {
       if (!legal) {
         element.append('<script nonce="'+nonce+'" src="/fibre-compliance.js?v=2"></script>', { html: true });
         element.append('<script nonce="'+nonce+'" src="/supabase-compat.js?v=2"></script>', { html: true });
-        element.append('<script nonce="'+nonce+'" src="/google-backup.js?v=1"></script>', { html: true });
+        element.append('<script nonce="'+nonce+'" src="/google-backup.js?v=2"></script>', { html: true });
         element.append('<script nonce="'+nonce+'" src="/settings-final.js?v=2"></script>', { html: true });
         element.append('<script nonce="'+nonce+'" src="/company-v2.js?v=1"></script>', { html: true });
         element.append('<script nonce="'+nonce+'" src="/company-v2-runtime-fix.js?v=1"></script>', { html: true });

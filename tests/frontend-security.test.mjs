@@ -23,11 +23,12 @@ test('CSP uses per-response nonce and denies unsafe inline scripts, embedding an
  assert.match(a['Content-Security-Policy'],/frame-ancestors 'none'/);
  assert.equal(a['Cache-Control'],'no-store');assert.equal(a['Referrer-Policy'],'no-referrer');
 });
-test('beta Sheets sync remains loaded and CSP permits its existing Google endpoints',()=>{
+test('production has exactly one server mirror; legacy test scripts are isolated',()=>{
  const html=read('index.html');
  for(const name of ['sheets-bridge.js','sheets-pull.js']){
-  new vm.Script(read(name));assert.match(html,new RegExp(name.replace('.','\\.')));
+  new vm.Script(read(name));assert.doesNotMatch(html,new RegExp('<script[^>]+src=[\"\'][^\"\']*'+name.replace('.','\\.')));
  }
+ assert.match(read('functions/_middleware.js'),/google-backup\.js/);
  const csp=securityHeaders('nonce')['Content-Security-Policy'];
  assert.match(csp,/connect-src[^;]*https:\/\/script\.google\.com/);
  assert.match(csp,/connect-src[^;]*https:\/\/script\.googleusercontent\.com/);

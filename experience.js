@@ -77,12 +77,18 @@
     localSave('databaseWrite',{at:new Date().toISOString()});
     byId('dailyTotalCard')?.classList.remove('experience-highlight');requestAnimationFrame(()=>byId('dailyTotalCard')?.classList.add('experience-highlight'));
     renderBackups();
+    window.dispatchEvent(new Event('fibre-database-saved'));
   }
   function renderBackups(){
     if(!user)return;
     const last=safeRead(localKey('databaseWrite'),{}),sheet=window.FibreSheetsBeta?.status();
     let title='Sheets bêta',description='État du pont indisponible. Aucune confirmation de copie ne peut être donnée.',dot='wait';
-    if(sheet){
+    if(sheet?.modern){
+      title='Google Sheets';
+      description=sheet.available?'Sauvegarde serveur en attente de connexion Google.':'Connecte ton Google Drive pour activer la copie de secours.';
+      if(sheet.enabled){title=sheet.pending?'Sheets · synchronisation en attente':'Sheets connecté';description=sheet.lastVerifiedAt?'Comparaison complète avec Supabase le '+clock(sheet.lastVerifiedAt)+'.':'Les changements sont transmis après leur enregistrement dans Supabase.';dot=sheet.pending?'wait':'ok'}
+      if(sheet.error){description=sheet.error;dot='wait'}
+    }else if(sheet){
       if(!sheet.available){title='Sheets bêta · ce compte';description='Le pont bêta est réservé au compte principal indépendant.';dot=''}
       else if(!sheet.enabled){title='Sheets bêta désactivé';description='La copie Google Sheets n’est pas activée sur cet appareil.'}
       else if(sheet.pending){title=`Sheets · ${sheet.pending} envoi${sheet.pending>1?'s':''} en attente`;description=sheet.error||'La file sera reprise au retour de la connexion.'}
@@ -92,9 +98,9 @@
       if(sheet.error&&!sheet.pending){title='Sheets · contrôle nécessaire';description=sheet.error;dot='wait'}
     }
     byId('backupStatusRows').innerHTML=`<div class="experience-sync-row"><span class="experience-status-dot ${last.at?'ok':''}"></span><div><b>FIBRE OPS · ${last.at?'enregistrement confirmé':'données en ligne'}</b><small>${last.at?'Dernier enregistrement confirmé sur cet appareil : '+clock(last.at)+'.':'Aucun nouvel enregistrement observé sur cet appareil. Les données existantes restent dans la base.'}</small></div></div><div class="experience-sync-row"><span class="experience-status-dot ${dot}"></span><div><b>${esc(title)}</b><small>${esc(description)}</small></div></div>`;
-    byId('verifySheetsReceipt').disabled=!sheet?.available||!sheet.enabled||!sheet.lastSentAt||!!sheet.pending;
+    byId('verifySheetsReceipt').disabled=!sheet?.available||!sheet.enabled||(!sheet.modern&&!sheet.lastSentAt)||!!sheet.pending;
     byId('retrySheetsQueue').disabled=!sheet?.available||!sheet.enabled||!sheet.pending||!navigator.onLine;
-    byId('backupStatusHint').textContent='La copie JSON télécharge uniquement les données de ton compte actuellement chargées dans l’application. La copie Sheets reste un module bêta.';
+    byId('backupStatusHint').textContent='La copie JSON télécharge uniquement les données de ton compte actuellement chargées dans l’application. Supabase reste la base principale ; Google Sheets est une copie de secours.';
   }
   function refresh(){
     if(!user||!profile)return;
@@ -155,7 +161,7 @@
     });
     byId('downloadAccountBackup').onclick=()=>byId('backupBtn').click();
     byId('retrySheetsQueue').onclick=async()=>{const button=byId('retrySheetsQueue');button.disabled=true;try{await window.FibreSheetsBeta?.retry()}finally{renderBackups()}};
-    byId('verifySheetsReceipt').onclick=async()=>{const button=byId('verifySheetsReceipt');button.disabled=true;button.textContent='Vérification…';try{const ok=await window.FibreSheetsBeta?.verifyLastReceipt();toast(ok?'Dernier envoi retrouvé dans Sheets':'Dernier envoi non confirmé dans Sheets')}catch(error){toast('Vérification impossible : '+humanError(error))}finally{button.textContent='Vérifier le dernier envoi Sheets';renderBackups()}};
+    byId('verifySheetsReceipt').onclick=async()=>{const button=byId('verifySheetsReceipt');button.disabled=true;button.textContent='Vérification…';try{const ok=await window.FibreSheetsBeta?.verifyLastReceipt();toast(ok?'Comparaison Sheets terminée':'Comparaison en attente de synchronisation')}catch(error){toast('Vérification impossible : '+humanError(error))}finally{button.textContent='Vérifier le dernier envoi Sheets';renderBackups()}};
     byId('syncPill').setAttribute('role','button');byId('syncPill').setAttribute('tabindex','0');byId('syncPill').setAttribute('aria-label','Voir le suivi des sauvegardes');
     byId('syncPill').onclick=()=>{navigateView('profil');byId('backupStatusCard').scrollIntoView({block:'center',behavior:'smooth'})};
     byId('syncPill').onkeydown=event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();byId('syncPill').click()}};

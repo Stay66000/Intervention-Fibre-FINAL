@@ -149,15 +149,12 @@
     return true;
   }
 
-  function duplicateError(error){
-    const txt=human(error).toLowerCase();
-    return String(error?.code||'')==='23505'||txt.includes('client_event_id')||txt.includes('duplicate key');
-  }
   async function flushQueue(manual=false){
     if(flushing||isOffline())return;
     const sb=typeof supabase!=='undefined'?supabase:window.supabase;
-    if(!sb||typeof sb.from!=='function')return;
-    const items=await allQueue();
+    const accountId=typeof user!=='undefined'?user?.id:null;
+    if(!accountId||!sb||typeof sb.from!=='function')return;
+    const items=(await allQueue()).filter(item=>item.payload?.user_id===accountId);
     if(!items.length){await refreshUi();return}
     flushing=true;
     setBadge('syncing',`${items.length} à synchroniser`);
@@ -165,8 +162,13 @@
     try{
       for(const item of items){
         try{
+          if(user?.id!==accountId)break;
           const {error}=await sb.from('interventions').insert(item.payload);
-          if(error&&!duplicateError(error))throw error;
+          if(error){
+            if((error.code||error.details?.code)!=='23505')throw error;
+            const existing=await sb.from('interventions').select('id').eq('client_event_id',item.id).eq('user_id',accountId).maybeSingle();
+            if(existing.error||!existing.data)throw error;
+          }
           await deleteQueue(item.id);
           done++;
         }catch(error){

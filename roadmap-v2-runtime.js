@@ -13,6 +13,7 @@
     }catch(error){console.warn('[FIBRE OPS ROADMAP V2] offline config cache',error);return false}
   }
   function badge(){
+    if(location.hostname==='intervention-fibre-final.pages.dev'||location.hostname==='fibre-ops.fr'||location.hostname==='www.fibre-ops.fr')return;
     if(document.getElementById('roadmapV2PreviewBadge'))return;
     const host=document.querySelector('.brand-wrap')||document.querySelector('header.top');if(!host)return;
     const el=document.createElement('span');el.id='roadmapV2PreviewBadge';el.textContent='TEST V2';el.style.cssText='display:inline-flex;align-items:center;min-height:22px;padding:3px 7px;border-radius:999px;border:1px solid rgba(53,208,224,.35);background:rgba(53,208,224,.10);color:#6be3f0;font:800 10px/1 system-ui;letter-spacing:.05em;white-space:nowrap';host.appendChild(el);

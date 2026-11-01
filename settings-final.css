@@ -38,6 +38,7 @@
 #foSettingsPage .fo-settings-page-shell{max-width:920px}
 #foSettingsPage .fo-settings-page-content{padding-bottom:34px}
 #foSettingsPage .fo-final-settings{display:grid;gap:18px}
+#foSettingsPage .fo-settings-logout{justify-self:start;min-height:40px;width:auto;color:var(--danger);border-color:color-mix(in srgb,var(--danger) 35%,var(--line))}
 #foSettingsPage .fo-final-section{display:grid;gap:10px;scroll-margin-top:86px}
 #foSettingsPage .fo-final-section-head{display:flex;align-items:flex-start;gap:11px;padding:0 2px}
 #foSettingsPage .fo-final-section-head>span{width:38px;height:38px;min-width:38px;border-radius:12px;display:flex;align-items:center;justify-content:center;background:var(--accent-soft);font-size:18px}

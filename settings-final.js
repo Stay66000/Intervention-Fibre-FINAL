@@ -246,6 +246,13 @@
       final.appendChild(sec);
     }
 
+    const logout=document.createElement('button');
+    logout.id='settingsLogoutBtn';
+    logout.type='button';
+    logout.className='btn-ghost fo-settings-logout';
+    logout.textContent='Déconnexion';
+    logout.addEventListener('click',()=>$('logoutBtn')?.click());
+    final.appendChild(logout);
     content.replaceChildren(final);
     return true;
   }

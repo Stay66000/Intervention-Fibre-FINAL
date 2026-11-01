@@ -217,7 +217,10 @@ test('documents support private metadata CRUD, filtering, escaped content and co
   f.run(read('fibre-compliance.js'));f.run(read('settings-final.js'));f.run(read('documents-v2.js'));
   await new Promise(r=>setTimeout(r,150));
   f.click('settingsBtn');assert.equal(f.w.document.querySelector('.view.active').id,'view-parametres');
-  assert.ok(f.w.document.querySelector('#view-parametres #logoutBtn'));
+  assert.ok(f.w.document.querySelector('#view-parametres #settingsLogoutBtn'));
+  assert.ok(f.w.document.querySelector('#view-profil .experience-account-head #logoutBtn'));
+  let signouts=0;f.w.document.getElementById('logoutBtn').onclick=()=>signouts++;
+  f.click('settingsLogoutBtn');f.click('logoutBtn');assert.equal(signouts,2);
   assert.ok(f.w.document.querySelector('#view-profil #openDocuments'));
   assert.equal(f.w.document.querySelector('#view-parametres #openDocuments'),null);
   f.run("navigateView('profil')");

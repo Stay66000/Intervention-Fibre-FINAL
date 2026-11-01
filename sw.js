@@ -1,4 +1,4 @@
-const CACHE='fibre-ops-roadmap-v2-1';
+const CACHE='fibre-ops-roadmap-v2-2';
 const CACHE_PREFIX='fibre-ops-';
 const OFFLINE='./offline.html';
 const CORE=[

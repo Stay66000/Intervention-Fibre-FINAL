@@ -47,7 +47,7 @@ test('joining a team keeps personal history labelled correctly across cards, das
   assert.equal(f.w.document.querySelector('#m-work-mode button.selected').textContent.trim(),'👤 Personnel');
   f.run("openEdit('pair')");assert.equal(f.w.document.getElementById('m-personal-mode').hidden,true);
   f.run("FibreExperience.openIntervention('personal')");
-  assert.match(f.w.document.getElementById('interventionSheetBody').textContent,/Personnel/);
+  assert.equal(f.w.document.getElementById('detailModal').classList.contains('active'),true);
   assert.equal(f.run('interventions.reduce((s,e)=>s+personalPart(e),0)'),240);
   const filter=f.w.document.getElementById('histWork');
   filter.value='Binôme';filter.dispatchEvent(new f.w.Event('change'));
@@ -71,15 +71,15 @@ test('settings do not reopen from a stale URL and closing clears only their own 
   assert.equal(f.w.document.getElementById('foSettingsPage').classList.contains('active'),false);
   assert.equal(f.w.document.querySelector('.view.active').id,'view-saisie');
   f.click('foOpenAdvancedSettings');
-  assert.equal(f.w.location.hash,'#reglages-avances');
-  assert.equal(f.w.document.getElementById('foSettingsPage').classList.contains('active'),true);
+  assert.equal(f.w.location.hash,'');
+  assert.equal(f.w.document.querySelector('.view.active').id,'view-parametres');
   f.click('foSettingsBack');
   await new Promise(resolve=>setTimeout(resolve,60));
   assert.equal(f.w.location.hash,'');
   assert.equal(f.w.location.pathname,'/test');
   assert.equal(f.w.location.search,'?keep=1');
   assert.equal(f.w.document.getElementById('foSettingsPage').classList.contains('active'),false);
-  assert.equal(f.w.document.querySelector('.view.active').id,'view-profil');
+  assert.equal(f.w.document.querySelector('.view.active').id,'view-saisie');
   f.click('foOpenAdvancedSettings');
   f.w.history.replaceState(null,'','/test?keep=1#other');
   f.click('foSettingsBack');
@@ -135,10 +135,10 @@ test('history filters, table and detail sheet preserve read-only access and esca
   f.run("navigateView('historique')");f.click('histTable');
   assert.equal(f.w.document.querySelectorAll('.experience-table tbody tr').length,1);
   f.w.document.querySelector('.experience-table .rw').click();
-  assert.ok(f.w.document.getElementById('interventionSheet').classList.contains('active'));
-  assert.equal(f.w.document.querySelector('#interventionSheetBody img'),null);
-  assert.match(f.w.document.getElementById('interventionSheetBody').textContent,/<img src=x/);
-  f.click('closeInterventionSheet');
+  assert.ok(f.w.document.getElementById('detailModal').classList.contains('active'));
+  assert.equal(f.w.document.getElementById('interventionSheet').classList.contains('active'),false);
+  assert.equal(f.w.document.getElementById('m-comment').value,'<img src=x onerror=alert(1)>');
+  f.click('closeModal');
   f.run("interventions[0].readOnlyHistory=true;FibreExperience.openIntervention('row-a')");
   assert.equal(f.w.document.getElementById('interventionSheetEdit').hidden,true);
   f.click('closeInterventionSheet');
@@ -151,7 +151,7 @@ test('hidden company prices never appear in new finance, table or detail views',
  const f=await fixture({hidden:true});try{
   f.run("navigateView('finances')");assert.doesNotMatch(f.w.document.getElementById('view-finances').textContent,/123[,.]45/);
   f.run("navigateView('historique')");f.click('histTable');assert.doesNotMatch(f.w.document.getElementById('histList').textContent,/123[,.]45/);
-  f.run("FibreExperience.openIntervention('row-a')");assert.match(f.w.document.getElementById('interventionSheetBody').textContent,/Prix masqué/);assert.doesNotMatch(f.w.document.getElementById('interventionSheetBody').textContent,/123[,.]45/);
+  f.run("interventions[0].readOnlyHistory=true;FibreExperience.openIntervention('row-a')");assert.match(f.w.document.getElementById('interventionSheetBody').textContent,/Prix masqué/);assert.doesNotMatch(f.w.document.getElementById('interventionSheetBody').textContent,/123[,.]45/);
  }finally{f.close()}
 });
 test('save and continue keeps choices, clears client fields and prevents concurrent inserts',async()=>{
@@ -181,5 +181,81 @@ test('preferences are persisted per account without changing an existing draft',
   assert.equal(f.w.savedPreferences.id,'account-a');assert.equal(f.w.savedPreferences.value.preferences.experience.entryDefaults.operator,'sfr');
   assert.equal(f.w.localStorage.getItem('fibreops_draft_account-a'),before);
   await f.w.document.getElementById('resetEntryDefaults').onclick();assert.equal(f.w.localStorage.getItem('fibreops_draft_account-a'),before);
+ }finally{f.close()}
+});
+
+test('settings use a dedicated page with working controls and no profile redirect',async()=>{
+ const f=await fixture(),observers=[];
+ const NativeObserver=f.w.MutationObserver;
+ f.w.MutationObserver=class extends NativeObserver{constructor(cb){super(cb);observers.push(this)}};
+ try{
+  f.run(read('fibre-compliance.js'));f.run(read('settings-final.js'));
+  await new Promise(resolve=>setTimeout(resolve,120));
+  f.run("navigateView('historique')");
+  f.click('settingsBtn');
+  const page=f.w.document.getElementById('foSettingsPage');
+  assert.equal(page.getAttribute('role'),'region');
+  assert.equal(page.hasAttribute('aria-modal'),false);
+  assert.equal(f.w.location.hash,'');
+  assert.equal(f.w.document.querySelector('.view.active').id,'view-parametres');
+  assert.ok(page.querySelector('#themeToggle'));
+  assert.ok(page.querySelector('#changePasswordBtn')||page.textContent.includes('Sécurité'));
+  assert.match(read('documents-v2.css'),/position:static/);
+  f.click('foSettingsBack');
+  assert.equal(page.classList.contains('active'),false);
+  assert.equal(f.w.document.body.classList.contains('fo-settings-page-open'),false);
+  assert.equal(f.w.document.querySelector('.view.active').id,'view-saisie');
+  const ids=[...f.w.document.querySelectorAll('[id]')].map(n=>n.id);
+  assert.equal(new Set(ids).size,ids.length);
+ }finally{observers.forEach(o=>o.disconnect());f.close()}
+});
+test('documents support private metadata CRUD, filtering, escaped content and configurable reminders',async()=>{
+ const f=await fixture(),observers=[];const NativeObserver=f.w.MutationObserver;
+ f.w.MutationObserver=class extends NativeObserver{constructor(cb){super(cb);observers.push(this)}};
+ try{
+  f.run(`globalThis.savedDocs=[];globalThis.docWrites=[];supabase.from=table=>{let operation='select',payload,id;const q={select(){return q},eq(key,value){if(key==='id')id=value;return q},order(){return q},insert(p){operation='insert';payload=p;return q},update(p){operation='update';payload=p;return q},delete(){operation='delete';return q},then(resolve,reject){return Promise.resolve().then(()=>{if(table==='user_settings')return {data:null,error:null};if(operation==='insert'){savedDocs.push({...payload,id:'doc-a'});docWrites.push(payload)}if(operation==='update'){Object.assign(savedDocs.find(r=>r.id===id),payload);docWrites.push(payload)}if(operation==='delete')savedDocs=savedDocs.filter(r=>r.id!==id);return {data:savedDocs.map(r=>({...r})),error:null}}).then(resolve,reject)}};return q};`);
+  f.run(read('fibre-compliance.js'));f.run(read('settings-final.js'));f.run(read('documents-v2.js'));
+  await new Promise(r=>setTimeout(r,150));
+  f.click('settingsBtn');assert.equal(f.w.document.querySelector('.view.active').id,'view-parametres');
+  assert.ok(f.w.document.querySelector('#view-parametres #logoutBtn'));
+  f.click('openDocuments');await new Promise(r=>setTimeout(r,5));
+  assert.equal(f.w.document.querySelector('.view.active').id,'view-documents');
+  f.w.document.getElementById('docName').value='<img src=x onerror=alert(1)>';
+  f.w.document.getElementById('docExpires').value='2020-01-01';
+  f.w.document.getElementById('docsForm').dispatchEvent(new f.w.Event('submit',{cancelable:true}));
+  await new Promise(r=>setTimeout(r,10));
+  assert.equal(f.w.docWrites[0].user_id,'account-a');assert.equal(f.w.docWrites[0].file_path,null);
+  assert.equal(f.w.document.querySelector('#docsList img'),null);assert.match(f.w.document.getElementById('docsList').textContent,/Expiré/);
+  assert.equal(f.w.document.getElementById('docsReminder').hidden,false);
+  f.w.document.querySelector('[data-doc-edit]').click();f.w.document.getElementById('docName').value='AIPR renouvelée';f.w.document.getElementById('docExpires').value='';
+  f.w.document.getElementById('docsForm').dispatchEvent(new f.w.Event('submit',{cancelable:true}));await new Promise(r=>setTimeout(r,10));
+  assert.match(f.w.document.getElementById('docsList').textContent,/Sans expiration/);
+  f.w.document.querySelector('[data-doc-delete]').click();await new Promise(r=>setTimeout(r,10));assert.equal(f.w.savedDocs.length,0);
+  f.run("user=null");f.w.document.dispatchEvent(new f.w.Event('visibilitychange'));assert.equal(f.w.document.getElementById('docsReminder').hidden,true);
+ }finally{observers.forEach(o=>o.disconnect());f.close()}
+});
+
+test('document expiration uses entered dates, including same day, leap day and reminder boundary',async()=>{
+ const f=await fixture();try{
+  f.run(read('documents-v2.js'));await new Promise(r=>setTimeout(r,5));
+  const status=f.w.FibreDocumentsV2.status;
+  assert.equal(status({expires_on:null,reminder_days:30},'2026-11-01'),'Sans expiration');
+  assert.equal(status({expires_on:'2026-11-01',reminder_days:0},'2026-11-01'),'Expire bientôt');
+  assert.equal(status({expires_on:'2026-10-31',reminder_days:30},'2026-11-01'),'Expiré');
+  assert.equal(status({expires_on:'2026-12-01',reminder_days:30},'2026-11-01'),'Expire bientôt');
+  assert.equal(status({expires_on:'2026-12-02',reminder_days:30},'2026-11-01'),'Valide');
+  assert.equal(status({expires_on:'2028-03-01',reminder_days:1},'2028-02-29'),'Expire bientôt');
+ }finally{f.close()}
+});
+
+test('an ambiguous save retry keeps its client event ID and treats a confirmed uniqueness conflict as saved',async()=>{
+ const f=await fixture();try{
+  f.run(`window.submissions=[];window.phase=0;supabase.from=()=>({
+    insert:async payload=>{window.submissions.push({...payload});return window.phase++===0?{error:{status:0,message:'Connection lost'}}:{error:{details:{code:'23505'}}}},
+    select:()=>({eq:()=>({eq:()=>({maybeSingle:async()=>({data:{id:'already-created'},error:null})})})})
+  });loadAll=async()=>{};form.typeId='type-a';populateOperatorUI();$('f-num').value='NEW-RETRY';`);
+  await f.run('saveIntervention(false)');assert.equal(f.w.document.getElementById('entrySaveStatus').dataset.state,'error');
+  await f.run('saveIntervention(false)');assert.equal(f.w.submissions.length,2);assert.equal(f.w.submissions[0].client_event_id,f.w.submissions[1].client_event_id);
+  assert.equal(f.w.document.getElementById('entrySaveStatus').dataset.state,'success');assert.equal(f.w.localStorage.getItem('fibreops_submission_account-a'),null);
  }finally{f.close()}
 });

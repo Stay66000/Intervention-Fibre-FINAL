@@ -150,7 +150,7 @@
     const back=$('foSettingsBack');
     if(pageTitle)pageTitle.textContent='Réglages';
     if(pageSub)pageSub.textContent='Apparence, données, sécurité et configuration de FIBRE OPS.';
-    if(back)back.textContent='← Profil';
+    if(back)back.textContent='✕ Fermer';
 
     if(!openBridgeButton)openBridgeButton=$('foOpenAdvancedSettings');
 
@@ -252,13 +252,7 @@
 
   function openSettings(){
     if(!initialized)initialize();
-    if(openBridgeButton?.isConnected){openBridgeButton.click();return;}
-    if(openBridgeButton){openBridgeButton.click();return;}
-    const page=$('foSettingsPage');
-    if(!page)return;
-    page.classList.add('active');
-    page.setAttribute('aria-hidden','false');
-    document.body.classList.add('fo-settings-page-open');
+    navigateView('parametres');
   }
 
   function bindEntryPoints(){

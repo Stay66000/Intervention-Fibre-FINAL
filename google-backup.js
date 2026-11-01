@@ -86,10 +86,13 @@
     return panel;
   }
 
-  let loading=false,lastStatus=null;
+  let loading=false,lastStatus=null,statusAccount='';
+  const reconciliationTasks=new Map();
+  const opened=new Set();
   function paint(data){
     backupPanel();
     lastStatus=data;
+    window.dispatchEvent(new Event('fibre-sheets-status'));
     const c=data?.connection;
     const badge=$('googleBackupBadge'),meta=$('googleBackupMeta');
     const connect=$('googleBackupConnect'),open=$('googleBackupOpen'),retry=$('googleBackupRetry'),disconnect=$('googleBackupDisconnect');
@@ -127,10 +130,29 @@
     if(loading)return;
     const s=await session();if(!s)return;
     backupPanel();loading=true;
-    try{paint(await invoke('google-drive-backup-manager',{action:'status'}))}
+    try{const data=await invoke('google-drive-backup-manager',{action:'status'});if((await session())?.user?.id===s.user.id){statusAccount=s.user.id;paint(data)}}
     catch(error){
       const meta=$('googleBackupMeta');if(meta)meta.textContent='État Google indisponible : '+(error?.message||'erreur');
     }finally{loading=false}
+  }
+  async function reconcile(){
+    const s=await session();if(!s)return false;
+    const id=s.user.id;
+    if(reconciliationTasks.has(id))return reconciliationTasks.get(id);
+    const task=(async()=>{
+      const result=await invoke('google-drive-backup-manager',{action:'reconcile'});
+      await loadStatus();
+      return !!result.ok&&!result.busy&&!result.disconnected;
+    })().finally(()=>reconciliationTasks.delete(id));
+    reconciliationTasks.set(id,task);return task;
+  }
+  async function onAccountReady(){
+    const s=await session();if(!s)return;
+    const id=s.user.id;
+    if(opened.has(id))return;
+    opened.add(id);
+    if(statusAccount!==id){lastStatus=null;statusAccount=id;window.dispatchEvent(new Event('fibre-sheets-status'))}
+    try{await reconcile()}catch(error){console.warn('[Google Sheets startup comparison]',error?.message||error);await loadStatus()}
   }
   async function connectDrive(){
     const button=$('googleBackupConnect');if(button)button.disabled=true;
@@ -172,7 +194,8 @@
 
   function init(){
     injectGoogleAuth();backupPanel();handleCallback();
-    setTimeout(loadStatus,900);
+    setTimeout(onAccountReady,900);
+    supabase.auth.onAuthStateChange((event,s)=>{if(event==='SIGNED_OUT'){opened.clear();lastStatus=null;statusAccount=''}else if(s)setTimeout(onAccountReady,0)});
     document.addEventListener('click',event=>{
       const target=event.target instanceof Element?event.target.closest('[data-view="profil"],[data-experience-view="profil"]'):null;
       if(target)setTimeout(loadStatus,180);
@@ -180,6 +203,11 @@
     const obs=new MutationObserver(()=>{injectGoogleAuth();backupPanel()});
     obs.observe(document.body,{childList:true,subtree:true});
   }
-  window.FibreGoogleBackup={loadStatus,connectDrive};
+  window.FibreGoogleBackup={loadStatus,connectDrive,reconcile,onAccountReady,status:()=>lastStatus};
+  // Existing backup controls now describe the authoritative server mirror.
+  window.FibreSheetsBeta={
+    status(){const c=lastStatus?.connection;return {available:!!c,enabled:c?.status==='connected',pending:lastStatus?.pending||0,error:c?.last_error||'',lastSentAt:c?.last_success_at,lastVerifiedAt:c?.last_reconciled_at,modern:true}},
+    retry:retryBackup,verifyLastReceipt:reconcile
+  };
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();
 })();

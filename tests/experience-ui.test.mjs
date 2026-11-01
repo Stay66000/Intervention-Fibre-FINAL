@@ -72,7 +72,7 @@ test('settings do not reopen from a stale URL and closing clears only their own 
   assert.equal(f.w.document.querySelector('.view.active').id,'view-saisie');
   f.click('foOpenAdvancedSettings');
   assert.equal(f.w.location.hash,'');
-  assert.equal(f.w.document.getElementById('foSettingsPage').classList.contains('active'),true);
+  assert.equal(f.w.document.querySelector('.view.active').id,'view-parametres');
   f.click('foSettingsBack');
   await new Promise(resolve=>setTimeout(resolve,60));
   assert.equal(f.w.location.hash,'');
@@ -184,7 +184,7 @@ test('preferences are persisted per account without changing an existing draft',
  }finally{f.close()}
 });
 
-test('production settings panel preserves history, controls and nested dialog layering',async()=>{
+test('settings use a dedicated page with working controls and no profile redirect',async()=>{
  const f=await fixture(),observers=[];
  const NativeObserver=f.w.MutationObserver;
  f.w.MutationObserver=class extends NativeObserver{constructor(cb){super(cb);observers.push(this)}};
@@ -194,21 +194,66 @@ test('production settings panel preserves history, controls and nested dialog la
   f.run("navigateView('historique')");
   f.click('settingsBtn');
   const page=f.w.document.getElementById('foSettingsPage');
-  assert.equal(page.classList.contains('active'),true);
-  assert.equal(page.getAttribute('role'),'dialog');
+  assert.equal(page.getAttribute('role'),'region');
+  assert.equal(page.hasAttribute('aria-modal'),false);
   assert.equal(f.w.location.hash,'');
-  assert.equal(f.w.document.querySelector('.view.active').id,'view-historique');
+  assert.equal(f.w.document.querySelector('.view.active').id,'view-parametres');
   assert.ok(page.querySelector('#themeToggle'));
   assert.ok(page.querySelector('#changePasswordBtn')||page.textContent.includes('Sécurité'));
-  assert.match(read('settings-final.css'),/#foSettingsPage\{z-index:80/);
+  assert.match(read('documents-v2.css'),/position:static/);
   f.click('foSettingsBack');
   assert.equal(page.classList.contains('active'),false);
   assert.equal(f.w.document.body.classList.contains('fo-settings-page-open'),false);
-  assert.equal(f.w.document.querySelector('.view.active').id,'view-historique');
+  assert.equal(f.w.document.querySelector('.view.active').id,'view-saisie');
   const ids=[...f.w.document.querySelectorAll('[id]')].map(n=>n.id);
   assert.equal(new Set(ids).size,ids.length);
  }finally{observers.forEach(o=>o.disconnect());f.close()}
 });
+test('documents support private metadata CRUD, filtering, escaped content and configurable reminders',async()=>{
+ const f=await fixture(),observers=[];const NativeObserver=f.w.MutationObserver;
+ f.w.MutationObserver=class extends NativeObserver{constructor(cb){super(cb);observers.push(this)}};
+ try{
+  f.run(`globalThis.savedDocs=[];globalThis.docWrites=[];supabase.from=table=>{let operation='select',payload,id;const q={select(){return q},eq(key,value){if(key==='id')id=value;return q},order(){return q},insert(p){operation='insert';payload=p;return q},update(p){operation='update';payload=p;return q},delete(){operation='delete';return q},then(resolve,reject){return Promise.resolve().then(()=>{if(table==='user_settings')return {data:null,error:null};if(operation==='insert'){savedDocs.push({...payload,id:'doc-a'});docWrites.push(payload)}if(operation==='update'){Object.assign(savedDocs.find(r=>r.id===id),payload);docWrites.push(payload)}if(operation==='delete')savedDocs=savedDocs.filter(r=>r.id!==id);return {data:savedDocs.map(r=>({...r})),error:null}}).then(resolve,reject)}};return q};`);
+  f.run(read('fibre-compliance.js'));f.run(read('settings-final.js'));f.run(read('documents-v2.js'));
+  await new Promise(r=>setTimeout(r,150));
+  f.click('settingsBtn');assert.equal(f.w.document.querySelector('.view.active').id,'view-parametres');
+  assert.ok(f.w.document.querySelector('#view-parametres #logoutBtn'));
+  assert.ok(f.w.document.querySelector('#view-profil #openDocuments'));
+  assert.equal(f.w.document.querySelector('#view-parametres #openDocuments'),null);
+  f.run("navigateView('profil')");
+  f.click('openDocuments');await new Promise(r=>setTimeout(r,5));
+  assert.equal(f.w.document.querySelector('.view.active').id,'view-documents');
+  assert.deepEqual([...f.w.document.getElementById('docKind').options].map(o=>o.value),['AIPR','CACES / R486','Habilitation électrique','Carte pro','Autre']);
+  f.click('docsBack');assert.equal(f.w.document.querySelector('.view.active').id,'view-profil');
+  f.click('openDocuments');await new Promise(r=>setTimeout(r,5));
+  f.w.document.getElementById('docName').value='<img src=x onerror=alert(1)>';
+  f.w.document.getElementById('docExpires').value='2020-01-01';
+  f.w.document.getElementById('docsForm').dispatchEvent(new f.w.Event('submit',{cancelable:true}));
+  await new Promise(r=>setTimeout(r,10));
+  assert.equal(f.w.docWrites[0].user_id,'account-a');assert.equal(f.w.docWrites[0].file_path,null);
+  assert.equal(f.w.document.querySelector('#docsList img'),null);assert.match(f.w.document.getElementById('docsList').textContent,/Expiré/);
+  assert.equal(f.w.document.getElementById('docsReminder').hidden,false);
+  f.w.document.querySelector('[data-doc-edit]').click();f.w.document.getElementById('docName').value='AIPR renouvelée';f.w.document.getElementById('docExpires').value='';
+  f.w.document.getElementById('docsForm').dispatchEvent(new f.w.Event('submit',{cancelable:true}));await new Promise(r=>setTimeout(r,10));
+  assert.match(f.w.document.getElementById('docsList').textContent,/Sans expiration/);
+  f.w.document.querySelector('[data-doc-delete]').click();await new Promise(r=>setTimeout(r,10));assert.equal(f.w.savedDocs.length,0);
+  f.run("user=null");f.w.document.dispatchEvent(new f.w.Event('visibilitychange'));assert.equal(f.w.document.getElementById('docsReminder').hidden,true);
+ }finally{observers.forEach(o=>o.disconnect());f.close()}
+});
+
+test('document expiration uses entered dates, including same day, leap day and reminder boundary',async()=>{
+ const f=await fixture();try{
+  f.run(read('documents-v2.js'));await new Promise(r=>setTimeout(r,5));
+  const status=f.w.FibreDocumentsV2.status;
+  assert.equal(status({expires_on:null,reminder_days:30},'2026-11-01'),'Sans expiration');
+  assert.equal(status({expires_on:'2026-11-01',reminder_days:0},'2026-11-01'),'Expire bientôt');
+  assert.equal(status({expires_on:'2026-10-31',reminder_days:30},'2026-11-01'),'Expiré');
+  assert.equal(status({expires_on:'2026-12-01',reminder_days:30},'2026-11-01'),'Expire bientôt');
+  assert.equal(status({expires_on:'2026-12-02',reminder_days:30},'2026-11-01'),'Valide');
+  assert.equal(status({expires_on:'2028-03-01',reminder_days:1},'2028-02-29'),'Expire bientôt');
+ }finally{f.close()}
+});
+
 test('an ambiguous save retry keeps its client event ID and treats a confirmed uniqueness conflict as saved',async()=>{
  const f=await fixture();try{
   f.run(`window.submissions=[];window.phase=0;supabase.from=()=>({

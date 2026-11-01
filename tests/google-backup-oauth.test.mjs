@@ -1,5 +1,5 @@
 import test from 'node:test';import assert from 'node:assert/strict';import vm from 'node:vm';import fs from 'node:fs';import {stripTypeScriptTypes} from 'node:module';import {webcrypto} from 'node:crypto';
-const source=stripTypeScriptTypes(fs.readFileSync(new URL('../supabase/functions/google-drive-oauth-callback/index.ts',import.meta.url),'utf8').replace(/^import .*;\n/gm,''));
+const source=stripTypeScriptTypes(fs.readFileSync(new URL('../supabase/functions/google-drive-oauth-callback/index.ts',import.meta.url),'utf8').replace(/^import .*;\r?\n/gm,''));
 function fixture({metadataFails=false}={}){
  let stateAvailable=true,handler;const mutations=[],calls={created:0,exchanged:0,woken:0};
  const admin={from(table){let operation='select',payload;const query={select(){return query},delete(){operation='delete';return query},eq(){return query},in(){return query},maybeSingle(){return query},upsert(p){operation='upsert';payload=p;return query},update(p){operation='update';payload=p;return query},then(resolve,reject){return Promise.resolve().then(()=>{

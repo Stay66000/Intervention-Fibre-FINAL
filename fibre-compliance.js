@@ -46,9 +46,7 @@
     const page=document.createElement('section');
     page.id='foSettingsPage';
     page.className='fo-settings-page';
-    page.setAttribute('aria-hidden','true');
-    page.setAttribute('role','dialog');
-    page.setAttribute('aria-modal','true');
+    page.setAttribute('role','region');
     page.setAttribute('aria-label','Réglages');
     page.innerHTML=`
       <div class="fo-settings-page-shell">
@@ -67,9 +65,11 @@
           <section class="fo-settings-section admin-only" id="foSettingsAdminSection"><div class="fo-settings-section-head"><span>🛡️</span><div><h2>Administration</h2><p>Outils réservés à l’administration FIBRE OPS.</p></div></div><div class="fo-settings-section-grid" id="foSettingsAdmin"></div></section>
         </main>
       </div>`;
-    document.body.appendChild(page);
+    const wrapper=document.createElement('section');wrapper.id='view-parametres';wrapper.className='view';
+    wrapper.appendChild(page);
+    document.getElementById('view-profil').parentElement.appendChild(wrapper);
 
-    document.getElementById('foSettingsBack')?.addEventListener('click',()=>closeSettingsHub(false));
+    document.getElementById('foSettingsBack')?.addEventListener('click',()=>navigateView('saisie'));
     page.addEventListener('click',e=>{if(e.target===page)closeSettingsHub(false)});
   }
 
@@ -130,15 +130,14 @@
     createSettingsHub();
     moveAdvancedSettings();
     addPrivacySettings();
-    const page=document.getElementById('foSettingsPage');
+    const page=document.getElementById('view-parametres');
     if(!page)return;
     document.getElementById('settingsOverlay')?.classList.remove('active');
-    page.classList.add('active');
+    navigateView('parametres');
     page.setAttribute('aria-hidden','false');
     settingsPreviousFocus=document.activeElement;
-    settingsHubOpen=true;
+    settingsHubOpen=false;
     document.getElementById('foSettingsBack')?.focus();
-    document.body.classList.add('fo-settings-page-open');
     // Temporary dialog: keep the current view and URL intact.
   }
 
@@ -149,9 +148,9 @@
   }
 
   function closeSettingsHub(reopenQuick=false){
+    if(document.getElementById('view-parametres')?.classList.contains('active'))navigateView('saisie');
     const page=document.getElementById('foSettingsPage');
     page?.classList.remove('active');
-    page?.setAttribute('aria-hidden','true');
     settingsHubOpen=false;
     document.body.classList.remove('fo-settings-page-open');
     clearSettingsRoute();

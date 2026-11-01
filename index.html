@@ -5219,7 +5219,7 @@ window.addEventListener('afterprint',()=>document.body.classList.remove('billing
 window.addEventListener('resize',billingScalePreview);
 
 function navigateView(name){
-  if(!['dashboard','historique','saisie','finances','profil','carburant','tarifs','facturation'].includes(name))return;
+  if(!['dashboard','historique','saisie','finances','profil','carburant','tarifs','facturation','parametres','documents'].includes(name))return;
   const navName=['carburant','facturation'].includes(name)?'finances':name==='tarifs'?'profil':name;
   document.querySelectorAll('.tabbar button').forEach(b=>{const selected=b.dataset.view===navName;b.classList.toggle('active',selected);if(selected)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current')});
   document.querySelectorAll('.view').forEach(section=>section.classList.toggle('active',section.id==='view-'+name));

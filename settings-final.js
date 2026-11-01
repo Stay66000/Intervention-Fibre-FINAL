@@ -252,13 +252,7 @@
 
   function openSettings(){
     if(!initialized)initialize();
-    if(openBridgeButton?.isConnected){openBridgeButton.click();return;}
-    if(openBridgeButton){openBridgeButton.click();return;}
-    const page=$('foSettingsPage');
-    if(!page)return;
-    page.classList.add('active');
-    page.setAttribute('aria-hidden','false');
-    document.body.classList.add('fo-settings-page-open');
+    navigateView('parametres');
   }
 
   function bindEntryPoints(){

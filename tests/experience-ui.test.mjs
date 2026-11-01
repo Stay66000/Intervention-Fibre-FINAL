@@ -223,6 +223,7 @@ test('documents support private metadata CRUD, filtering, escaped content and co
   f.run("navigateView('profil')");
   f.click('openDocuments');await new Promise(r=>setTimeout(r,5));
   assert.equal(f.w.document.querySelector('.view.active').id,'view-documents');
+  assert.deepEqual([...f.w.document.getElementById('docKind').options].map(o=>o.value),['AIPR','CACES / R486','Habilitation électrique','Carte pro','Autre']);
   f.click('docsBack');assert.equal(f.w.document.querySelector('.view.active').id,'view-profil');
   f.click('openDocuments');await new Promise(r=>setTimeout(r,5));
   f.w.document.getElementById('docName').value='<img src=x onerror=alert(1)>';

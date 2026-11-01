@@ -218,8 +218,13 @@ test('documents support private metadata CRUD, filtering, escaped content and co
   await new Promise(r=>setTimeout(r,150));
   f.click('settingsBtn');assert.equal(f.w.document.querySelector('.view.active').id,'view-parametres');
   assert.ok(f.w.document.querySelector('#view-parametres #logoutBtn'));
+  assert.ok(f.w.document.querySelector('#view-profil #openDocuments'));
+  assert.equal(f.w.document.querySelector('#view-parametres #openDocuments'),null);
+  f.run("navigateView('profil')");
   f.click('openDocuments');await new Promise(r=>setTimeout(r,5));
   assert.equal(f.w.document.querySelector('.view.active').id,'view-documents');
+  f.click('docsBack');assert.equal(f.w.document.querySelector('.view.active').id,'view-profil');
+  f.click('openDocuments');await new Promise(r=>setTimeout(r,5));
   f.w.document.getElementById('docName').value='<img src=x onerror=alert(1)>';
   f.w.document.getElementById('docExpires').value='2020-01-01';
   f.w.document.getElementById('docsForm').dispatchEvent(new f.w.Event('submit',{cancelable:true}));

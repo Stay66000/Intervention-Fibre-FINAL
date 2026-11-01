@@ -1,6 +1,9 @@
 #view-parametres .fo-settings-page{display:block;position:static;overflow:visible;z-index:auto}
 #view-parametres .fo-settings-page-shell{min-height:0;padding-bottom:20px}
 #view-parametres .fo-settings-page-head{position:static}
+#view-parametres #foSettingsPage{padding:0;background:transparent;backdrop-filter:none}
+#view-parametres #foSettingsPage .fo-settings-page-shell{max-height:none;overflow:visible;overscroll-behavior:auto;background:transparent;border:0;border-radius:0;box-shadow:none;padding-bottom:0}
+#view-parametres #foSettingsPage .fo-settings-page-content{max-width:none;padding:14px 0 calc(100px + env(safe-area-inset-bottom));overflow:visible}
 body.fo-settings-page-open{overflow:auto}
 .docs-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.docs-grid label{display:grid;gap:6px;color:var(--ink-muted);font-size:13px}.docs-grid input,.docs-grid select,.docs-grid textarea{width:100%;min-height:44px;background:var(--surface-alt);color:var(--ink);border:1px solid var(--line);border-radius:10px;padding:10px}.docs-wide{grid-column:1/-1}.docs-actions{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0}.docs-actions button{min-height:44px}.docs-status{color:var(--accent-text);font-weight:700}.docs-list{display:grid;gap:12px}.docs-list h3{overflow-wrap:anywhere}.docs-kpis{display:flex;gap:12px;flex-wrap:wrap;margin:16px 0}.docs-kpis span{padding:12px;background:var(--surface-alt);border:1px solid var(--line);border-radius:12px}.docs-reminder{border:1px solid var(--orange);padding:12px;border-radius:12px;margin:12px 0}.docs-error{color:var(--danger)}
 @media(max-width:600px){.docs-grid{grid-template-columns:1fr}.docs-wide{grid-column:auto}}

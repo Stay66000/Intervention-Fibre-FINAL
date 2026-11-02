@@ -7,7 +7,7 @@ const json=(body,status=200)=>new Response(JSON.stringify(body),{status,headers:
 function fixture(){
  const conn={user_id:'owner',spreadsheet_id:'sheet',status:'connected',known_sheets:{}},job={id:'event',user_id:'owner',intervention_id:sample.id,action:'upsert',snapshot:{...sample},status:'pending',attempts:0};
  const state={conn,jobs:[job],rows:[{...sample}],lease:null,failed:null,failAck:false,reads:0,writes:0,requests:[],hold:false,hidden:false};
- state.sheets=[{sheetId:1,title:'Octobre 2026',gridProperties:{rowCount:2000,columnCount:26},values:[Array(19).fill('').concat('FIBRE_OPS_TEMPLATE_V4')]},{sheetId:2,title:'Novembre 2026',gridProperties:{rowCount:2000,columnCount:26},values:[Array(19).fill('').concat('FIBRE_OPS_TEMPLATE_V4')]},{sheetId:3,title:JOURNAL,gridProperties:{rowCount:2000,columnCount:26},values:[['Event ID']]},{sheetId:4,title:LEGACY,gridProperties:{rowCount:2000,columnCount:26},values:[['Archive ID']]}];
+ state.sheets=[{sheetId:1,title:'Octobre 2026',gridProperties:{rowCount:2000,columnCount:26},values:[Array(19).fill('').concat('FIBRE_OPS_TEMPLATE_V5')]},{sheetId:2,title:'Novembre 2026',gridProperties:{rowCount:2000,columnCount:26},values:[Array(19).fill('').concat('FIBRE_OPS_TEMPLATE_V5')]},{sheetId:3,title:JOURNAL,gridProperties:{rowCount:2000,columnCount:26},values:[['Event ID']]},{sheetId:4,title:LEGACY,gridProperties:{rowCount:2000,columnCount:26},values:[['Archive ID']]}];
  const admin={
   async rpc(name,args){
    if(name==='acquire_google_backup_lease'){if(state.lease)return {data:false};state.lease=args.p_token;return {data:true}}

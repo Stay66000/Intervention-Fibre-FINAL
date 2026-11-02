@@ -22,13 +22,15 @@ export function amount(s) {
   // applied_amount already includes the complement in Postgres; never add it twice.
   if(hidden(s))return '';
   if(!success(s))return 0;
-  return Math.round(number(s.backup_personal_amount ?? s.applied_amount)*100)/100;
+  // Independent teammates divide the full intervention amount themselves.
+  const value=s.work_mode==='Binôme' && !s.company_id ? s.applied_amount : (s.backup_personal_amount ?? s.applied_amount);
+  return Math.round(number(value)*100)/100;
 }
 export const dailyFormula = '=IF(INDEX(A:A,ROW())="","",SUMIFS(I:I,A:A,INDEX(A:A,ROW()),E:E,"Réussite"))';
 export function formulaSeparator(locale='en_US'){try{return new Intl.NumberFormat(locale.replace('_','-')).format(1.1).includes(',')?';':','}catch{return ','}}
 export function monthlyRow(s,at,separator=',') {
   const supp=supplement(s);
-  return [clean(s.intervention_date,20),clean(s.reference,120),clean(s.address,400),clean(s.intervention_type_name,160),success(s)?'Réussite':'Échec',operator(s),hidden(s)?'':dailyFormula.replaceAll(',',separator),mode(s),amount(s),clean(s.notes), '', '', '', '', supp.label,supp.amount,at,'Active',clean(s.id,80)];
+  return [clean(s.intervention_date,20),clean(s.reference,120),clean(s.address,400),clean(s.intervention_type_name,160),success(s)?'Réussite':'Échec',operator(s),'',mode(s),amount(s),clean(s.notes), '', '', '', '', supp.label,supp.amount,at,'Active',clean(s.id,80)];
 }
 export function journalRow(job,at) {
   const s=job.snapshot || {},supp=supplement(s);

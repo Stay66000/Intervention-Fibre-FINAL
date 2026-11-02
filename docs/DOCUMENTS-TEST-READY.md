@@ -28,6 +28,6 @@ Contrôle RLS réel du 2 novembre 2026 : deux identités synthétiques dans une 
 
 ## Cloudflare avant tout essai réel
 
-Le premier commit de cette branche commence par [CI Skip] pour éviter un déploiement potentiellement public avant vérification de la confidentialité. Activer et vérifier Cloudflare Access sur les previews, conserver l’accès au seul propriétaire, puis lancer le déploiement de cette branche dans le projet Pages existant. Les paramètres et secrets du serveur doivent être disponibles dans l’environnement Preview ; ne pas les copier dans les fichiers du dépôt. Aucun merge main n’est autorisé avant validation de l’utilisateur.
+Le propriétaire a demandé une préversion Cloudflare sur cette branche et choisi de ne pas activer Cloudflare Access. La préversion peut donc être accessible publiquement ; ne tester qu’avec des comptes et fichiers fictifs. Cette préversion utilise la base Supabase de production : ne modifier que des données explicitement réservées aux tests. Les paramètres et secrets nécessaires doivent être disponibles dans l’environnement Preview ; ne pas les copier dans les fichiers du dépôt. Aucun merge main n’est autorisé avant validation du propriétaire.
 
 Essai à mener avec des fichiers fictifs : connexion email/mot de passe, création d’un document à deux fichiers, rechargement, ouverture de chaque page, plein écran/fermeture, ajout d’une troisième page, modification des dates et suppression. Confirmer ensuite une création, modification, suppression d’intervention et leur synchronisation sur le Sheet de test autorisé.

@@ -92,3 +92,18 @@
 .intervention-edit-actions .btn-primary{box-shadow:0 0 14px var(--accent-soft)}
 #detailModal.readonly-history .intervention-edit-actions{display:none}
 @media(prefers-reduced-motion:reduce){#detailModal .modal-card,#foSettingsPage.active{animation:none}}
+
+/* Retouches de la version d’essai : actions et filtres compacts. */
+#foSettingsPage .fo-settings-page-head>div{flex:1;min-width:0}
+#foSettingsPage .fo-settings-page-head .fo-settings-logout{margin-left:auto;flex:none;min-height:40px;padding:8px 10px;font-size:12px;white-space:nowrap}
+#foSettingsPage .fo-settings-page-sub{overflow-wrap:anywhere}
+#view-historique .history-month-stack{flex:1;flex-direction:row;align-items:center;justify-content:space-between;gap:8px;width:100%;min-width:0}
+#view-historique .history-month-selector{min-width:0;gap:4px}
+#view-historique .history-month-selector .date-pill{padding:8px 6px;white-space:nowrap}
+#view-historique #exportXlsx{width:auto;flex:none;min-height:36px;padding:7px 10px;margin:0;font-size:11px;white-space:nowrap}
+#view-historique .history-sort-panel{border:1px solid var(--line);border-radius:12px;background:var(--surface);margin:10px 0}
+#view-historique .history-sort-panel>summary{cursor:pointer;padding:12px;font-size:12px;font-weight:700;color:var(--accent-text);min-height:44px;box-sizing:border-box}
+#view-historique .history-sort-panel>summary:focus-visible{outline:2px solid var(--accent-text);outline-offset:2px;border-radius:12px}
+#view-historique .history-sort-content{padding:0 12px 12px;min-width:0}
+#view-historique .history-sort-content input,#view-historique .history-sort-content select{min-width:0;max-width:100%;box-sizing:border-box}
+@media(max-width:430px){#foSettingsPage .fo-settings-page-head{gap:8px;flex-wrap:wrap}#foSettingsPage .fo-settings-page-head .fo-settings-page-sub{display:none}#view-historique .history-month-selector .btn-ghost{padding:6px 9px}#view-historique .history-month-selector .date-pill{font-size:12px}}

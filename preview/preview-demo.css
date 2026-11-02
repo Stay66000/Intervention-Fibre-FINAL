@@ -1,0 +1,4 @@
+.preview-ribbon{display:flex;align-items:center;justify-content:center;gap:12px;flex-wrap:wrap;padding:7px 10px;background:#0c222b;border-bottom:1px solid #245763;color:#8eebf3;font:600 10px system-ui;letter-spacing:.04em;text-align:center}
+.preview-ribbon button{background:transparent;border:1px solid #32717c;color:inherit;border-radius:6px;padding:4px 8px;font:inherit;cursor:pointer}
+#networkBanner{display:none!important}
+@media print{.preview-ribbon{display:none}}

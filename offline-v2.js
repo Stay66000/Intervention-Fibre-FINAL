@@ -199,7 +199,9 @@
         box.id='offlineQueueCard';
         box.className='offline-v2-card';
         box.innerHTML=`<div><b id="offlineQueueTitle">📡 Mode réseau</b><small id="offlineQueueText">Les interventions sont envoyées directement à FIBRE OPS.</small></div><button type="button" class="btn-ghost" id="offlineQueueSync" style="display:none">Synchroniser</button>`;
-        host.insertBefore(box,save);
+        const anchor=save.closest('.experience-save-actions')||save;
+        if(anchor.parentElement===host)host.insertBefore(box,anchor);
+        else save.parentElement.insertBefore(box,save);
         $id('offlineQueueSync').onclick=()=>flushQueue(true);
       }
     }

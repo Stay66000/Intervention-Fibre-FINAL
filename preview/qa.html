@@ -1,0 +1,32 @@
+<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>FIBRE OPS · Validation mobile</title><style>
+body{margin:0;padding:16px;background:#071018;color:#d9edf1;font:14px system-ui}header{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:16px}select,button{padding:10px;background:#102732;color:#c2f9ff;border:1px solid #286473;border-radius:8px}#frames{display:flex;gap:14px;align-items:start}iframe{border:1px solid #286473;border-radius:18px;background:#071018;height:812px;display:block}h2{font-size:13px;color:#91dfe7}pre{font:12px monospace;white-space:pre-wrap;max-width:1400px}a{color:#81e0ed}</style></head><body>
+<header><strong>FIBRE OPS · Validation mobile</strong><label>Page <select id="view"><option value="documents">Documents</option><option value="saisie">Nouvelle intervention</option><option value="dashboard">Accueil</option><option value="historique">Historique · cartes</option><option value="tableau">Historique · tableau</option><option value="modification">Modification</option><option value="finances">Finances</option><option value="carburant">Carburant</option><option value="facturation">Facturation</option><option value="tarifs">Tarifs et compléments</option><option value="profil">Profil</option><option value="reglages">Réglages</option><option value="connexion">Connexion</option><option value="onboarding">Première configuration</option><option value="profil-ouvert">Profil déplié</option><option value="reglages-ouverts">Réglages dépliés</option><option value="facturation-clients">Clients</option><option value="facturation-seller">Ma société</option><option value="facturation-reconcile">Comparaison</option><option value="societe-modification">Modifier ma société</option><option value="onboarding-tarifs">Configuration · tarifs</option></select></label><button id="measure">Mesurer les débordements</button><a href="/">Ouvrir la démo</a></header>
+<button id="all">Vérifier toutes les pages</button><pre id="suite"></pre><pre id="results">Chargement…</pre><div id="frames"></div><script>
+const params=new URLSearchParams(location.search), widths=params.has('width')?[Number(params.get('width'))]:[320,360,375,390,430];
+const select=document.getElementById('view');select.value=params.get('view')||'saisie';
+function render(){document.getElementById('frames').replaceChildren();document.getElementById('results').textContent='Chargement…';for(const width of widths){const box=document.createElement('section'),title=document.createElement('h2'),frame=document.createElement('iframe');title.textContent=width+' px';frame.title='FIBRE OPS à '+width+' pixels';frame.width=width;frame.src=select.value==='documents'?'/index.html?view=documents':'/index.html?view='+select.value;box.append(title,frame);document.getElementById('frames').append(box);}}
+function measure(){const results=[];for(const frame of document.querySelectorAll('iframe')){const d=frame.contentDocument,w=frame.contentWindow, width=w.innerWidth;const issues=[];
+for(const el of d.querySelectorAll('main *, .gate:not(.app-hidden) *, .modal-overlay.active *, #foSettingsPage.active *, header.top *, nav.tabbar *, .doc-demo *, .doc-dialog:not([hidden]) *')){
+ const r=el.getBoundingClientRect(), s=w.getComputedStyle(el);if(!r.width||!r.height||s.visibility==='hidden'||s.position==='fixed')continue;
+ if(el.closest('.experience-table-wrap,.recon-table-wrap,.invoice-paper-wrap,.invoice-paper-viewport'))continue;
+ if(r.left < -1 || r.right > width+1) issues.push((el.id?'#'+el.id:el.tagName.toLowerCase()+'.'+el.className.toString().split(' ').join('.'))+' ['+Math.round(r.left)+','+Math.round(r.right)+']');
+}
+results.push({width,documentWidth:d.documentElement.scrollWidth,view:select.value,ready:d.body.dataset.previewReady==='true',active:d.querySelector('.view.active')?.id,issues:[...new Set(issues)].slice(0,18)});}
+document.getElementById('results').textContent=JSON.stringify(results,null,2);return results;}
+document.getElementById('all').onclick=async()=>{
+  const output=document.getElementById('suite'),all=[];document.getElementById('all').disabled=true;
+  for(const option of select.options){select.value=option.value;render();
+    await Promise.all([...document.querySelectorAll('iframe')].map(frame=>new Promise(resolve=>{
+      frame.onload=()=>{
+        if(frame.contentDocument.body.dataset.previewReady==='true')return resolve();
+        frame.contentWindow.addEventListener('private-preview-ready',resolve,{once:true});
+      };
+      setTimeout(resolve,12000);
+    })));
+    await new Promise(r=>setTimeout(r,350));
+    all.push(...measure());output.textContent=JSON.stringify(all,null,2);
+  }
+  output.dataset.complete='true';document.getElementById('all').disabled=false;
+};
+select.onchange=render;document.getElementById('measure').onclick=measure;render();
+</script></body></html>

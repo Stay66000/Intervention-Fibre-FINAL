@@ -7,6 +7,7 @@ const read=name=>fs.readFileSync(new URL('../'+name,import.meta.url),'utf8');
 async function fixture({hidden=false}={}){
   const dom=new JSDOM(read('index.html'),{url:'https://fixture.invalid/',runScripts:'outside-only',pretendToBeVisual:true});
   const {window:w}=dom;w.scrollTo=()=>{};w.matchMedia=()=>({matches:false,addEventListener(){}});w.confirm=()=>true;w.alert=()=>{};w.HTMLElement.prototype.scrollIntoView=()=>{};
+  w.HTMLDialogElement.prototype.showModal=function(){this.open=true};w.HTMLDialogElement.prototype.close=function(){this.open=false;this.dispatchEvent(new w.Event('close'))};w.AbortSignal.timeout=()=>new w.AbortController().signal;
   w.fetch=async()=>{throw new Error('Real network is forbidden in UI tests')};
   const ctx=dom.getInternalVMContext(),run=code=>vm.runInContext(code,ctx);
   for(const match of read('index.html').matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/gi))if(!/\bsrc=/.test(match[1]))run(match[2]);
@@ -213,7 +214,7 @@ test('documents support private metadata CRUD, filtering, escaped content and co
  const f=await fixture(),observers=[];const NativeObserver=f.w.MutationObserver;
  f.w.MutationObserver=class extends NativeObserver{constructor(cb){super(cb);observers.push(this)}};
  try{
-  f.run(`globalThis.savedDocs=[];globalThis.docWrites=[];supabase.from=table=>{let operation='select',payload,id;const q={select(){return q},eq(key,value){if(key==='id')id=value;return q},order(){return q},insert(p){operation='insert';payload=p;return q},update(p){operation='update';payload=p;return q},delete(){operation='delete';return q},then(resolve,reject){return Promise.resolve().then(()=>{if(table==='user_settings')return {data:null,error:null};if(operation==='insert'){savedDocs.push({...payload,id:'doc-a'});docWrites.push(payload)}if(operation==='update'){Object.assign(savedDocs.find(r=>r.id===id),payload);docWrites.push(payload)}if(operation==='delete')savedDocs=savedDocs.filter(r=>r.id!==id);return {data:savedDocs.map(r=>({...r})),error:null}}).then(resolve,reject)}};return q};`);
+  f.run(`globalThis.savedDocs=[];globalThis.docWrites=[];supabase.from=table=>{let operation='select',payload,id;const q={select(){return q},eq(key,value){if(key==='id')id=value;return q},order(){return q},insert(p){operation='insert';payload=p;return q},update(p){operation='update';payload=p;return q},delete(){operation='delete';return q},then(resolve,reject){return Promise.resolve().then(()=>{if(table==='user_settings')return {data:null,error:null};if(table==='professional_document_pages')return {data:[],error:null};if(operation==='insert'){savedDocs.push({...payload});docWrites.push(payload)}if(operation==='update'){Object.assign(savedDocs.find(r=>r.id===id),payload);docWrites.push(payload)}if(operation==='delete'){const deleted=savedDocs.filter(r=>r.id===id);savedDocs=savedDocs.filter(r=>r.id!==id);return {data:deleted,error:null}}return {data:savedDocs.map(r=>({...r})),error:null}}).then(resolve,reject)}};return q};`);
   f.run(read('fibre-compliance.js'));f.run(read('settings-final.js'));f.run(read('documents-v2.js'));
   await new Promise(r=>setTimeout(r,150));
   f.click('settingsBtn');assert.equal(f.w.document.querySelector('.view.active').id,'view-parametres');
@@ -226,14 +227,14 @@ test('documents support private metadata CRUD, filtering, escaped content and co
   f.run("navigateView('profil')");
   f.click('openDocuments');await new Promise(r=>setTimeout(r,5));
   assert.equal(f.w.document.querySelector('.view.active').id,'view-documents');
-  assert.deepEqual([...f.w.document.getElementById('docKind').options].map(o=>o.value),['AIPR','CACES / R486','Habilitation électrique','Carte pro','Autre']);
+  assert.deepEqual([...f.w.document.getElementById('docKind').options].map(o=>o.value),['AIPR','CACES / R486','Habilitation électrique','Permis de conduire','Visite médicale','Carte pro','Autre']);
   f.click('docsBack');assert.equal(f.w.document.querySelector('.view.active').id,'view-profil');
   f.click('openDocuments');await new Promise(r=>setTimeout(r,5));
   f.w.document.getElementById('docName').value='<img src=x onerror=alert(1)>';
   f.w.document.getElementById('docExpires').value='2020-01-01';
   f.w.document.getElementById('docsForm').dispatchEvent(new f.w.Event('submit',{cancelable:true}));
   await new Promise(r=>setTimeout(r,10));
-  assert.equal(f.w.docWrites[0].user_id,'account-a');assert.equal(f.w.docWrites[0].file_path,null);
+  assert.equal(f.w.docWrites[0].user_id,'account-a');assert.equal(f.w.docWrites[0].file_path,undefined);
   assert.equal(f.w.document.querySelector('#docsList img'),null);assert.match(f.w.document.getElementById('docsList').textContent,/Expiré/);
   assert.equal(f.w.document.getElementById('docsReminder').hidden,false);
   f.w.document.querySelector('[data-doc-edit]').click();f.w.document.getElementById('docName').value='AIPR renouvelée';f.w.document.getElementById('docExpires').value='';
@@ -266,5 +267,29 @@ test('an ambiguous save retry keeps its client event ID and treats a confirmed u
   await f.run('saveIntervention(false)');assert.equal(f.w.document.getElementById('entrySaveStatus').dataset.state,'error');
   await f.run('saveIntervention(false)');assert.equal(f.w.submissions.length,2);assert.equal(f.w.submissions[0].client_event_id,f.w.submissions[1].client_event_id);
   assert.equal(f.w.document.getElementById('entrySaveStatus').dataset.state,'success');assert.equal(f.w.localStorage.getItem('fibreops_submission_account-a'),null);
+ }finally{f.close()}
+});
+
+test('document form uploads and opens several private files without replacing older files',async()=>{
+ const f=await fixture();try{
+  f.run(`globalThis.testRows=[];globalThis.testPages=[];globalThis.storageCalls=[];
+    supabase.auth.getSession=async()=>({data:{session:{access_token:'synthetic'}}});
+    supabase.from=table=>{let op='select',payload,id;const q={select(){return q},eq(k,v){if(k==='id')id=v;return q},order(){return q},insert(p){op='insert';payload=p;return q},update(p){op='update';payload=p;return q},delete(){op='delete';return q},then(resolve,reject){return Promise.resolve().then(()=>{let a=table==='professional_documents'?testRows:testPages;if(op==='insert'){if(Array.isArray(payload))a.push(...payload);else a.push({...payload})}if(op==='update')Object.assign(a.find(r=>r.id===id),payload);if(op==='delete'){const n=a.findIndex(r=>r.id===id);if(n>=0)a.splice(n,1)}return {data:a.map(r=>({...r})),error:null}}).then(resolve,reject)}};return q};
+    fetch=async(url,options)=>{storageCalls.push({url,method:options.method||'GET',body:options.body});return {ok:true,blob:async()=>new Blob(['image'],{type:'image/png'}),json:async()=>({signedURL:'/object/sign/professional-documents/account-a/test?token=synthetic'})}};`);
+  f.w.URL.createObjectURL=()=> 'blob:synthetic-production-view';f.w.URL.revokeObjectURL=()=>{};
+  f.run(read('documents-v2.js'));await new Promise(r=>setTimeout(r,5));
+  let input=f.w.document.getElementById('docFile');Object.defineProperty(input,'files',{configurable:true,value:[new f.w.File(['pdf'],'one.pdf',{type:'application/pdf'}),new f.w.File(['png'],'two.png',{type:'image/png'})]});
+  f.w.document.getElementById('docName').value='CACES';f.w.document.getElementById('docsForm').dispatchEvent(new f.w.Event('submit',{cancelable:true}));await new Promise(r=>setTimeout(r,15));
+  assert.equal(f.w.testRows.length,1);assert.equal(f.w.testPages.length,2);assert.deepEqual([...f.w.testPages].map(p=>p.position),[0,1]);f.w.document.querySelector('[data-doc-view]').click();assert.equal(f.w.document.querySelectorAll('[data-doc-open]').length,2);f.click('docsDetailClose');
+  f.w.document.querySelector('[data-doc-edit]').click();Object.defineProperty(input,'files',{configurable:true,value:[new f.w.File(['pdf'],'three.pdf',{type:'application/pdf'})]});f.w.document.getElementById('docsForm').dispatchEvent(new f.w.Event('submit',{cancelable:true}));await new Promise(r=>setTimeout(r,15));
+  assert.equal(f.w.testPages.length,3);f.w.document.querySelector('[data-doc-view]').click();assert.equal(f.w.document.querySelectorAll('[data-doc-open]').length,3);assert.equal(f.w.storageCalls.filter(x=>x.method==='POST').length,3);f.w.document.querySelector('[data-page-index="1"]').click();await new Promise(r=>setTimeout(r,15));assert.ok(f.w.document.querySelector('.docs-photo'));const sign=f.w.storageCalls.find(x=>x.url.includes('/object/sign/'));assert.equal(JSON.parse(sign.body).expiresIn,60);f.w.document.querySelector('#docsFileViewer button').click();assert.equal(f.w.document.getElementById('docsFullscreen').open,true);f.w.document.querySelector('.docs-fullscreen-close').click();assert.equal(f.w.document.getElementById('docsFullscreen').open,false);f.run('user=null');f.w.document.dispatchEvent(new f.w.Event('visibilitychange'));assert.equal(f.w.document.querySelector('.docs-photo'),null);
+ }finally{f.close()}
+});
+
+
+test('end-of-day reminder respects working days, ownership, recent activity and tolerance',async()=>{
+ const f=await fixture();try{f.run(read('documents-v2.js'));await new Promise(r=>setTimeout(r,5));const decide=f.w.FibreDocumentsV2.dailyDecision,now=new Date(2026,10,2,19,30),p={endEnabled:true,endTime:'19:30',endDays:[1,2,3,4,5],endTolerance:120};
+ assert.equal(decide({...p,endEnabled:false},[],'a',now),'');assert.equal(decide({...p,endDays:[6]},[],'a',now),'');assert.equal(decide({...p,endTime:'20:00'},[],'a',now),'');assert.match(decide(p,[],'a',now),/Aucune intervention/);
+ const entry={userId:'a',date:'2026-11-02',created_at:new Date(2026,10,2,19,10).toISOString()};assert.equal(decide(p,[entry],'a',now),'');assert.match(decide(p,[{...entry,userId:'b'}],'a',now),/Aucune intervention/);assert.match(decide(p,[{...entry,created_at:new Date(2026,10,2,15,42).toISOString()}],'a',now),/1 intervention/);
  }finally{f.close()}
 });

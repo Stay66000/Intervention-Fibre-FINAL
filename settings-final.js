@@ -252,7 +252,7 @@
     logout.className='btn-ghost fo-settings-logout';
     logout.textContent='Déconnexion';
     logout.addEventListener('click',()=>$('logoutBtn')?.click());
-    final.appendChild(logout);
+    final.prepend(logout);
     content.replaceChildren(final);
     return true;
   }

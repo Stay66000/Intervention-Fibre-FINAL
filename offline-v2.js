@@ -8,6 +8,7 @@
   const CONFIG='config';
   let flushing=false;
   let legacySave=null;
+  let queueStatusShown=false;
 
   const $id=id=>document.getElementById(id);
   function notify(msg){try{if(typeof toast==='function')return toast(msg)}catch{}console.info('[FIBRE OPS OFFLINE]',msg)}
@@ -163,7 +164,7 @@
     if(!items.length){await refreshUi();return}
     flushing=true;
     setBadge('syncing',`${items.length} à synchroniser`);
-    let done=0,failed=0;
+    let done=0,failed=0,lastFailure='';
     try{
       for(const item of items){
         try{
@@ -173,7 +174,8 @@
           if(error){
             if((error.code||error.details?.code)!=='23505')throw error;
             const existing=await sb.rpc('photo_test_find_my_intervention',{p_event_id:item.id,p_intervention_id:item.payload.id||null});
-            if(existing.error||!existing.data)throw error;
+            if(existing.error)throw new Error('Vérification du dossier impossible : '+human(existing.error));
+            if(!existing.data)throw new Error('Le dossier déjà créé ne peut pas être confirmé pour ce compte.');
             interventionId=existing.data;
           }
           if(item.payload.id&&!item.testRegistered){
@@ -199,6 +201,7 @@
           failed++;
           item.attempts=Number(item.attempts||0)+1;
           item.lastError=human(error);
+          lastFailure=item.lastError;
           await putQueue(item);
           console.warn('[FIBRE OPS OFFLINE] sync failed',item.id,error);
           if(/fetch|network|connexion|offline/i.test(item.lastError))break;
@@ -207,7 +210,7 @@
       if(done){
         try{await loadAll();renderAll()}catch(error){console.warn('[FIBRE OPS OFFLINE] refresh after sync',error)}
         notify(`✅ ${done} intervention${done>1?'s':''} hors ligne synchronisée${done>1?'s':''}`);
-      }else if(manual&&failed){notify('Synchronisation impossible pour le moment')}
+      }else if(manual&&failed){notify('Synchronisation en attente : '+lastFailure)}
     }finally{
       flushing=false;
       await refreshUi();
@@ -253,7 +256,8 @@
   async function refreshUi(){
     ensureUi();
     const accountId=typeof user!=='undefined'?user?.id:null;
-    const count=(await allQueue()).filter(item=>accountId&&item.payload?.user_id===accountId).length;
+    const waiting=(await allQueue()).filter(item=>accountId&&item.payload?.user_id===accountId);
+    const count=waiting.length;
     const title=$id('offlineQueueTitle'),text=$id('offlineQueueText'),sync=$id('offlineQueueSync'),badge=$id('offlineHeaderBadge');
     if(isOffline()){
       if(title)title.textContent='📡 Hors ligne';
@@ -263,11 +267,13 @@
       return;
     }
     if(count){
+      if(typeof updateStatus==='function'){updateStatus('En attente',true);queueStatusShown=true}
       if(title)title.textContent='↻ Synchronisation en attente';
-      if(text)text.textContent=`${count} intervention${count>1?'s':''} et leurs éventuelles photos en attente de synchronisation.`;
+      if(text)text.textContent=waiting[0].lastError?`En attente : ${waiting[0].lastError}`:`${count} intervention${count>1?'s':''} et leurs éventuelles photos en attente de synchronisation.`;
       if(sync){sync.style.display='inline-flex';sync.textContent='Synchroniser maintenant'}
       setBadge('syncing',`${count} en attente`);
     }else{
+      if(queueStatusShown&&typeof updateStatus==='function'){updateStatus('Synchronisé');queueStatusShown=false}
       if(title)title.textContent='☁️ En ligne';
       if(text)text.textContent='Les interventions sont envoyées directement à FIBRE OPS. En cas de coupure, elles seront mises en attente automatiquement.';
       if(sync)sync.style.display='none';

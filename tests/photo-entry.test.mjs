@@ -21,3 +21,7 @@ test('un autre compte ne peut pas envoyer les photos mises en attente',async()=>
  const dom=new JSDOM('<div><button id="f-save">Enregistrer</button></div>',{url:'https://test.example',runScripts:'outside-only'}),w=dom.window;let requests=0;w.fetch=async()=>{requests++;return {ok:true}};w.eval("window.user={id:'account-b'};window.interventions=[];window.supabase={rpc:async(_name,args)=>({data:args.p_event_id,error:null}),auth:{getSession:async()=>({data:{session:{access_token:'token',user:{id:'account-b'}}}})}}");w.eval(await readFile('photos-test.js','utf8'));
  try{await assert.rejects(w.FibrePhotos.uploadQueued('inter',{id:'photo',name:'test.jpg',type:'image/jpeg',blob:new w.Blob(['x'])},'account-a'),/Reconnecte-toi/);assert.equal(requests,0)}finally{dom.window.close()}
 });
+test('la session sans profil en cache est vérifiée avant la reprise',async()=>{
+ const dom=new JSDOM('<div><button id="f-save">Enregistrer</button></div>',{url:'https://test.example',runScripts:'outside-only'}),w=dom.window;let requests=0;w.fetch=async()=>{requests++;return {ok:true}};w.eval("window.user={id:'account-a'};window.interventions=[];window.supabase={auth:{getSession:async()=>({data:{session:{access_token:'token',user:null}}}),getUser:async()=>({data:{user:{id:'account-a'}},error:null})}}");w.eval(await readFile('photos-test.js','utf8'));
+ try{await w.FibrePhotos.uploadQueued('inter',{id:'photo',name:'test.jpg',type:'image/jpeg',blob:new w.Blob(['x'])},'account-a');assert.equal(requests,1)}finally{dom.window.close()}
+});

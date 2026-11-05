@@ -12,3 +12,8 @@ test('deleted dossier and expired photos are removed in both buckets, production
 test('a failed backup removal does not acknowledge cleanup',async()=>{
  const primary=bucket([]),backup=bucket([[`preview-photos/${id}/a`,new Date()]]);backup.delete=async()=>{throw Error('offline')};let acks=0;const prev=globalThis.fetch;globalThis.fetch=async(_u,init)=>{if(JSON.parse(init.body).p_done)acks++;return Response.json([{intervention_id:id,created_at:new Date().toISOString()}])};try{await assert.rejects(clean({FIBRE_PHOTOS:primary,FIBRE_PHOTOS_BACKUP:backup,PHOTO_TEST_CLEANUP_SECRET:'test'}));assert.equal(acks,0)}finally{globalThis.fetch=prev}
 });
+test('cleanup limits external acknowledgements and leaves remaining jobs for another run',async()=>{
+ const primary=bucket([]),backup=bucket([]);let jobs=Array.from({length:30},(_,i)=>({intervention_id:`aaaaaaaa-aaaa-4aaa-aaaa-${String(i).padStart(12,'0')}`,created_at:new Date().toISOString()}));const completed=[];const prev=globalThis.fetch;
+ globalThis.fetch=async(_u,init)=>{const id=JSON.parse(init.body).p_done;if(id){completed.push(id);const job=jobs.find(j=>j.intervention_id===id);jobs=[...jobs.filter(j=>j.intervention_id!==id),job]}return Response.json(jobs)};
+ try{const env={FIBRE_PHOTOS:primary,FIBRE_PHOTOS_BACKUP:backup,PHOTO_TEST_CLEANUP_SECRET:'test'};await clean(env);assert.equal(completed.length,20);await clean(env);assert.equal(new Set(completed).size,30)}finally{globalThis.fetch=prev}
+});

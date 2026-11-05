@@ -23,7 +23,9 @@ async function rpc(secret,body){
 export async function clean(env,now=Date.now()){
   if(!env.FIBRE_PHOTOS||!env.FIBRE_PHOTOS_BACKUP||!env.PHOTO_TEST_CLEANUP_SECRET)throw Error('Missing cleanup configuration');
   const jobs=await rpc(env.PHOTO_TEST_CLEANUP_SECRET,{});
-  for(const job of jobs){
+  // Each completed job acknowledges through a separate external request.
+  // Leave ample headroom under the Free plan's per-invocation subrequest limit.
+  for(const job of jobs.slice(0,20)){
     if(!/^[0-9a-f-]{36}$/i.test(job.intervention_id))throw Error('Invalid queued identifier');
     const prefix=PREFIX+job.intervention_id+'/';
     await removePrefix(env.FIBRE_PHOTOS,prefix);

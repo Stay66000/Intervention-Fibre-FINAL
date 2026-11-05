@@ -8,7 +8,7 @@
   function text(v){return String(v??'')}
   function normalizeAddress(v){
     let s=text(v)
-      .replace(/\b(?:IE|M)\s+(?=\d)/i,'')
+      .replace(/(^|,\s*)(?:(?:IE\s*\/\s*M)|IE|M)\s+(?=\d)/gi,'$1')
       .replace(/A-/g,'é')
       .replace(/\s+,/g,',')
       .replace(/,{2,}/g,',')

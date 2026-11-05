@@ -3745,7 +3745,7 @@ async function saveIntervention(continueEntry=false){
   interventionSaving=true;
   const btn=$('f-save'),next=$('f-save-next');btn.disabled=true;if(next)next.disabled=true;btn.textContent='Enregistrement…';
   const retainedChoices={...form};
-  let confirmed=false;
+  let confirmed=false,photosSaved=true;
   window.FibreExperience?.entryStatus('Enregistrement dans FIBRE OPS…','busy');
   try{
   const payload={
@@ -3774,7 +3774,7 @@ async function saveIntervention(continueEntry=false){
   try{localStorage.removeItem(submissionKey)}catch{}
   interventionSubmission=null;
   confirmed=true;
-  if(window.FibrePhotos?.sendEntry) await window.FibrePhotos.sendEntry(submission.id);
+  if(window.FibrePhotos?.sendEntry) photosSaved=await window.FibrePhotos.sendEntry(submission.id);
   window.FibreExperience?.databaseSaved();
 
   $('f-num').value=$('f-addr').value=$('f-comment').value='';
@@ -3787,8 +3787,8 @@ async function saveIntervention(continueEntry=false){
   if(continueEntry){Object.assign(form,retainedChoices);populateOperatorUI();setSeg('f-statut',form.result);setSeg('f-work-mode',form.workMode);toggleSoloFields()}
   preview();renderAll();
   if(continueEntry)saveDraft();
-  window.FibreExperience?.entryStatus('Enregistrée dans FIBRE OPS. '+(continueEntry?'Prête pour la suivante.':''),'success');
-  toast(hasTeam() ? `✅ Intervention ${form.workMode} enregistrée` : '✅ Intervention enregistrée');
+  window.FibreExperience?.entryStatus(photosSaved?'Enregistrée dans FIBRE OPS. '+(continueEntry?'Prête pour la suivante.':''):'Intervention enregistrée, mais photos non sauvegardées : réessaie ci-dessus.',photosSaved?'success':'error');
+  toast(photosSaved?(hasTeam() ? `✅ Intervention ${form.workMode} enregistrée` : '✅ Intervention enregistrée'):'⚠️ Intervention enregistrée, photos en attente');
   if(continueEntry)$('f-num').focus();
   }catch(error){
     if(confirmed){$('f-num').value=$('f-addr').value=$('f-comment').value='';$('f-typo').value='';form.typeId='';localStorage.removeItem(draftKey());window.FibreExperience?.entryStatus('Intervention enregistrée. Recharge pour actualiser l’affichage.','success');toast('Intervention enregistrée · affichage à actualiser')}
@@ -6231,7 +6231,7 @@ function cleanOcrLine(v){return String(v||'')
 function addressStopLine(v){const s=cleanOcrLine(v);return /^(?:hexacl(?:é|e)|(?:é|e)tage|escalier|digicode|r(?:é|e)sidence|porte|contact|mobile|fixe|commentaire|mod(?:è|e)le|commande|jeton|client|nd\b|re\s*pc\b|coordonn(?:ée|e)es?|libell(?:é|e)\s+immeuble|cr(?:é|e)neau|t(?:é|e)l(?:\.|\s)|b(?:â|a)timent|parcours|d(?:é|e)tail\s+parcours|historique|intervention|description\s+de\s+l['’]intervention|avec\s+rendez|marge|bloc[- ]note)/i.test(s)}
 function cleanAddress(v){return cleanOcrLine(v)
   .replace(/^adresse(?:\s+(?:de\s+)?raccordement)?\s*[:\-]?\s*/i,'')
-  .replace(/^[\[\(]?P[Rr]{1,2}[\]\)]?\s*/i,'')
+  .replace(/^(?:\[P[Rr]{1,2}\]|\(P[Rr]{1,2}\)|P[Rr]{1,2})(?:\s+|\s*[:;,]\s*)/i,'')
   .replace(/[^0-9A-Za-zÀ-ÖØ-öø-ÿ,'’.\-\/ ]+/g,' ')
   .replace(/\s+/g,' ')
   .replace(/\s+,/g,',')

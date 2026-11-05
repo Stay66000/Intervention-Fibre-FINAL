@@ -53,3 +53,11 @@ test('Orange synthetic multiline screens clean leading punctuation and damaged a
   assert.equal(b.nd,'0202020202');
   assert.equal(b.addr,'26 Grande Rue, 66000 Villère');
 });
+test('address starting Pr is not mistaken for a stray PR marker',()=>{
+ const input='Jeton 23456789\nAdresse : PRADES 66500 PRADES\nHexaclé : 66017227SL';
+ assert.equal(parse(input).addr,'Prades, 66500 Prades');
+});
+test('Orange : conserve Prades au début d’une adresse',()=>{
+ const r=parse("PROD_GP_PLPC\nDescription de l'intervention\nND: 0101010101\nAdresse\nPrades route de la Gare\n66500 Prades");
+ assert.equal(r.op,'orange');assert.equal(r.addr,'Prades route de la Gare, 66500 Prades');
+});

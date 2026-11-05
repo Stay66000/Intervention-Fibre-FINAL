@@ -20,7 +20,7 @@ async function fixture({hidden=false}={}){
     operators=[{operator:'orange',active:true},{operator:'sfr',active:true}];
     types=[{id:'type-a',operator:'orange',name:'Aérien',active:true,amount:100},{id:'type-b',operator:'sfr',name:'Souterrain',active:true,amount:90}];
     interventions=[{id:'row-a',userId:user.id,date:iso(),op:'orange',typeId:'type-a',typo:'Aérien',montant:123.45,statut:'Réussite',num:'1234567890',addr:'12 rue Test',comment:'<img src=x onerror=alert(1)>',workMode:'Personal',created_at:new Date().toISOString(),readOnlyHistory:false}];fuel=[];
-    supabase={auth:{getSession:async()=>({data:{session:null}})},from:()=>({update:()=>({eq:async()=>({error:null})}),insert:async()=>({error:null})})};
+    supabase={rpc:async()=>({data:true,error:null}),auth:{getSession:async()=>({data:{session:null}})},from:()=>({update:()=>({eq:async()=>({error:null})}),insert:async()=>({error:null})})};
     populateOperatorUI();updateIdentityUI();$('appShell').classList.remove('app-hidden');$('authGate').classList.add('app-hidden');`);
   run(read('experience-core.js'));run(read('experience.js'));
   if(w.document.readyState==='loading')w.document.dispatchEvent(new w.Event('DOMContentLoaded'));

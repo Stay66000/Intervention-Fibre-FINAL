@@ -3775,6 +3775,10 @@ async function saveIntervention(continueEntry=false){
   try{localStorage.removeItem(submissionKey)}catch{}
   interventionSubmission=null;
   confirmed=true;
+  try{
+    const {data:testRegistered,error:testRegisterError}=await supabase.rpc('photo_test_register_intervention',{p_intervention_id:submission.id});
+    if(testRegisterError||testRegistered!==true)throw testRegisterError||new Error('Identification refusée');
+  }catch(error){toast('Intervention enregistrée, mais pas identifiée comme dossier de test : suppression désactivée sur cette version.');console.warn('[Dossier test]',error)}
   if(window.FibrePhotos?.sendEntry) photosSaved=await window.FibrePhotos.sendEntry(submission.id);
   window.FibreExperience?.databaseSaved();
 
@@ -3849,10 +3853,10 @@ $('histList').addEventListener('click',async e=>{
   const item=interventions.find(x=>x.id===id);
   if(e.target.closest('[data-del]')){
     if(item?.readOnlyHistory)return toast('Historique société conservé en lecture seule');
-    if(!confirm('Supprimer cette intervention ?'))return;
-    const {data:deleted,error}=await supabase.rpc('delete_my_intervention',{p_intervention_id:id});
+    if(!confirm('Version de test reliée à la vraie base : supprimer définitivement cette intervention pour tous les membres du binôme ?'))return;
+    const {data:deleted,error}=await supabase.rpc('photo_test_delete_intervention',{p_intervention_id:id});
     if(error)return toast('Erreur : '+error.message);
-    if(deleted!==true)return toast('Suppression refusée par le serveur');
+    if(deleted!==true)return toast('Suppression refusée : seuls les nouveaux dossiers créés sur cette version peuvent être supprimés ici.');
     await loadAll();
     renderAll();
     return toast('🗑️ Intervention supprimée');
@@ -3918,7 +3922,7 @@ $('m-save-btn').onclick=async()=>{
 };$('m-del-btn').onclick=async()=>{
   const item=interventions.find(x=>x.id===editId);
   if(item?.readOnlyHistory)return toast('Historique société conservé en lecture seule');
-  if(!editId||!confirm('Supprimer cette intervention ?'))return;
+  if(!editId||!confirm('Version de test reliée à la vraie base : supprimer définitivement cette intervention pour tous les membres du binôme ?'))return;
 
   const btn=$('m-del-btn');
   btn.disabled=true;
@@ -3926,13 +3930,13 @@ $('m-save-btn').onclick=async()=>{
   btn.textContent='Suppression…';
 
   const targetId=editId;
-  const {data:deleted,error}=await supabase.rpc('delete_my_intervention',{p_intervention_id:targetId});
+  const {data:deleted,error}=await supabase.rpc('photo_test_delete_intervention',{p_intervention_id:targetId});
 
   btn.disabled=false;
   btn.textContent=original;
 
   if(error)return toast('Erreur : '+error.message);
-  if(deleted!==true)return toast('Suppression refusée par le serveur');
+  if(deleted!==true)return toast('Suppression refusée : seuls les nouveaux dossiers créés sur cette version peuvent être supprimés ici.');
 
   $('detailModal').classList.remove('active');
   await loadAll();

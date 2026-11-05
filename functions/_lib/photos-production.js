@@ -1,6 +1,6 @@
 // Production path, deliberately disabled until PHOTO_STORAGE_MODE=production is set
 // on the production Pages environment. The existing preview path is unchanged.
-const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const PREFIXES=['photos/','test-photos/']; // Preserve existing primary-bucket uploads.
 const json=(value,status=200)=>new Response(JSON.stringify(value),{status,headers:{'content-type':'application/json; charset=utf-8','cache-control':'no-store','x-content-type-options':'nosniff'}});
 function keys(intervention,photo){return PREFIXES.map(prefix=>prefix+intervention+'/'+photo)}

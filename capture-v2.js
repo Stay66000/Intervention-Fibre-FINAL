@@ -44,15 +44,32 @@
     return {op,nd,addr};
   }
 
-  async function imageToCanvas(file,threshold=false){
+  function orangeDetailsScreen(raw,op){
+    return op==='orange'&&/^\s*ND\s*$/im.test(raw)&&/\bRE\s*PC\b/i.test(raw)&&/(?:coordonn[ée]es?\s+intervention|info\s+site)/i.test(raw);
+  }
+  function chooseOrangeAddress(original,cropped){
+    const full=normalizeAddress(original),clean=normalizeAddress(cropped);
+    const a=full.match(/^(.*?)\s*,?\s*(\d{5})\s+(.+)$/),b=clean.match(/^(.*?)\s*,?\s*(\d{5})\s+(.+)$/);
+    if(!a||!b||a[2]!==b[2])return full;
+    const compact=v=>v.toLocaleLowerCase('fr').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'');
+    const originalStreet=compact(a[1]),croppedStreet=compact(b[1]);
+    if(!croppedStreet||!originalStreet.startsWith(croppedStreet))return full;
+    const diff=originalStreet.slice(croppedStreet.length);
+    if(diff.length>3||! /^(?:[a-z]?\d{0,2}[a-z]?)?$/.test(diff))return full;
+    if(compact(a[3])!==compact(b[3]))return full;
+    return clean;
+  }
+
+  async function imageToCanvas(file,threshold=false,cropRight=false){
     const bitmap=await createImageBitmap(file);
+    const sourceWidth=cropRight?Math.max(1,Math.floor(bitmap.width*0.74)):bitmap.width;
     const maxW=1800;
-    const scale=Math.min(2,Math.max(1,maxW/bitmap.width));
-    const width=Math.max(1,Math.round(bitmap.width*scale));
+    const scale=Math.min(2,Math.max(1,maxW/sourceWidth));
+    const width=Math.max(1,Math.round(sourceWidth*scale));
     const height=Math.max(1,Math.round(bitmap.height*scale));
     const canvas=document.createElement('canvas');canvas.width=width;canvas.height=height;
     const ctx=canvas.getContext('2d',{willReadFrequently:true});
-    ctx.imageSmoothingEnabled=true;ctx.imageSmoothingQuality='high';ctx.drawImage(bitmap,0,0,width,height);bitmap.close?.();
+    ctx.imageSmoothingEnabled=true;ctx.imageSmoothingQuality='high';ctx.drawImage(bitmap,0,0,sourceWidth,bitmap.height,0,0,width,height);bitmap.close?.();
     const img=ctx.getImageData(0,0,width,height),d=img.data;
     for(let i=0;i<d.length;i+=4){
       const gray=0.299*d[i]+0.587*d[i+1]+0.114*d[i+2];
@@ -123,6 +140,19 @@
             confidence=Math.max(first.confidence,second.confidence);passes=2;
           }catch(error){console.warn('[FIBRE OPS OCR] second pass skipped',error)}
         }
+        // Sur l'écran CLIENT Orange, les icônes à droite sont parfois lues
+        // comme des lettres. Une seconde lecture recadrée sert seulement
+        // à confirmer l'adresse ; elle ne remplace jamais le ND.
+        if(orangeDetailsScreen(first.raw,combined.op)){
+          try{
+            const left=await imageToCanvas(file,true,true);
+            const focused=await recognize(left,'Lecture de l’adresse');
+            const parsed=typeof parseCap==='function'?parseCap(focused.raw):{};
+            combined.addr=chooseOrangeAddress(combined.addr,parsed.addr||'');
+            passes=2;
+          }catch(error){console.warn('[FIBRE OPS OCR] lecture adresse recadrée indisponible',error)}
+        }
+
         applyParsed(combined,finalRaw,confidence,passes);
       }catch(error){
         if(msg)msg.textContent='⚠️ Lecture impossible : '+(error?.message||error);

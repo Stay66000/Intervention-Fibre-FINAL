@@ -1,11 +1,13 @@
 import {test} from 'node:test';import assert from 'node:assert/strict';import {onRequest,validPhoto} from '../functions/api/photos.js';
 const A='aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa',B='bbbbbbbb-bbbb-4bbb-bbbb-bbbbbbbbbbbb',C='cccccccc-cccc-4ccc-cccc-cccccccccccc',D='dddddddd-dddd-4ddd-dddd-dddddddddddd',P='eeeeeeee-eeee-4eee-eeee-eeeeeeeeeeee';
-let account=A, row={id:D,user_id:A,solo_user_id:A,team_id:'team',work_mode:'Solo'};const objects=new Map();
+let permitted=new Set([A,B]);let account=A, row={id:D,user_id:A,solo_user_id:A,team_id:'team',work_mode:'Solo'};const objects=new Map();
 const bucket={async list({prefix}){return {objects:[...objects.entries()].filter(([k])=>k.startsWith(prefix)).map(([key,o])=>({key,size:o.data.byteLength,uploaded:new Date(),customMetadata:o.meta.customMetadata})),truncated:false}},async put(key,data,meta){objects.set(key,{data,meta})},async get(key){const o=objects.get(key);return o?{body:o.data,httpMetadata:o.meta.httpMetadata}:null},async delete(key){objects.delete(key)}};
-globalThis.fetch=async(url)=>url.endsWith('/auth/v1/user')?Response.json({id:account}):Response.json([row]);
+globalThis.fetch=async(url)=>url.endsWith('/auth/v1/user')?Response.json({id:account}):url.endsWith('/photo_preview_my_access')?Response.json(permitted.has(account)):url.endsWith('/company_get_my_interventions')?Response.json([]):Response.json([row]);
 async function call(method,photo=P,body){return onRequest({env:{FIBRE_PHOTOS:bucket,PHOTO_TEST_USERS:A+','+B},request:new Request(`https://site.test/api/photos?intervention=${D}${photo?'&photo='+photo:''}`,{method,headers:{Authorization:'Bearer token',...(body?{'content-type':'image/jpeg'}:{})},body})})}
 test('seul le technicien solo voit et ajoute ses photos',async()=>{account=B;assert.equal((await call('GET',null)).status,403);assert.equal((await call('PUT',P,new Uint8Array([255,216,255,0]))).status,403);account=A;assert.equal((await call('PUT',P,new Uint8Array([255,216,255,0]))).status,200);assert.equal((await call('GET',null)).status,200);assert.deepEqual([...new Uint8Array(await (await call('GET')).arrayBuffer())],[255,216,255,0])});
 test('le binôme autorisé accède au même dossier, un tiers est refusé',async()=>{row={...row,work_mode:'Binôme'};account=B;assert.equal((await call('GET')).status,200);account=C;assert.equal((await call('GET')).status,403)});
 test('les dossiers non retournés par Supabase sont refusés',async()=>{row={...row,id:A};account=A;assert.equal((await call('GET')).status,403)});
 
 test('rejette un fichier déguisé en photo',()=>{assert.equal(validPhoto(new TextEncoder().encode('%PDF-1.7'),'image/jpeg'),false);assert.equal(validPhoto(new Uint8Array([255,216,255,0]),'image/jpeg'),true)});
+
+test('désactiver le compte coupe immédiatement l’accès photo',async()=>{row={...row,id:D,work_mode:'Personal',solo_user_id:A};account=A;permitted.delete(A);assert.equal((await call('GET',null)).status,403);permitted.add(A);assert.equal((await call('GET',null)).status,200)});

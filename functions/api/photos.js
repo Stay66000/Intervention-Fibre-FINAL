@@ -13,20 +13,23 @@ const response=(body,status=200)=>new Response(JSON.stringify(body),{status,head
 export async function onRequest(ctx){
   try {
     const {request,env}=ctx, url=new URL(request.url);
-    if (!env.FIBRE_PHOTOS || !env.PHOTO_TEST_USERS) return response({error:'Fonction photo non configurée'},503);
+    if (!env.FIBRE_PHOTOS) return response({error:'Fonction photo non configurée'},503);
     const auth=request.headers.get('authorization')||'';
     if(!/^Bearer [\w.-]+$/.test(auth))return response({error:'Connexion nécessaire'},401);
     const headers={apikey:KEY,authorization:auth};
     const authResponse=await fetch(BASE+'/auth/v1/user',{headers});
     if(!authResponse.ok)return response({error:'Session invalide'},401);
     const identity=await authResponse.json();
-    if(!env.PHOTO_TEST_USERS.split(',').map(s=>s.trim()).includes(identity.id))return response({error:'Fonction indisponible'},403);
+    const permission=await fetch(BASE+'/rest/v1/rpc/photo_preview_my_access',{method:'POST',headers:{...headers,'content-type':'application/json'},body:'{}'});
+    if(!permission.ok)return response({error:'Vérification des autorisations impossible'},503);
+    if(await permission.json()!==true)return response({error:'Fonction indisponible'},403);
     if(url.searchParams.get('access')==='1')return response({enabled:true});
     const dossier=url.searchParams.get('intervention'),photo=url.searchParams.get('photo');
     if(!UUID.test(dossier||'')||(photo&&!UUID.test(photo)))return response({error:'Dossier invalide'},400);
     const rowsRes=await fetch(BASE+'/rest/v1/rpc/get_my_independent_interventions',{method:'POST',headers:{...headers,'content-type':'application/json'},body:'{}'});
     if(!rowsRes.ok)return response({error:'Vérification des droits impossible'},403);
-    const row=(await rowsRes.json()).find(r=>r.id===dossier);
+    let row=(await rowsRes.json()).find(r=>r.id===dossier);
+    if(!row){const company=await fetch(BASE+'/rest/v1/rpc/company_get_my_interventions',{method:'POST',headers:{...headers,'content-type':'application/json'},body:'{}'});if(company.ok){const rows=await company.json();if(Array.isArray(rows))row=rows.find(r=>r.id===dossier)}}
     if(!row)return response({error:'Dossier inaccessible'},403);
     const mode=(row.work_mode||'Personal').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
     const allowed=mode==='binome' ? !!row.team_id : (row.solo_user_id||row.user_id)===identity.id;

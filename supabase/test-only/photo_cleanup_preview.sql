@@ -22,7 +22,9 @@ create or replace function public.photo_test_register_intervention(p_interventio
 returns boolean language plpgsql security definer set search_path='' as $$
 begin
   perform private.assert_api_user();
-  if not exists(select 1 from public.interventions i where i.id=p_intervention_id and i.user_id=auth.uid() and i.created_at>now()-interval '10 minutes') then return false; end if;
+  if not exists(select 1 from public.interventions i where i.id=p_intervention_id and i.user_id=auth.uid() and
+    (i.created_at>now()-interval '10 minutes' or
+      (i.client_event_id=i.id and i.operator_data->>'offline_event_id'=i.id::text))) then return false; end if;
   insert into private.photo_test_interventions(intervention_id) values(p_intervention_id) on conflict do nothing;
   return true;
 end $$;

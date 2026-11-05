@@ -210,7 +210,7 @@ test('settings use a dedicated page with working controls and no profile redirec
   assert.equal(new Set(ids).size,ids.length);
  }finally{observers.forEach(o=>o.disconnect());f.close()}
 });
-test('documents support private metadata CRUD, filtering, escaped content and configurable reminders',async()=>{
+test('documents support private metadata CRUD, filtering and no alert UI',async()=>{
  const f=await fixture(),observers=[];const NativeObserver=f.w.MutationObserver;
  f.w.MutationObserver=class extends NativeObserver{constructor(cb){super(cb);observers.push(this)}};
  try{
@@ -236,16 +236,16 @@ test('documents support private metadata CRUD, filtering, escaped content and co
   await new Promise(r=>setTimeout(r,10));
   assert.equal(f.w.docWrites[0].user_id,'account-a');assert.equal(f.w.docWrites[0].file_path,undefined);
   assert.equal(f.w.document.querySelector('#docsList img'),null);assert.match(f.w.document.getElementById('docsList').textContent,/Expiré/);
-  assert.equal(f.w.document.getElementById('docsReminder').hidden,false);
+  assert.equal(f.w.document.getElementById('docsReminder'),null);assert.equal(f.w.docWrites[0].reminders_enabled,false);
   f.w.document.querySelector('[data-doc-edit]').click();f.w.document.getElementById('docName').value='AIPR renouvelée';f.w.document.getElementById('docExpires').value='';
   f.w.document.getElementById('docsForm').dispatchEvent(new f.w.Event('submit',{cancelable:true}));await new Promise(r=>setTimeout(r,10));
   assert.match(f.w.document.getElementById('docsList').textContent,/Sans expiration/);
   f.w.document.querySelector('[data-doc-delete]').click();await new Promise(r=>setTimeout(r,10));assert.equal(f.w.savedDocs.length,0);
-  f.run("user=null");f.w.document.dispatchEvent(new f.w.Event('visibilitychange'));assert.equal(f.w.document.getElementById('docsReminder').hidden,true);
+  f.run("user=null");f.w.document.dispatchEvent(new f.w.Event('visibilitychange'));assert.equal(f.w.document.getElementById('docsReminder'),null);
  }finally{observers.forEach(o=>o.disconnect());f.close()}
 });
 
-test('document expiration uses entered dates, including same day, leap day and reminder boundary',async()=>{
+test('document expiration statuses use entered dates including same day and leap day',async()=>{
  const f=await fixture();try{
   f.run(read('documents-v2.js'));await new Promise(r=>setTimeout(r,5));
   const status=f.w.FibreDocumentsV2.status;
@@ -287,9 +287,13 @@ test('document form uploads and opens several private files without replacing ol
 });
 
 
-test('end-of-day reminder respects working days, ownership, recent activity and tolerance',async()=>{
- const f=await fixture();try{f.run(read('documents-v2.js'));await new Promise(r=>setTimeout(r,5));const decide=f.w.FibreDocumentsV2.dailyDecision,now=new Date(2026,10,2,19,30),p={endEnabled:true,endTime:'19:30',endDays:[1,2,3,4,5],endTolerance:120};
- assert.equal(decide({...p,endEnabled:false},[],'a',now),'');assert.equal(decide({...p,endDays:[6]},[],'a',now),'');assert.equal(decide({...p,endTime:'20:00'},[],'a',now),'');assert.match(decide(p,[],'a',now),/Aucune intervention/);
- const entry={userId:'a',date:'2026-11-02',created_at:new Date(2026,10,2,19,10).toISOString()};assert.equal(decide(p,[entry],'a',now),'');assert.match(decide(p,[{...entry,userId:'b'}],'a',now),/Aucune intervention/);assert.match(decide(p,[{...entry,created_at:new Date(2026,10,2,15,42).toISOString()}],'a',now),/1 intervention/);
- }finally{f.close()}
+test('documents do not present alerts or reminder controls',async()=>{
+  const f=await fixture();try{
+    f.run(read('documents-v2.js'));await new Promise(r=>setTimeout(r,5));
+    assert.equal(f.w.FibreDocumentsV2.dailyDecision,undefined);
+    assert.equal(f.w.document.getElementById('docsReminder'),null);
+    assert.equal(f.w.document.getElementById('docOffsets'),null);
+    assert.equal(f.w.document.getElementById('docEnabled'),null);
+    assert.equal(f.w.document.querySelector('[data-doc-reminders]'),null);
+  }finally{f.close()}
 });

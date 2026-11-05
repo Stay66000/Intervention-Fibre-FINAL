@@ -6220,6 +6220,7 @@ syncNetworkUI();
 
 // OCR Orange / SFR / Free : extraction adaptée aux écrans terrain.
 function cleanOcrLine(v){return String(v||'')
+  .replace(/Ã¨/g,'è').replace(/Ã©/g,'é').replace(/Ãª/g,'ê').replace(/Ã§/g,'ç').replace(/Ã®/g,'î').replace(/Ã´/g,'ô').replace(/Ã /g,'à')
   .replace(/[©®@●◉•◆◇►▶◀◁]+/g,' ')
   .replace(/[\[\(]\s*(?:P[I1l]T|P[Rr]{1,2}|Prr)\s*[\]\)]/gi,' ')
   .replace(/\bP[I1l]T\b/gi,' ')
@@ -6233,6 +6234,7 @@ function cleanAddress(v){return cleanOcrLine(v)
   .replace(/[^0-9A-Za-zÀ-ÖØ-öø-ÿ,'’.\-\/ ]+/g,' ')
   .replace(/\s+/g,' ')
   .replace(/\s+,/g,',')
+  .replace(/^,\s*/, '')
   .trim()}
 function takeAddress(lines,start,first=''){const parts=[];let seed=cleanAddress(first);if(seed)parts.push(seed);if(/\b\d{5}\b/.test(seed))return seed;for(let j=start;j<Math.min(lines.length,start+4);j++){let s=cleanOcrLine(lines[j]);if(!s||addressStopLine(s))break;s=cleanAddress(s);if(!s)continue;if(/^(?:voir plus|aucune activit(?:é|e)|d(?:é|e)clarer)$/i.test(s))break;parts.push(s);if(/\b\d{5}\b/.test(s))break}let out=parts.join(', ').replace(/,\s*,+/g,', ').replace(/\s+/g,' ').trim();return out}
 function parseCap(t){

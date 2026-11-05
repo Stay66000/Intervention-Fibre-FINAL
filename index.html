@@ -1521,7 +1521,7 @@ body.is-offline .sync-pill{border-color:color-mix(in srgb,var(--danger) 45%,var(
 <link rel="stylesheet" href="./fibre-tutorial.css?v=1">
 <!-- FIBRE OPS TUTORIAL END -->
 </head>
-<body><div class="network-banner" id="networkBanner" role="status" aria-live="polite">● Hors connexion · les données en ligne sont temporairement indisponibles</div><section class="gate" id="authGate">
+<body><div class="network-banner" id="networkBanner" role="status" aria-live="polite" aria-hidden="true">● Hors connexion · les données en ligne sont temporairement indisponibles</div><section class="gate" id="authGate">
 <div class="gate-inner">
 <div class="gate-brand"><svg aria-hidden="true" class="brand-mark" viewbox="0 0 36 36"><circle cx="18" cy="18" fill="none" r="16.5" stroke="var(--accent)" stroke-width="2"></circle><circle cx="18" cy="18" fill="var(--f2)" r="3.2"></circle><circle cx="26.2" cy="18" fill="var(--f1)" r="3.2"></circle><circle cx="22.1" cy="25.1" fill="var(--f3)" r="3.2"></circle><circle cx="13.9" cy="25.1" fill="var(--f9)" r="3.2"></circle><circle cx="9.8" cy="18" fill="var(--f7)" r="3.2"></circle><circle cx="13.9" cy="10.9" fill="var(--f10)" r="3.2"></circle><circle cx="22.1" cy="10.9" fill="var(--f12)" r="3.2"></circle></svg><div><div class="brand">FIBRE OPS</div><div class="brand-sub">Espace technicien sécurisé</div></div></div>
 <div class="gate-card">
@@ -6215,7 +6215,7 @@ function restoreDraft(){
 function syncNetworkUI(){
   const offline=!navigator.onLine;
   document.body.classList.toggle('is-offline',offline);
-  const banner=$('networkBanner');if(banner)banner.classList.toggle('show',offline);
+  const banner=$('networkBanner');if(banner){banner.classList.toggle('show',offline);banner.setAttribute('aria-hidden',String(!offline))}
   if(offline&&$('syncState'))updateStatus('Hors-ligne');
 }
 function updateStatus(text,busy=false){if(!$('syncState'))return;const offline=!navigator.onLine;$('syncState').textContent=offline?'Hors-ligne':text;$('syncDot').style.background=offline?'var(--danger)':busy?'var(--orange)':'var(--success)';$('syncPill').title=offline?'Connexion Internet indisponible':text}

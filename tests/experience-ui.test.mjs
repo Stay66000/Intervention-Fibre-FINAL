@@ -58,6 +58,17 @@ test('joining a team keeps personal history labelled correctly across cards, das
   assert.equal(f.run("interventions.find(e=>e.id==='personal').workMode"),'Personal');
  }finally{f.close()}
 });
+test('network alert is announced only while the browser is offline',async()=>{
+ const f=await fixture();try{
+  const banner=f.w.document.getElementById('networkBanner');
+  Object.defineProperty(f.w.navigator,'onLine',{value:true,configurable:true});f.run('syncNetworkUI()');
+  assert.equal(banner.getAttribute('aria-hidden'),'true');assert.equal(banner.classList.contains('show'),false);
+  Object.defineProperty(f.w.navigator,'onLine',{value:false,configurable:true});f.w.dispatchEvent(new f.w.Event('offline'));
+  assert.equal(banner.getAttribute('aria-hidden'),'false');assert.equal(banner.classList.contains('show'),true);
+  Object.defineProperty(f.w.navigator,'onLine',{value:true,configurable:true});f.w.dispatchEvent(new f.w.Event('online'));
+  assert.equal(banner.getAttribute('aria-hidden'),'true');assert.equal(banner.classList.contains('show'),false);
+ }finally{f.close()}
+});
 test('settings do not reopen from a stale URL and closing clears only their own fragment',async()=>{
  const f=await fixture(),observers=[];
  const NativeObserver=f.w.MutationObserver;

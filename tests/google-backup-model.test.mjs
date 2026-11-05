@@ -51,7 +51,7 @@ test('ID-less legacy rows are preserved separately, never matched by address/ref
  assert.equal(run(sheets,[s],[],true).writes.length,0);
 });
 test('amount uses stored complement-inclusive payout exactly once; hidden prices never leak',()=>{
- const s={...sample,applied_amount:175,backup_personal_amount:87.5};assert.equal(amount(s),87.5);
+ const s={...sample,applied_amount:175,backup_personal_amount:87.5,company_id:'company'};assert.equal(amount(s),87.5);
  assert.equal(amount({...s,result:'Échec'}),0);assert.equal(amount({...s,backup_price_hidden:true}),'');
  const row=monthlyRow({...s,backup_price_hidden:true},at);assert.equal(row[8],'');assert.equal(row[15],'');assert.equal(row[6],'');
 });
@@ -68,6 +68,13 @@ test('French formulas use semicolons and summary cells never reserve interventio
  const sheets=book();for(let i=1;i<6;i++){sheets[0].values.push([]);sheets[0].values[i][10]='Summary'}
  const s={...sample,intervention_date:'2026-10-01'};
  const plan=planMirror({sheets,snapshots:[s],jobs:[event(s)],separator:';',at});
- const monthly=plan.writes.find(w=>w.sheetId===1&&w.col===0);assert.equal(monthly.row,2);assert.match(monthly.values[6],/;/);assert.doesNotMatch(monthly.values[6],/,/);
- assert.ok(gridRequests([monthly])[0].updateCells.rows[0].values[6].userEnteredValue.formulaValue);
+ const monthly=plan.writes.find(w=>w.sheetId===1&&w.col===0);assert.equal(monthly.row,2);assert.equal(monthly.values[6],'');
+ assert.deepEqual(gridRequests([monthly])[0].updateCells.rows[0].values[6].userEnteredValue,{stringValue:''});
 });
+
+ test('independent binome exports full amount while company payout and privacy stay unchanged',()=>{
+ const s={...sample,work_mode:'Binôme',company_id:null,applied_amount:160,backup_personal_amount:80};
+ assert.equal(amount(s),160);assert.equal(amount({...s,company_id:'company'}),80);
+ assert.equal(amount({...s,backup_price_hidden:true}),'');assert.equal(amount({...s,result:'Échec'}),0);
+ assert.equal(monthlyRow(s,at)[6],'');
+ });

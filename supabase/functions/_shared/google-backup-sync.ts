@@ -51,10 +51,10 @@ export async function syncUser(admin:any,userId:string,reconcile=false){
     const known:any={};for(const s of sheets)known[s.title]=s.sheetId;
     for(const s of selected.filter(s=>MONTH.test(s.title))){
       // Initialize in place. Never rename/archive an existing month simply because a cache marker vanished.
-      if(s.values[0]?.[19]!=='FIBRE_OPS_TEMPLATE_V4'){
+      if(s.values[0]?.[19]!=='FIBRE_OPS_TEMPLATE_V5'){
         budget();await initializeMonthlyTemplate(connection,token,s.title,s.sheetId,separator);
-        known[`__template_v4__${s.title}`]=4;
-      }else known[`__template_v4__${s.title}`]=4;
+        known[`__template_v5__${s.title}`]=5;
+      }else known[`__template_v5__${s.title}`]=5;
     }
     // The latest Supabase state always wins over a delayed/replayed event snapshot.
     const safeJobs=jobs.map(j=>({...j,snapshot:{...j.snapshot,backup_price_hidden:isHidden||hidden(j.snapshot)}}));

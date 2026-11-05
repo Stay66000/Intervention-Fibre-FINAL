@@ -5,15 +5,18 @@ create table if not exists private.photo_test_cleanup_queue (
   last_processed_at timestamptz
 );
 revoke all on private.photo_test_cleanup_queue from public, anon, authenticated;
+alter table private.photo_test_cleanup_queue enable row level security;
 create table if not exists private.photo_test_interventions (
   intervention_id uuid primary key references public.interventions(id) on delete cascade
 );
 revoke all on private.photo_test_interventions from public, anon, authenticated;
+alter table private.photo_test_interventions enable row level security;
 create table if not exists private.photo_test_worker_config (
   singleton boolean primary key default true check(singleton),
   secret_hash text not null
 );
 revoke all on private.photo_test_worker_config from public, anon, authenticated;
+alter table private.photo_test_worker_config enable row level security;
 
 create or replace function public.photo_test_register_intervention(p_intervention_id uuid)
 returns boolean language plpgsql security definer set search_path='' as $$

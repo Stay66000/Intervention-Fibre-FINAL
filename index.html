@@ -3846,6 +3846,7 @@ let histSearchTimer;$('histSearch').oninput=()=>{clearTimeout(histSearchTimer);h
 function shiftMonth(n){view=new Date(view.getFullYear(),view.getMonth()+n,1);renderHist();renderFuel()}
 $('prevMonth').onclick=()=>shiftMonth(-1);$('nextMonth').onclick=()=>shiftMonth(1);$('prevMonthFuel').onclick=()=>shiftMonth(-1);$('nextMonthFuel').onclick=()=>shiftMonth(1);
 
+async function isPhotoProductionMode(){try{return !!(await window.FibrePhotos?.refreshMode?.())}catch{return !!window.FibrePhotos?.isProduction?.()}}
 $('histList').addEventListener('click',async e=>{
   if(e.target.closest('a'))return;
   const row=e.target.closest('.rw');if(!row)return;
@@ -3853,10 +3854,11 @@ $('histList').addEventListener('click',async e=>{
   const item=interventions.find(x=>x.id===id);
   if(e.target.closest('[data-del]')){
     if(item?.readOnlyHistory)return toast('Historique société conservé en lecture seule');
-    if(!confirm('Version de test reliée à la vraie base : supprimer définitivement cette intervention pour tous les membres du binôme ?'))return;
-    const {data:deleted,error}=await supabase.rpc('photo_test_delete_intervention',{p_intervention_id:id});
+    const productionPhotos=await isPhotoProductionMode();
+    if(!confirm(productionPhotos?'Supprimer définitivement cette intervention et ses photos pour les membres du binôme ?':'Version de test reliée à la vraie base : supprimer définitivement cette intervention pour tous les membres du binôme ?'))return;
+    const {data:deleted,error}=await supabase.rpc(productionPhotos?'photo_delete_intervention':'photo_test_delete_intervention',{p_intervention_id:id});
     if(error)return toast('Erreur : '+error.message);
-    if(deleted!==true)return toast('Suppression refusée : seuls les nouveaux dossiers créés sur cette version peuvent être supprimés ici.');
+    if(deleted!==true)return toast(productionPhotos?'Suppression refusée : accès non autorisé.':'Suppression refusée : seuls les nouveaux dossiers créés sur cette version peuvent être supprimés ici.');
     await loadAll();
     renderAll();
     return toast('🗑️ Intervention supprimée');
@@ -3922,7 +3924,8 @@ $('m-save-btn').onclick=async()=>{
 };$('m-del-btn').onclick=async()=>{
   const item=interventions.find(x=>x.id===editId);
   if(item?.readOnlyHistory)return toast('Historique société conservé en lecture seule');
-  if(!editId||!confirm('Version de test reliée à la vraie base : supprimer définitivement cette intervention pour tous les membres du binôme ?'))return;
+  const productionPhotos=await isPhotoProductionMode();
+  if(!editId||!confirm(productionPhotos?'Supprimer définitivement cette intervention et ses photos pour les membres du binôme ?':'Version de test reliée à la vraie base : supprimer définitivement cette intervention pour tous les membres du binôme ?'))return;
 
   const btn=$('m-del-btn');
   btn.disabled=true;
@@ -3930,13 +3933,13 @@ $('m-save-btn').onclick=async()=>{
   btn.textContent='Suppression…';
 
   const targetId=editId;
-  const {data:deleted,error}=await supabase.rpc('photo_test_delete_intervention',{p_intervention_id:targetId});
+  const {data:deleted,error}=await supabase.rpc(productionPhotos?'photo_delete_intervention':'photo_test_delete_intervention',{p_intervention_id:targetId});
 
   btn.disabled=false;
   btn.textContent=original;
 
   if(error)return toast('Erreur : '+error.message);
-  if(deleted!==true)return toast('Suppression refusée : seuls les nouveaux dossiers créés sur cette version peuvent être supprimés ici.');
+  if(deleted!==true)return toast(productionPhotos?'Suppression refusée : accès non autorisé.':'Suppression refusée : seuls les nouveaux dossiers créés sur cette version peuvent être supprimés ici.');
 
   $('detailModal').classList.remove('active');
   await loadAll();

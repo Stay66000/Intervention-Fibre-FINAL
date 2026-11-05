@@ -3774,6 +3774,7 @@ async function saveIntervention(continueEntry=false){
   try{localStorage.removeItem(submissionKey)}catch{}
   interventionSubmission=null;
   confirmed=true;
+  if(window.FibrePhotos?.sendEntry) await window.FibrePhotos.sendEntry(submission.id);
   window.FibreExperience?.databaseSaved();
 
   $('f-num').value=$('f-addr').value=$('f-comment').value='';
@@ -6380,7 +6381,7 @@ if(supabase){
 </script></div>
 <!-- FIBRE OPS SAVED SUPPLEMENTS START -->
 <script src="./experience-core.js?v=1"></script>
-<script src="./experience.js?v=2"></script>
+<script src="./experience.js?v=3"></script>
 <script src="./supplement-presets.js?v=2"></script>
 <!-- FIBRE OPS SAVED SUPPLEMENTS END -->
 <!-- FIBRE OPS TUTORIAL START -->

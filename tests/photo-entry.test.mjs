@@ -1,0 +1,8 @@
+import {test} from 'node:test';import assert from 'node:assert/strict';import {JSDOM} from 'jsdom';import {readFile} from 'node:fs/promises';
+test('photos choisies envoyées seulement après identification du dossier créé',async()=>{
+ const dom=new JSDOM('<div><button id="f-save">Enregistrer</button></div><div><button id="m-save-btn">Modifier</button></div>',{url:'https://test.example',runScripts:'outside-only'}),w=dom.window;let sent=[];
+ w.fetch=async(url,opts={})=>{sent.push({url,method:opts.method||'GET'});return {ok:true,json:async()=>url.includes('access=')?{enabled:true}:{files:[]}}};
+ w.crypto.randomUUID=()=> 'eeeeeeee-eeee-4eee-eeee-eeeeeeeeeeee';
+ w.eval(`window.user={id:'aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa'};window.interventions=[];window.supabase={auth:{getSession:async()=>({data:{session:{access_token:'token'}}})},from:()=>({select:()=>({eq:()=>({eq:()=>({maybeSingle:async()=>({data:{id:'dddddddd-dddd-4ddd-dddd-dddddddddddd'}})})})})})};function openEdit(){}`);
+ w.eval(await readFile('photos-test.js','utf8'));w.document.body.click();await new Promise(r=>setTimeout(r,20));let input=w.document.getElementById('photoEntryFiles');assert.ok(input);let file=new w.File([new Uint8Array([255,216,255,0])],'test.jpg',{type:'image/jpeg'});Object.defineProperty(input,'files',{value:[file],configurable:true});input.dispatchEvent(new w.Event('change'));assert.equal(sent.filter(x=>x.method==='PUT').length,0);await w.FibrePhotos.sendEntry('event-id');assert.equal(sent.filter(x=>x.method==='PUT').length,1);assert.match(w.document.getElementById('photoEntryStatus').textContent,/sauvegardées/);dom.window.close();
+});

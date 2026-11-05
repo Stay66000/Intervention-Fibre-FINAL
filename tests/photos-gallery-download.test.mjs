@@ -37,7 +37,7 @@ async function fixture({sharing=true,failOn=''}={}){
     if(url.searchParams.get('access'))return Response.json({enabled:true});
     if(!url.searchParams.get('photo'))return Response.json({files:photographs});
     if(url.searchParams.get('photo')===failOn)return Response.json({error:'Photo non accessible'},{status:403});
-    return new Response(new Uint8Array([255,216,255,5,4,3]),{headers:{'content-type':'image/jpeg'}});
+    return {ok:true,blob:async()=>new w.Blob([new Uint8Array([255,216,255,5,4,3])],{type:'image/jpeg'})};
   };
   w.eval(await readFile('photos-test.js','utf8'));
   await w.FibrePhotos.open({id:D});

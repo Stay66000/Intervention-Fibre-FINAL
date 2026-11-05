@@ -34,8 +34,8 @@ export async function onProductionPhotoRequest(ctx,{base,key,validPhoto}){
     const identity=await who.json();
     if(!UUID.test(identity.id||''))return json({error:'Session invalide'},401);
     const enabled=await rpc('photo_my_access',{},base,headers);
+    if(url.searchParams.get('access')==='1')return json({enabled:enabled===true,mode:'production'});
     if(enabled!==true)return json({error:'Option photos désactivée'},403);
-    if(url.searchParams.get('access')==='1')return json({enabled:true,mode:'production'});
     const dossier=url.searchParams.get('intervention'),photo=url.searchParams.get('photo');
     if(!UUID.test(dossier||'')||(photo&&!UUID.test(photo)))return json({error:'Dossier invalide'},400);
     if(await rpc('photo_can_access',{p_intervention_id:dossier},base,headers)!==true)return json({error:'Dossier inaccessible'},403);

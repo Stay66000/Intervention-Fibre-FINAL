@@ -209,7 +209,7 @@
       }
       if(done){
         try{await loadAll();renderAll()}catch(error){console.warn('[FIBRE OPS OFFLINE] refresh after sync',error)}
-        notify(`✅ ${done} intervention${done>1?'s':''} hors ligne synchronisée${done>1?'s':''}`);
+        notify(failed?`✅ ${done} synchronisée(s). Encore en attente : ${lastFailure}`:`✅ ${done} intervention${done>1?'s':''} hors ligne synchronisée${done>1?'s':''}`);
       }else if(manual&&failed){notify('Synchronisation en attente : '+lastFailure)}
     }finally{
       flushing=false;

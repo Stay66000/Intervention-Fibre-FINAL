@@ -1,3 +1,4 @@
+import {onProductionPhotoRequest} from '../_lib/photos-production.js';
 const BASE='https://dvvoqfswlqdwvxamfsot.supabase.co';
 const KEY='sb_publishable_DKIrFOlhgvc7LW43_qgLYA_cENm3M-P';
 const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -13,6 +14,7 @@ const response=(body,status=200)=>new Response(JSON.stringify(body),{status,head
 export async function onRequest(ctx){
   try {
     const {request,env}=ctx, url=new URL(request.url);
+    if(env.PHOTO_STORAGE_MODE==='production')return onProductionPhotoRequest(ctx,{base:BASE,key:KEY,validPhoto});
     if (!env.FIBRE_PHOTOS) return response({error:'Fonction photo non configurée'},503);
     const auth=request.headers.get('authorization')||'';
     if(!/^Bearer [\w.-]+$/.test(auth))return response({error:'Connexion nécessaire'},401);

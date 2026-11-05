@@ -3765,10 +3765,11 @@ async function saveIntervention(continueEntry=false){
   interventionSubmission=submission;
   try{localStorage.setItem(submissionKey,JSON.stringify(submission))}catch{}
   payload.client_event_id=submission.id;
+  payload.id=submission.id;
   const {error}=await supabase.from('interventions').insert(payload);
   if(error){
     if((error.code||error.details?.code)!=='23505')throw error;
-    const existing=await supabase.from('interventions').select('id').eq('client_event_id',submission.id).eq('user_id',user.id).maybeSingle();
+    const existing=await supabase.from('interventions').select('id').eq('id',submission.id).eq('user_id',user.id).maybeSingle();
     if(existing.error||!existing.data)throw error;
   }
   try{localStorage.removeItem(submissionKey)}catch{}

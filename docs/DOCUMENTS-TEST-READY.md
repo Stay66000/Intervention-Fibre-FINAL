@@ -1,16 +1,16 @@
 # FIBRE OPS — branche d’essai Documents
 
-Base : main a9cc11937e462c5fa63291adf0d3560a9d1f96c0.
+Base initiale : main a9cc11937e462c5fa63291adf0d3560a9d1f96c0. Les correctifs récents de main doivent être conservés lors de la fusion.
 
 ## Application réelle
 
 Le middleware charge documents-v2.js et documents-v2.css. Il ne charge aucun adaptateur de démonstration. L’authentification, les interventions, l’OCR, l’historique, les finances, les sociétés, les exports et les sauvegardes restent ceux de main.
 
-Les documents sont rattachés au compte connecté : CRUD, filtres, statuts calculés depuis les dates saisies, plusieurs PDF/JPEG/PNG/WebP (20 fichiers maximum, 10 Mo chacun), consultation des photos et PDF, plein écran et téléchargement. Les anciens file_path restent consultables ; les nouveaux fichiers sont ajoutés dans professional_document_pages. La modification conserve les fichiers existants.
+Les documents sont rattachés au compte connecté : CRUD, filtres, statuts calculés depuis les dates saisies, plusieurs PDF/JPEG/PNG/WebP (20 fichiers maximum, 10 Mo chacun), consultation des photos et PDF, plein écran et téléchargement. Les rappels sont désactivés. Les anciens file_path restent consultables ; les nouveaux fichiers sont ajoutés dans professional_document_pages. La modification conserve les fichiers existants.
 
 Le bucket professional-documents est privé. Les liens de consultation sont signés à la demande pour 60 secondes, puis le fichier est chargé en mémoire sans stockage persistant côté application. Les images sont libérées à la fermeture ou au changement de compte. Aucun accès société aux fichiers personnels n’est ajouté.
 
-Les préférences de rappels sont enregistrées dans user_settings.preferences. Le rappel de fin de journée respecte les jours, l’heure locale, la tolérance et un maximum d’une apparition par jour sur le navigateur. Les rappels fonctionnent dans l’application ouverte. Web Push, envois par cron, vue employeur et téléchargement permanent hors ligne ne sont pas livrés par cette branche.
+Les rappels et alertes ont été retirés à la demande de l'utilisateur. Les dates d'obtention et d'expiration ainsi que les statuts Valide / Expire bientôt / Expiré restent visibles. Il n'y a aucun Web Push, email, SMS ni rappel de fin de journée dans la refonte Documents.
 
 ## Base de données
 

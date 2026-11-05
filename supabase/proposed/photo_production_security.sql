@@ -116,4 +116,35 @@ begin
 end $$;
 revoke all on function public.photo_production_cleanup_jobs(text,uuid) from public;
 grant execute on function public.photo_production_cleanup_jobs(text,uuid) to anon, authenticated;
+-- Real deletion path, not restricted to test-created folders.
+-- The AFTER DELETE trigger enqueues cleanup for both R2 buckets atomically.
+create or replace function public.photo_delete_intervention(p_intervention_id uuid)
+returns boolean language plpgsql security definer set search_path='' as $$
+declare v_uid uuid:=auth.uid(); v_row public.interventions%rowtype; v_allowed boolean:=false;
+begin
+  perform private.assert_api_user();
+  if v_uid is null or not private.is_active_user() then return false; end if;
+  select * into v_row from public.interventions i where i.id=p_intervention_id for update;
+  if not found then return false; end if;
+  if v_row.company_id is null then
+    v_allowed := v_row.user_id=v_uid or (
+      lower(coalesce(v_row.work_mode,'')) in ('binome','binôme')
+      and v_row.team_id is not null
+      and exists(select 1 from public.team_members tm
+                 where tm.team_id=v_row.team_id and tm.user_id=v_uid and tm.status='active')
+    );
+  elsif not private.fibre_ops_is_platform_admin()
+    and private.is_company_member(v_row.company_id)
+    and private.company_is_active(v_row.company_id) then
+    v_allowed := private.is_company_admin(v_row.company_id)
+      or v_row.user_id=v_uid or v_row.solo_user_id=v_uid
+      or (v_row.team_id is not null and private.is_team_member(v_row.team_id,v_uid));
+  end if;
+  if not coalesce(v_allowed,false) then return false; end if;
+  delete from public.interventions i where i.id=v_row.id;
+  return found;
+end $$;
+revoke all on function public.photo_delete_intervention(uuid) from public, anon;
+grant execute on function public.photo_delete_intervention(uuid) to authenticated;
+
 commit;

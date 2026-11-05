@@ -1,0 +1,133 @@
+/* FIBRE OPS — mobile containment, after all feature styles.
+   Keep scrollable tables wide; constrain their containers, never hide content. */
+@media (max-width: 779px) {
+  main, .view, .card, .panel, .experience-card, .setting-block,
+  .gate-inner, .gate-card, .modal-card, .settings-panel,
+  .billing-v2-pane, .billing-v2-card, .fo-settings-page-shell {
+    min-inline-size: 0;
+    max-inline-size: 100%;
+  }
+  .field, .field > *, .cap-row > *, .setting-row > *,
+  .experience-grid > *, .experience-preferences > *, .stats > *,
+  .billing-v2-form-grid > *, .billing-v2-clients-layout > *,
+  .recon-summary > *, .recon-mapping-grid > *, .company-v2-form-grid > * {
+    min-inline-size: 0;
+  }
+  input:not([type=checkbox]):not([type=radio]):not([type=color]), select, textarea {
+    min-inline-size: 0;
+    max-inline-size: 100%;
+    box-sizing: border-box;
+    font-size: 16px;
+  }
+  input[type=date], input[type=month], input[type=time] {
+    display: block;
+    inline-size: 100%;
+    -webkit-appearance: none;
+    appearance: none;
+  }
+  input::-webkit-date-and-time-value { min-inline-size: 0; text-align: start; }
+  input[type=file] { inline-size: 100%; }
+  button, .btn-primary, .btn-soft, .btn-ghost {
+    max-inline-size: 100%;
+    overflow-wrap: anywhere;
+  }
+  .brand-wrap > div { min-inline-size: 0; }
+  .section-card-title .icon, .sync-dot { flex-shrink: 0; }
+  .section-card-title > span:last-child,
+  .fo-accordion-title, .fo-final-section-head > div,
+  .experience-sync-row > div, .google-backup-status-row > div {
+    min-inline-size: 0;
+    overflow-wrap: anywhere;
+  }
+  .setting-block p, .gate-copy, .fo-privacy-note, .fo-profile-email,
+  .rw .badge-typo, .rw .badge-op, .rw .supplement-history-chip,
+  .act-main, .smart-note, .recon-file-info, .billing-v2-client-card,
+  .company-v2-invite, .company-v2-admin-card {
+    overflow-wrap: anywhere;
+  }
+  .r1 > b { overflow-wrap: anywhere; }
+  .r1 .tarif-val { flex-shrink: 0; }
+  .cap-row { flex-wrap: wrap; }
+  .cap-row > * { flex-basis: 140px; }
+  .seg { flex-wrap: wrap; overflow: visible; }
+  .seg button { min-inline-size: 0; flex: 1 1 80px; white-space: normal; }
+  .goal-row, .hero-label, .panel-head, .tariff-head,
+  .supp-catalog-head, .supp-feature-actions, .billing-v2-card-head {
+    flex-wrap: wrap;
+    min-inline-size: 0;
+  }
+  .panel-title, .panel-note, .goal-row > *, .hero-label > * {
+    min-inline-size: 0;
+    overflow-wrap: anywhere;
+  }
+  .experience-table-wrap, .recon-table-wrap, .company-table-wrap {
+    inline-size: 100%;
+    max-inline-size: 100%;
+    min-inline-size: 0;
+    overflow-x: auto;
+    overscroll-behavior-inline: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+  .experience-table-wrap:focus-visible, .recon-table-wrap:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+  /* The old hotfix raises the tabbar to 120. Dialogs must remain above it. */
+  #foSettingsPage, .settings-overlay { z-index: 200; }
+  .modal-overlay { z-index: 220; }
+  #detailModal { padding: max(8px, env(safe-area-inset-top)) 8px max(8px, env(safe-area-inset-bottom)); }
+  #detailModal .modal-card {
+    max-inline-size: 490px !important;
+    max-block-size: calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 16px);
+    border-radius: 18px;
+    padding: 14px 12px max(14px, env(safe-area-inset-bottom));
+    scroll-padding-block: 70px 90px;
+  }
+  #detailModal .modal-header {
+    top: -14px;
+    margin: -14px -12px 12px;
+    padding: 12px;
+  }
+  /* The full reference remains editable below; keep close and save in reach. */
+  #detailModal .modal-title {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    overflow: hidden;
+  }
+  .intervention-edit-actions {
+    bottom: calc(-1 * max(14px, env(safe-area-inset-bottom)));
+    flex-wrap: wrap;
+    padding-block: 12px max(12px, env(safe-area-inset-bottom));
+  }
+  .intervention-edit-actions > * { min-inline-size: 0; flex: 1 1 120px; }
+  #foSettingsPage { padding: 8px; }
+  #foSettingsPage .fo-settings-page-shell { max-block-size: calc(100dvh - 16px); }
+  #foSettingsPage .fo-settings-page-head { position: sticky; top: 0; z-index: 3; }
+  .modal-card, .settings-panel { overflow-x: hidden; }
+  /* Catalog actions occupy their own rows rather than overlapping fields. */
+  #tariffRows .supp-rate-row .supp-delete { grid-row: 3; grid-column: 1 / -1; justify-self: stretch; }
+  #tariffRows .supp-rate-row .supp-toggle { justify-self: stretch; }
+  .billing-v2-tabs, .billing-v3-tabs { min-inline-size: 0; }
+  .billing-v2-tabs > *, .billing-v3-tabs > * { min-inline-size: 0; white-space: normal; }
+  .billing-v2-actions, .billing-v2-history-actions, .billing-preview-top-actions { flex-wrap: wrap; }
+  .billing-v2-history-row > * { min-inline-size: 0; overflow-wrap: anywhere; }
+}
+@media (max-width: 430px) {
+  .billing-v2-history-row { grid-template-columns: minmax(0, 1fr) auto; }
+  .billing-v2-history-row > :nth-child(2) { grid-column: 1 / -1; grid-row: 2; }
+  .billing-v2-history-actions { grid-column: 1 / -1; }
+  .type-row { grid-template-columns: minmax(0,1fr) 80px 36px; }
+  .type-row input { min-inline-size: 0; }
+  .insight-status-grid { grid-template-columns: minmax(0,1fr); }
+  .recon-summary { grid-template-columns: minmax(0,1fr); }
+  .history-filter-bar { display: flex; flex-wrap: wrap; }
+  .history-filter-bar > * { min-inline-size: 0; max-inline-size: 100%; }
+  .history-filter-bar .history-filter-main { flex: 1 1 100%; }
+  #histSearch { inline-size: 100%; }
+  .billing-v2-actions { grid-template-columns: minmax(0,1fr); }
+}
+/* Preserve desktop layout and print output. */
+@media print {
+  .intervention-edit-actions { position: static; }
+}

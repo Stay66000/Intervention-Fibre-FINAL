@@ -132,14 +132,6 @@
     if($id('cap-link'))$id('cap-link').onclick=()=>{const img=$id('cap-img');if(!img)return;const show=img.style.display==='none'||!img.style.display;img.style.display=show?'block':'none';$id('cap-link').textContent=show?'📎 Masquer la capture':'📎 Voir la capture'};
   }
 
-  function enhanceHint(){
-    const input=$id('cap-file');if(!input)return;
-    const field=input.closest('.field');
-    if(field&&!field.querySelector('.capture-v2-hint')){
-      const hint=document.createElement('div');hint.className='capture-v2-hint';hint.innerHTML='<b>Lecture V2</b> · Orange, SFR, Bouygues et Free. Si la première lecture est incomplète, FIBRE OPS relance automatiquement une version contrastée de la capture.';
-      field.appendChild(hint);
-    }
-  }
-  function init(){patch();enhanceHint();setTimeout(()=>{patch();enhanceHint()},1000)}
+  function init(){patch();setTimeout(()=>{patch()},1000)}
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();
 })();

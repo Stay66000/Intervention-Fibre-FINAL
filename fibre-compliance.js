@@ -31,14 +31,6 @@
     }
   }
 
-  function addCaptureNotice(){
-    const input=document.getElementById('cap-file');
-    const field=input?.closest('.field');
-    if(!field||field.querySelector('.fo-privacy-note'))return;
-    const note=document.createElement('div');note.className='fo-privacy-note';
-    note.innerHTML='<b>🔒 Capture temporaire</b> · elle reste consultable pendant la saisie puis est retirée de l’interface après l’enregistrement réussi de l’intervention. Le traitement OCR s’effectue dans ton navigateur.';
-    field.appendChild(note);
-  }
 
   function createSettingsHub(){
     if(document.getElementById('foSettingsPage'))return;
@@ -242,7 +234,7 @@
 
   function init(){
     addLegalLinks();
-    addCaptureNotice();
+    
     createSettingsHub();
     addPrivacySettings();
     moveAdvancedSettings();
@@ -252,6 +244,6 @@
   }
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();
 
-  const observer=new MutationObserver(()=>{addLegalLinks();addCaptureNotice();addPrivacySettings();moveAdvancedSettings();bindDateProtection()});
+  const observer=new MutationObserver(()=>{addLegalLinks();addPrivacySettings();moveAdvancedSettings();bindDateProtection()});
   observer.observe(document.documentElement,{childList:true,subtree:true});
 })();

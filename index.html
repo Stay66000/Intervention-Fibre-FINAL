@@ -1759,6 +1759,7 @@ body.is-offline .sync-pill{border-color:color-mix(in srgb,var(--danger) 45%,var(
     <div class="date-pill" id="monthLabel">Mois</div>
     <button class="btn-ghost" id="nextMonth">›</button>
   </div>
+  <button class="btn-ghost history-export-compact" id="exportXlsx" type="button" title="Exporter en Excel (.xlsx)" aria-label="Exporter en Excel (.xlsx)">📊 Excel</button>
 
 </div>
 <div class="month-total-pill" id="totalGlobalBadge">Total : 0,00 €</div>
@@ -1769,6 +1770,7 @@ body.is-offline .sync-pill{border-color:color-mix(in srgb,var(--danger) 45%,var(
 <div class="card" style="margin-bottom:0;padding:12px;background:var(--surface-alt)"><div style="font-weight:700;font-size:13px;color:var(--accent-text);margin-bottom:8px;display:flex;justify-content:space-between;border-bottom:1px solid var(--border);padding-bottom:6px"><span>⚡ Taux de réussite (Semaine)</span><span class="badge-typo" id="stat-week-pct-badge">0%</span></div><div style="display:flex;justify-content:space-between;font-size:12px"><span style="color:var(--ink-muted)">Tout opérateur :</span><strong id="stat-week-global">0/0 (0%)</strong></div><div class="operator-stat-list" id="stat-week-ops"></div></div>
 </div>
 <div class="split" id="splitTotals"></div>
+<details class="history-sort-panel" id="historySortPanel"><summary>TRI</summary><div class="history-sort-content">
 <div class="field" style="margin-bottom:10px;">
 <input id="histSearch" placeholder="🔍 Rechercher Réf, Typologie, Adresse..." type="text"/>
 </div>
@@ -1778,9 +1780,10 @@ body.is-offline .sync-pill{border-color:color-mix(in srgb,var(--danger) 45%,var(
 <label>Résultat<select id="histResult"><option value="">Tous les résultats</option><option value="Réussite">Réussite</option><option value="Échec">Échec</option></select></label>
 <label>Mode<select id="histWork"><option value="">Tous les modes</option><option value="Personal">Personnel</option><option value="Solo">Solo</option><option value="Binôme">Binôme</option></select></label>
 </div>
+</div></details>
 <div class="experience-history-tools"><span id="histFilterSummary" class="experience-muted" role="status" aria-live="polite"></span><div class="experience-layout" aria-label="Présentation de l’historique"><button class="btn-ghost" id="histCards" type="button" aria-pressed="true">Cartes</button><button class="btn-ghost" id="histTable" type="button" aria-pressed="false">Tableau</button><button class="btn-ghost" id="histReset" type="button">Effacer les filtres</button></div></div>
 <div id="histList"></div>
-<button class="btn-primary" id="exportXlsx" style="margin-top:12px; font-size:12px;">📊 Exporter en Excel (.xlsx)</button>
+
 </section>
 
 
@@ -3553,7 +3556,7 @@ function toggleSoloFields(){
   if($('soloTechField'))$('soloTechField').style.display=solo?'block':'none';
 }
 
-function renderAccentSwatches(){const choices=[['#35d0e0','Cyan'],['#ff8a1f','Orange'],['#4f8cff','Bleu'],['#3ccf8e','Vert'],['#a678ff','Violet'],['#f27fb0','Rose'],['#f2cf3b','Jaune']];$('accentSwatches').innerHTML=choices.map(a=>`<button type="button" class="sw" data-c="${a[0]}" style="--c:${a[0]}" aria-label="${a[1]}"></button>`).join('');applyAccent(settings.accent_color||'blue')}
+function renderAccentSwatches(){const choices=[['#35d0e0','Cyan'],['#ff8a1f','Orange'],['#4f8cff','Bleu'],['#3ccf8e','Vert'],['#a678ff','Violet'],['#f27fb0','Rose'],['#f2cf3b','Jaune'],['#16324f','Bleu nuit'],['#164b45','Vert forêt'],['#40305e','Violet profond'],['#682c41','Bordeaux'],['#763f23','Cuivre sombre'],['#303b4b','Ardoise']];$('accentSwatches').innerHTML=choices.map(a=>`<button type="button" class="sw" data-c="${a[0]}" style="--c:${a[0]}" aria-label="${a[1]}"></button>`).join('');applyAccent(settings.accent_color||'blue')}
 function activeOps(){return operators.filter(o=>o.active).map(o=>o.operator)}
 
 function populateAddOperator(){
@@ -6217,6 +6220,7 @@ syncNetworkUI();
 
 // OCR Orange / SFR / Free : extraction adaptée aux écrans terrain.
 function cleanOcrLine(v){return String(v||'')
+  .replace(/Ã¨/g,'è').replace(/Ã©/g,'é').replace(/Ãª/g,'ê').replace(/Ã§/g,'ç').replace(/Ã®/g,'î').replace(/Ã´/g,'ô').replace(/Ã /g,'à')
   .replace(/[©®@●◉•◆◇►▶◀◁]+/g,' ')
   .replace(/[\[\(]\s*(?:P[I1l]T|P[Rr]{1,2}|Prr)\s*[\]\)]/gi,' ')
   .replace(/\bP[I1l]T\b/gi,' ')
@@ -6230,6 +6234,7 @@ function cleanAddress(v){return cleanOcrLine(v)
   .replace(/[^0-9A-Za-zÀ-ÖØ-öø-ÿ,'’.\-\/ ]+/g,' ')
   .replace(/\s+/g,' ')
   .replace(/\s+,/g,',')
+  .replace(/^,\s*/, '')
   .trim()}
 function takeAddress(lines,start,first=''){const parts=[];let seed=cleanAddress(first);if(seed)parts.push(seed);if(/\b\d{5}\b/.test(seed))return seed;for(let j=start;j<Math.min(lines.length,start+4);j++){let s=cleanOcrLine(lines[j]);if(!s||addressStopLine(s))break;s=cleanAddress(s);if(!s)continue;if(/^(?:voir plus|aucune activit(?:é|e)|d(?:é|e)clarer)$/i.test(s))break;parts.push(s);if(/\b\d{5}\b/.test(s))break}let out=parts.join(', ').replace(/,\s*,+/g,', ').replace(/\s+/g,' ').trim();return out}
 function parseCap(t){

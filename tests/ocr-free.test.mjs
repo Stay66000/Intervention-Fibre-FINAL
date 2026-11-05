@@ -42,3 +42,14 @@ test('importing Free selects it, clears the old type, fills ND/address and saves
   assert.equal($('f-addr').value,'6 Cami del Pla, 66500 Eus');
   assert.equal(saved,true);
 });
+
+test('Orange synthetic multiline screens clean leading punctuation and damaged accents',()=>{
+  const a=parse("PROD_GP_PLPC\nDescription de l'intervention\nND: 0101010101\nAdresse\n, Rue de l'Exemple\n66000 Ville");
+  assert.equal(a.op,'orange');
+  assert.equal(a.nd,'0101010101');
+  assert.equal(a.addr,"Rue de l'Exemple, 66000 Ville");
+  const b=parse("SAV_GP_SANS_RDV\nDescription de l'intervention\nND: 0202020202\nAdresse\n26 Grande Rue\n66000 VillÃ¨re");
+  assert.equal(b.op,'orange');
+  assert.equal(b.nd,'0202020202');
+  assert.equal(b.addr,'26 Grande Rue, 66000 Villère');
+});

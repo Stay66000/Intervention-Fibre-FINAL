@@ -3769,8 +3769,8 @@ async function saveIntervention(continueEntry=false){
   const {error}=await supabase.from('interventions').insert(payload);
   if(error){
     if((error.code||error.details?.code)!=='23505')throw error;
-    const existing=await supabase.from('interventions').select('id').eq('id',submission.id).eq('user_id',user.id).maybeSingle();
-    if(existing.error||!existing.data)throw error;
+    const existing=await supabase.rpc('photo_test_find_my_intervention',{p_event_id:submission.id,p_intervention_id:submission.id});
+    if(existing.error||existing.data!==submission.id)throw error;
   }
   try{localStorage.removeItem(submissionKey)}catch{}
   interventionSubmission=null;

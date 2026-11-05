@@ -31,6 +31,22 @@ end $$;
 revoke all on function public.photo_test_register_intervention(uuid) from public, anon;
 grant execute on function public.photo_test_register_intervention(uuid) to authenticated;
 
+-- Confirm only the caller's own creation event without granting table SELECT.
+create or replace function public.photo_test_find_my_intervention(p_event_id uuid,p_intervention_id uuid default null)
+returns uuid language plpgsql security definer set search_path='' as $$
+declare result uuid;
+begin
+  perform private.assert_api_user();
+  if auth.uid() is null or p_event_id is null then return null; end if;
+  select i.id into result from public.interventions i
+  where i.user_id=auth.uid() and i.client_event_id=p_event_id
+    and (p_intervention_id is null or i.id=p_intervention_id)
+  limit 1;
+  return result;
+end $$;
+revoke all on function public.photo_test_find_my_intervention(uuid,uuid) from public, anon;
+grant execute on function public.photo_test_find_my_intervention(uuid,uuid) to authenticated;
+
 create or replace function public.photo_test_delete_intervention(p_intervention_id uuid)
 returns boolean language plpgsql security definer set search_path = '' as $$
 declare v_uid uuid := auth.uid(); v_row public.interventions%rowtype; v_allowed boolean := false;

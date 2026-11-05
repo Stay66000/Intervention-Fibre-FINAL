@@ -271,7 +271,7 @@ test('document expiration statuses use entered dates including same day and leap
 
 test('an ambiguous save retry keeps its client event ID and treats a confirmed uniqueness conflict as saved',async()=>{
  const f=await fixture();try{
-  f.run(`window.submissions=[];window.phase=0;supabase.from=()=>({
+  f.run(`window.submissions=[];window.phase=0;supabase.rpc=async(name,args)=>({data:name==='photo_test_find_my_intervention'?args.p_event_id:true,error:null});supabase.from=()=>({
     insert:async payload=>{window.submissions.push({...payload});return window.phase++===0?{error:{status:0,message:'Connection lost'}}:{error:{details:{code:'23505'}}}},
     select:()=>({eq:()=>({eq:()=>({maybeSingle:async()=>({data:{id:'already-created'},error:null})})})})
   });loadAll=async()=>{};form.typeId='type-a';populateOperatorUI();$('f-num').value='NEW-RETRY';`);

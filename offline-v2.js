@@ -172,9 +172,9 @@
           let interventionId=item.payload.id;
           if(error){
             if((error.code||error.details?.code)!=='23505')throw error;
-            const existing=await sb.from('interventions').select('id').eq('client_event_id',item.id).eq('user_id',accountId).maybeSingle();
+            const existing=await sb.rpc('photo_test_find_my_intervention',{p_event_id:item.id,p_intervention_id:item.payload.id||null});
             if(existing.error||!existing.data)throw error;
-            interventionId=existing.data.id;
+            interventionId=existing.data;
           }
           if(item.payload.id&&!item.testRegistered){
             if(!interventionId||interventionId!==item.payload.id||typeof sb.rpc!=='function')throw new Error('Impossible de confirmer le dossier de test');

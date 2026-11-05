@@ -75,16 +75,19 @@ export async function clean(env,now=Date.now()){
 }
 const hex=bytes=>Array.from(new Uint8Array(bytes),b=>b.toString(16).padStart(2,'0')).join('');
 async function sha(bytes){return hex(await crypto.subtle.digest('SHA-256',bytes));}
-export async function inventoryAndBackfill(env,{copy=false,maxObjects=30}={}){
+export async function inventoryAndBackfill(env,{copy=false,maxObjects=30,skipObjects=0}={}){
   // Not called by scheduled(); explicit manual operation only.
   // A missing flag always turns a requested copy into an error, never an implicit write.
   if(copy&&env.PHOTO_PRODUCTION_BACKFILL_ENABLED!=='true')throw Error('Backfill not authorized');
   if(!env.FIBRE_PHOTOS||!env.FIBRE_PHOTOS_BACKUP)throw Error('Both R2 bindings are required');
-  const summary={scanned:0,missing:0,verified:0,mismatch:0,copied:0,remaining:false};
+  if(!Number.isInteger(skipObjects)||skipObjects<0||!Number.isInteger(maxObjects)||maxObjects<1||maxObjects>100)throw Error('Invalid inventory range');
+  const summary={scanned:0,missing:0,verified:0,mismatch:0,copied:0,remaining:false,nextOffset:skipObjects};
+  let visited=0;
   for(const prefix of PREFIXES){
     for(const info of await listAll(env.FIBRE_PHOTOS,prefix)){
+      if(visited++<skipObjects)continue;
       if(summary.scanned>=maxObjects){summary.remaining=true;return summary;}
-      summary.scanned++;
+      summary.scanned++;summary.nextOffset++;
       const existing=await env.FIBRE_PHOTOS_BACKUP.get(info.key);
       const source=await env.FIBRE_PHOTOS.get(info.key);
       if(!source)continue; // Concurrent deletion: never resurrect the photo.

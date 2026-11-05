@@ -169,16 +169,17 @@
       for(const item of items){
         try{
           if(user?.id!==accountId)break;
+          const photoProduction=!!item.photos?.length && !!(await window.FibrePhotos?.refreshMode?.());
           const {error}=await sb.from('interventions').insert(item.payload);
           let interventionId=item.payload.id;
           if(error){
             if((error.code||error.details?.code)!=='23505')throw error;
-            const existing=await sb.rpc('photo_test_find_my_intervention',{p_event_id:item.id,p_intervention_id:item.payload.id||null});
+            const existing=await sb.rpc(photoProduction?'photo_find_my_intervention':'photo_test_find_my_intervention',{p_event_id:item.id,p_intervention_id:item.payload.id||null});
             if(existing.error)throw new Error('Vérification du dossier impossible : '+human(existing.error));
             if(!existing.data)throw new Error('Le dossier déjà créé ne peut pas être confirmé pour ce compte.');
             interventionId=existing.data;
           }
-          if(item.payload.id&&!item.testRegistered){
+          if(item.payload.id&&!item.testRegistered&&!photoProduction){
             if(!interventionId||interventionId!==item.payload.id||typeof sb.rpc!=='function')throw new Error('Impossible de confirmer le dossier de test');
             const registration=await sb.rpc('photo_test_register_intervention',{p_intervention_id:interventionId});
             if(registration.error||registration.data!==true)throw new Error('Dossier de test non enregistré');

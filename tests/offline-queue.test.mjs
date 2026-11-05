@@ -26,3 +26,7 @@ test('offline sync keeps an unrelated unique conflict and another account’s it
 test('offline sync removes an ambiguous duplicate only after matching owner and event are confirmed',async()=>{
  const f=await fixture({code:'23505',message:'duplicate key'},{id:'confirmed'});try{await f.w.FibreOfflineV2.flush();assert.equal(await f.w.FibreOfflineV2.count(),1);assert.deepEqual(f.w.calls.map(x=>x[1]),['owner'])}finally{f.dom.window.close()}
 });
+
+test('offline save is refused when photos have not been saved',async()=>{
+ const dom=new JSDOM('<!doctype html><body><button id="f-save"></button></body>',{url:'https://fixture.invalid',runScripts:'outside-only'});const w=dom.window;w.indexedDB=new IDBFactory();w.IDBKeyRange=IDBKeyRange;Object.defineProperty(w.navigator,'onLine',{value:false,configurable:true});w.blocked=0;w.FibrePhotos={hasPending:()=>true,offlineBlocked:()=>{w.blocked++}};const ctx=dom.getInternalVMContext();vm.runInContext("let user={id:'owner'};let form={};function saveIntervention(){throw Error('should not save')}",ctx);vm.runInContext(fs.readFileSync(new URL('../offline-v2.js',import.meta.url),'utf8'),ctx);if(w.document.readyState==='loading')w.document.dispatchEvent(new w.Event('DOMContentLoaded'));await new Promise(r=>setTimeout(r,30));const result=await vm.runInContext('saveIntervention(false)',ctx);assert.equal(result,false);assert.equal(w.blocked,1);assert.equal(await w.FibreOfflineV2.count(),0);dom.window.close();
+});

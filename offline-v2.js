@@ -255,6 +255,7 @@
     legacySave=saveIntervention;
     const wrapped=async function(continueEntry=false){
       if(isOffline()){
+        if(window.FibrePhotos?.hasPending()){window.FibrePhotos.offlineBlocked();notify('Photos non envoyées : reconnecte-toi avant d’enregistrer.');return false}
         try{return await queueCurrent(continueEntry)}catch(error){notify('Erreur hors ligne : '+human(error));return false}
       }
       if((await allQueue()).length)flushQueue(false);

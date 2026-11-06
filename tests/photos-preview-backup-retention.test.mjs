@@ -5,7 +5,7 @@ import {onRequest} from '../functions/api/photos.js';
 const UID='aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa';
 const IID='dddddddd-dddd-4ddd-dddd-dddddddddddd';
 const PHOTO='eeeeeeee-eeee-4eee-eeee-eeeeeeeeeeee';
-const key='preview-photos/'+IID+'/'+PHOTO;
+const key='photos/'+IID+'/'+PHOTO;
 const jpeg=new Uint8Array([255,216,255,10,20,30]);
 function bucket(){
   const files=new Map();
@@ -25,18 +25,18 @@ async function scenario(fn){
   globalThis.fetch=async (url)=>{
     const u=String(url);
     if(u.endsWith('/auth/v1/user'))return Response.json({id:UID});
-    if(u.endsWith('/photo_preview_my_access'))return Response.json(true);
-    if(u.endsWith('/get_my_independent_interventions'))return Response.json([{id:IID,user_id:UID,solo_user_id:UID,team_id:null,work_mode:'Personal'}]);
+    if(u.endsWith('/photo_my_access'))return Response.json(true);
+    if(u.endsWith('/photo_can_access'))return Response.json(true);
     throw Error('Unexpected authentication URL');
   };
   const call=(method='GET',photo=null,bytes)=>onRequest({
     request:new Request('https://preview.test/api/photos?'+new URLSearchParams({intervention:IID,...(photo?{photo,name:'original.jpg'}:{})}),
       {method,headers:{authorization:'Bearer test-session',...(bytes?{'content-type':'image/jpeg'}:{})},body:bytes||undefined}),
-    env:{FIBRE_PHOTOS:primary,FIBRE_PHOTOS_BACKUP:backup}
+    env:{FIBRE_PHOTOS:primary,FIBRE_PHOTOS_BACKUP:backup,PHOTO_STORAGE_MODE:'production'}
   });
   try{await fn({primary,backup,call})}finally{globalThis.fetch=originalFetch}
 }
-test('original-size photo stores identical bytes and SHA-256 in both isolated R2 buckets',async()=>{
+test('original-size photo stores identical bytes and SHA-256 in both production R2 buckets',async()=>{
   await scenario(async({primary,backup,call})=>{
     const r=await call('PUT',PHOTO,jpeg);
     assert.equal(r.status,200);

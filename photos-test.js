@@ -1,12 +1,172 @@
-(function(){'use strict';let current='',version=0,urls=[];const byId=id=>document.getElementById(id);
+(function(){'use strict';let current='',version=0,urls=[];let gallery=[],viewerIndex=0,viewerTicket=0,touchStart=null,bulkReady=[],bulkKey='',bulkBusy=false;const byId=id=>document.getElementById(id);
 function cleanup(){urls.forEach(URL.revokeObjectURL);urls=[]}
 async function api(params,options={}){const {data:{session}}=await supabase.auth.getSession();if(!session?.access_token)throw Error('Reconnecte-toi.');const res=await fetch('/api/photos?'+new URLSearchParams(params),{...options,cache:'no-store',headers:{...(options.headers||{}),Authorization:'Bearer '+session.access_token}});if(!res.ok){const body=await res.json().catch(()=>({}));throw Error(body.error||'Erreur de connexion')}return res}
-function mount(){if(byId('photosTest'))return;const wrap=document.createElement('section');wrap.id='photosTest';wrap.hidden=true;wrap.innerHTML='<h3>📸 Photos du dossier</h3><p>Fichiers originaux · 25 Mo maximum par photo</p><label class="btn-ghost photo-add">＋ Ajouter des photos<input id="photoFiles" type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif" multiple hidden></label><p id="photoStatus" role="status" aria-live="polite"></p><div id="photoList"></div><dialog id="photoViewer"><button type="button" aria-label="Fermer" id="photoClose">×</button><img alt="Photo de l’intervention"><a id="photoDownload" class="btn-ghost" download>Télécharger</a></dialog>';byId('m-save-btn').parentNode.before(wrap);byId('photoClose').onclick=()=>byId('photoViewer').close();byId('photoViewer').onclose=()=>byId('photoViewer').querySelector('img').removeAttribute('src');byId('photoFiles').onchange=upload;byId('photoList').onclick=actions;}
-async function open(row){mount();const token=++version;current=row.id;cleanup();const box=byId('photosTest');box.hidden=true;byId('photoList').replaceChildren();try{await api({access:'1'});if(token!==version)return;const res=await api({intervention:row.id});if(token!==version)return;box.hidden=false;render((await res.json()).files);byId('photoStatus').textContent='';}catch(err){if(token===version&&err.message!=='Fonction indisponible'&&err.message!=='Dossier inaccessible'){box.hidden=false;byId('photoStatus').textContent=err.message}}}
-function render(files){const list=byId('photoList');list.replaceChildren();if(!files.length){list.textContent='Aucune photo pour ce dossier.';return}files.forEach((file,i)=>{const el=document.createElement('div');el.className='photo-row';const name=document.createElement('span');name.textContent=file.name||`Photo ${i+1}`;const view=document.createElement('button');view.type='button';view.className='btn-ghost';view.textContent='Voir';view.dataset.view=file.id;view.dataset.name=file.name;const del=document.createElement('button');del.type='button';del.className='btn-ghost';del.textContent='Supprimer';del.dataset.remove=file.id;el.append(name,view,del);list.append(el)})}
+function mount(){
+  if(byId('photosTest'))return;
+  const wrap=document.createElement('section');
+  wrap.id='photosTest';wrap.hidden=true;
+  wrap.innerHTML='<h3>📸 Photos du dossier</h3><p>Fichiers originaux · 25 Mo maximum par photo</p><label class="btn-ghost photo-add">＋ Ajouter des photos<input id="photoFiles" type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif" multiple hidden></label><button type="button" class="btn-ghost photo-all" id="photoDownloadAll" hidden>⬇️ Télécharger toutes les photos</button><p id="photoStatus" role="status" aria-live="polite"></p><div id="photoList"></div><dialog id="photoViewer" aria-label="Visionneuse de photos"><button type="button" aria-label="Fermer la visionneuse" id="photoClose">×</button><div class="photo-viewer-stage"><button type="button" class="photo-nav" id="photoPrev" aria-label="Photo précédente">‹</button><img alt="Photo de l’intervention"><button type="button" class="photo-nav" id="photoNext" aria-label="Photo suivante">›</button></div><div id="photoCounter" aria-live="polite"></div><a id="photoDownload" class="btn-ghost" download>Télécharger cette photo</a></dialog>';
+  byId('m-save-btn').parentNode.before(wrap);
+  const dlg=byId('photoViewer');
+  byId('photoClose').onclick=()=>dlg.close();
+  dlg.onclose=()=>{viewerTicket++;dlg.querySelector('img').removeAttribute('src');cleanup()};
+  byId('photoPrev').onclick=()=>showViewer(viewerIndex-1);
+  byId('photoNext').onclick=()=>showViewer(viewerIndex+1);
+  const img=dlg.querySelector('img');
+  img.addEventListener('touchstart',e=>{if(e.touches.length===1)touchStart={x:e.touches[0].clientX,y:e.touches[0].clientY}},{passive:true});
+  img.addEventListener('touchend',e=>{
+    if(!touchStart||!e.changedTouches.length)return;
+    const dx=e.changedTouches[0].clientX-touchStart.x,dy=e.changedTouches[0].clientY-touchStart.y;touchStart=null;
+    if(Math.abs(dx)>55&&Math.abs(dx)>Math.abs(dy)*1.25)showViewer(viewerIndex+(dx<0?1:-1));
+  },{passive:true});
+  document.addEventListener('keydown',e=>{
+    if(!dlg.open||gallery.length<2)return;
+    if(e.key==='ArrowLeft'){e.preventDefault();showViewer(viewerIndex-1)}
+    if(e.key==='ArrowRight'){e.preventDefault();showViewer(viewerIndex+1)}
+  });
+  byId('photoFiles').onchange=upload;
+  byId('photoList').onclick=actions;
+  byId('photoDownloadAll').onclick=downloadAll;
+}
+async function open(row){
+  mount();const token=++version;
+  const dlg=byId('photoViewer');if(dlg.open)dlg.close();
+  viewerTicket++;current=row.id;gallery=[];resetBulk();cleanup();
+  const box=byId('photosTest');box.hidden=true;byId('photoList').replaceChildren();
+  try{
+    await api({access:'1'});if(token!==version)return;
+    const res=await api({intervention:row.id});if(token!==version)return;
+    box.hidden=false;render((await res.json()).files);byId('photoStatus').textContent='';
+  }catch(err){
+    if(token===version&&err.message!=='Fonction indisponible'&&err.message!=='Dossier inaccessible'){
+      box.hidden=false;byId('photoStatus').textContent=err.message;
+    }
+  }
+}
+function resetBulk(){
+  bulkReady=[];bulkKey='';bulkBusy=false;const btn=byId('photoDownloadAll');
+  if(btn){btn.disabled=false;btn.textContent='⬇️ Télécharger toutes les photos'}
+}
+function render(files){
+  gallery=Array.isArray(files)?files.slice():[];
+  resetBulk();
+  const btn=byId('photoDownloadAll');if(btn)btn.hidden=!gallery.length;
+  const list=byId('photoList');list.replaceChildren();
+  if(!gallery.length){list.textContent='Aucune photo pour ce dossier.';return}
+  gallery.forEach((file,i)=>{
+    const el=document.createElement('div');el.className='photo-row';
+    const name=document.createElement('span');name.textContent=file.name||'Photo '+(i+1);
+    const view=document.createElement('button');view.type='button';view.className='btn-ghost';
+    view.textContent='Voir';view.dataset.view=file.id;view.dataset.name=file.name;
+    const del=document.createElement('button');del.type='button';del.className='btn-ghost';
+    del.textContent='Supprimer';del.dataset.remove=file.id;
+    el.append(name,view,del);list.append(el);
+  });
+}
 async function refresh(id){const r=await api({intervention:id});if(id===current)render((await r.json()).files)}
 async function upload(e){const files=[...e.target.files],id=current,token=version;if(!files.length)return;let good=0,failed=[];e.target.disabled=true;for(const [i,file] of files.entries()){if(token!==version)break;byId('photoStatus').textContent=`Envoi ${i+1}/${files.length} : ${file.name}…`;try{await api({intervention:id,photo:crypto.randomUUID(),name:file.name},{method:'PUT',headers:{'content-type':file.type},body:file});good++}catch(err){failed.push(file.name+' : '+err.message)}}if(token===version){try{await refresh(id)}catch{}byId('photoStatus').textContent=failed.length?`${good} photo(s) sauvegardée(s). Échec : ${failed.join(' ; ')}. Sélectionne-les à nouveau pour réessayer.`:good===files.length?'Toutes les photos sont sauvegardées ✓':`${good} photo(s) sauvegardée(s).`;e.target.value=''}e.target.disabled=false}
-async function actions(e){const button=e.target.closest('button');if(!button)return;const id=current;button.disabled=true;try{if(button.dataset.remove){if(!confirm('Supprimer cette photo ?'))return;await api({intervention:id,photo:button.dataset.remove},{method:'DELETE'});await refresh(id);byId('photoStatus').textContent='Photo supprimée.'}else if(button.dataset.view){const res=await api({intervention:id,photo:button.dataset.view});const blob=await res.blob();if(id!==current)return;const url=URL.createObjectURL(blob);urls.push(url);const dlg=byId('photoViewer');dlg.querySelector('img').src=url;const link=byId('photoDownload');link.href=url;link.download=button.dataset.name||'photo';dlg.showModal()}}catch(err){byId('photoStatus').textContent=err.message}finally{button.disabled=false}}
+async function showViewer(target){
+  const dlg=byId('photoViewer');
+  if(!gallery.length||!dlg?.open)return;
+  viewerIndex=((target%gallery.length)+gallery.length)%gallery.length;
+  const seq=++viewerTicket,id=current,file=gallery[viewerIndex];
+  const img=dlg.querySelector('img');
+  img.removeAttribute('src');
+  byId('photoCounter').textContent=(viewerIndex+1)+' / '+gallery.length+' · Chargement…';
+  byId('photoPrev').disabled=gallery.length<2;
+  byId('photoNext').disabled=gallery.length<2;
+  byId('photoDownload').removeAttribute('href');
+  try{
+    const res=await api({intervention:id,photo:file.id});
+    const blob=await res.blob();
+    if(seq!==viewerTicket||id!==current||!dlg.open)return;
+    cleanup();
+    const url=URL.createObjectURL(blob);urls.push(url);
+    img.src=url;img.alt=file.name||'Photo '+(viewerIndex+1);
+    const link=byId('photoDownload');
+    link.href=url;link.download=file.name||'photo';
+    byId('photoCounter').textContent=(viewerIndex+1)+' / '+gallery.length;
+  }catch(error){
+    if(seq===viewerTicket&&dlg.open)byId('photoCounter').textContent='Photo indisponible : '+(error.message||'réessaie');
+  }
+}
+function canShareAll(files){
+  return typeof navigator.share==='function' &&
+    typeof navigator.canShare==='function' &&
+    navigator.canShare({files});
+}
+async function downloadAll(){
+  const btn=byId('photoDownloadAll'),status=byId('photoStatus');
+  if(bulkBusy||!gallery.length)return;
+  const key=current+'|'+version;
+  if(bulkReady.length&&bulkKey===key){
+    if(canShareAll(bulkReady)){
+      // Called directly from the second user click: iOS requires fresh user activation.
+      try{
+        await navigator.share({files:bulkReady,title:'Photos du dossier'});
+        status.textContent='Photos transmises au partage. Tu peux les enregistrer dans Photos ou Fichiers.';
+      }catch(error){
+        status.textContent=error?.name==='AbortError'?'Partage annulé. Les photos restent prêtes.':
+          'Partage impossible : '+(error?.message||'réessaie')+'. Tu peux télécharger chaque photo dans la visionneuse.';
+      }
+      return;
+    }
+    // Browsers without multi-file sharing: request separate original downloads, never ZIP.
+    const links=[];
+    for(const file of bulkReady){
+      const url=URL.createObjectURL(file);links.push(url);
+      const a=document.createElement('a');a.href=url;a.download=file.name;
+      a.style.display='none';document.body.append(a);a.click();a.remove();
+    }
+    setTimeout(()=>links.forEach(url=>URL.revokeObjectURL(url)),120000);
+    status.textContent='Téléchargements individuels demandés ('+bulkReady.length+'). Le navigateur peut te demander de les autoriser. Sinon, utilise le téléchargement photo par photo.';
+    return;
+  }
+  const id=current,token=version,account=user?.id,files=gallery.slice();
+  bulkBusy=true;btn.disabled=true;status.textContent='Préparation des '+files.length+' photos…';
+  try{
+    const prepared=[];
+    for(let i=0;i<files.length;i++){
+      if(current!==id||version!==token||user?.id!==account)throw Error('Le dossier ou la session a changé.');
+      status.textContent='Préparation des photos originales : '+(i+1)+' / '+files.length+'…';
+      const res=await api({intervention:id,photo:files[i].id});
+      const blob=await res.blob();
+      if(current!==id||version!==token||user?.id!==account)throw Error('Le dossier ou la session a changé.');
+      const name=String(files[i].name||'photo').replace(/[\/\\:*?"<>|]/g,'_').slice(0,100);
+      const numbered=String(i+1).padStart(3,'0')+'_'+name;
+      prepared.push(new File([blob],numbered,{type:blob.type||'application/octet-stream'}));
+    }
+    bulkReady=prepared;bulkKey=key;
+    btn.textContent=canShareAll(prepared)?'📲 Enregistrer les '+prepared.length+' photos':'⬇️ Télécharger les '+prepared.length+' fichiers';
+    status.textContent=canShareAll(prepared)?
+      'Photos prêtes. Appuie sur « Enregistrer les photos », puis choisis Photos ou Fichiers dans le partage iPhone. Aucun ZIP.':
+      'Photos prêtes. Appuie sur « Télécharger les fichiers » : ils resteront séparés, sans ZIP.';
+  }catch(error){
+    if(current===id&&version===token){bulkReady=[];bulkKey='';btn.textContent='⬇️ Télécharger toutes les photos';status.textContent='Préparation interrompue : '+(error.message||'réessaie')+'. Aucune photo n’a été modifiée.'}
+  }finally{
+    if(current===id&&version===token){bulkBusy=false;btn.disabled=false}
+  }
+}
+async function actions(e){
+  const button=e.target.closest('button');if(!button)return;
+  const id=current;button.disabled=true;
+  try{
+    if(button.dataset.remove){
+      if(!confirm('Supprimer cette photo ?'))return;
+      const removed=await api({intervention:id,photo:button.dataset.remove},{method:'DELETE'});
+      const result=await removed.json();
+      await refresh(id);
+      byId('photoStatus').textContent=result.queued?'Suppression enregistrée, nettoyage des copies en attente.':'Photo supprimée.';
+    }else if(button.dataset.view){
+      const dlg=byId('photoViewer');
+      if(!dlg.open)dlg.showModal();
+      const position=gallery.findIndex(file=>file.id===button.dataset.view);
+      await showViewer(position<0?0:position);
+    }
+  }catch(err){
+    byId('photoStatus').textContent=err.message;
+  }finally{button.disabled=false}
+}
 let pending=[],pendingIntervention='',pendingEvent='',owner='',ready=false,mounting=false;
 function entryStatus(text){const el=byId('photoEntryStatus');if(el)el.textContent=text}
 async function mountEntry(){if(!user?.id||mounting||ready&&owner===user.id)return;if(owner&&owner!==user.id){pending=[];pendingIntervention='';pendingEvent=''}ready=false;mounting=true;owner=user.id;const old=byId('photoEntry');if(old)old.remove();try{await api({access:'1'});if(!user?.id||user.id!==owner)return;const box=document.createElement('section');box.id='photoEntry';box.className='photo-entry';box.innerHTML='<h3>📸 Photos du dossier</h3><p>Les photos seront envoyées après la création du dossier. Garde cette page ouverte jusqu’à confirmation.</p><label class="btn-ghost photo-add">＋ Choisir des photos<input id="photoEntryFiles" type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif" multiple hidden></label><button type="button" class="btn-ghost" id="photoEntryClear">Retirer les photos sélectionnées</button><button type="button" class="btn-ghost" id="photoEntryRetry" hidden>Réessayer les photos en attente</button><p id="photoEntryStatus" role="status" aria-live="polite"></p>';byId('f-save').parentNode.before(box);byId('photoEntryFiles').onchange=e=>{if(pendingIntervention||pendingEvent){entryStatus('Termine d’abord l’envoi des photos en attente.');e.target.value='';return}const accepted=[...e.target.files].filter(f=>['image/jpeg','image/png','image/webp','image/heic','image/heif'].includes(f.type)&&f.size<=25*1024*1024&&f.size>0);pending.push(...accepted.map(file=>({file,id:crypto.randomUUID()})));entryStatus(`${pending.length} photo(s) sélectionnée(s). ${accepted.length<e.target.files.length?'Certains fichiers ont été refusés : photos uniquement, 25 Mo maximum.':''}`);e.target.value=''};byId('photoEntryClear').onclick=()=>{if(pendingEvent){entryStatus('Ces photos appartiennent à une intervention déjà enregistrée : réessaie leur envoi.');return}pending=[];entryStatus('Sélection de photos retirée.')};byId('photoEntryRetry').onclick=async()=>{await sendEntry(pendingEvent)};ready=true}catch{}finally{mounting=false}}

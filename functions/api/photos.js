@@ -10,6 +10,11 @@ export function validPhoto(bytes,type){
   if(type==='image/heic'||type==='image/heif')return b.length>=12 && ascii(4,4)==='ftyp' && ['heic','heix','hevc','hevx','heim','heis','mif1','msf1'].includes(ascii(8,4));
   return false;
 }
+function calendarSixMonths(date){
+  const year=date.getUTCFullYear(),month=date.getUTCMonth()+6,day=date.getUTCDate();
+  const last=new Date(Date.UTC(year,month+1,0)).getUTCDate();
+  return new Date(Date.UTC(year,month,Math.min(day,last),date.getUTCHours(),date.getUTCMinutes(),date.getUTCSeconds(),date.getUTCMilliseconds()));
+}
 const response=(body,status=200)=>new Response(JSON.stringify(body),{status,headers:{'content-type':'application/json; charset=utf-8','cache-control':'no-store','x-content-type-options':'nosniff'}});
 export async function onRequest(ctx){
   try {
@@ -37,9 +42,59 @@ export async function onRequest(ctx){
     const allowed=mode==='binome' ? !!row.team_id : (row.solo_user_id||row.user_id)===identity.id;
     if(!allowed)return response({error:'Dossier inaccessible'},403);
     const prefix=`preview-photos/${dossier}/`, key=prefix+photo;
-    if(request.method==='GET' && !photo){let cursor;const files=[];do {const page=await env.FIBRE_PHOTOS.list({prefix,cursor,include:['customMetadata','httpMetadata'],limit:1000});for(const obj of page.objects)files.push({id:obj.key.slice(prefix.length),name:obj.customMetadata?.name||'Photo',size:obj.size,uploaded:obj.uploaded});cursor=page.truncated?page.cursor:undefined;}while(cursor);return response({files});}
+    if(request.method==='GET' && !photo){
+      const files=[];let cursor;
+      do {
+        const page=await env.FIBRE_PHOTOS.list({prefix,cursor,include:['customMetadata'],limit:1000});
+        for(const obj of page.objects)files.push({id:obj.key.slice(prefix.length),name:obj.customMetadata?.name||'Photo',size:obj.size,uploaded:obj.uploaded,sourceUploadedAt:obj.customMetadata?.sourceUploadedAt||obj.uploaded,sha256:obj.customMetadata?.sha256||''});
+        cursor=page.truncated?page.cursor:undefined;
+      }while(cursor);
+      const secondary=new Map();let backupAvailable=!!env.FIBRE_PHOTOS_BACKUP;
+      if(backupAvailable){
+        try{
+          let backupCursor;
+          do{
+            const page=await env.FIBRE_PHOTOS_BACKUP.list({prefix,cursor:backupCursor,include:['customMetadata'],limit:1000});
+            for(const obj of page.objects)secondary.set(obj.key.slice(prefix.length),obj);
+            backupCursor=page.truncated?page.cursor:undefined;
+          }while(backupCursor);
+        }catch{backupAvailable=false}
+      }
+      return response({files:files.map(file=>{
+        const copy=secondary.get(file.id);
+        const sameSize=copy&&copy.size===file.size;
+        const sameHash=sameSize&&file.sha256&&copy.customMetadata?.sha256===file.sha256;
+        const original=new Date(file.sourceUploadedAt);
+        const expires=Number.isFinite(original.getTime())?calendarSixMonths(original).toISOString():null;
+        const {sha256,sourceUploadedAt,...publicFields}=file;
+        return {...publicFields,backupState:!backupAvailable?'unavailable':!copy?'missing':!sameSize?'mismatch':sameHash?'verified':'stored',expiresAt:expires};
+      })});
+    }
     if(request.method==='GET' && photo){const object=await env.FIBRE_PHOTOS.get(key);if(!object)return response({error:'Photo introuvable'},404);const h=new Headers({'cache-control':'private, no-store','x-content-type-options':'nosniff','content-type':object.httpMetadata?.contentType||'application/octet-stream','content-disposition':'attachment'});return new Response(object.body,{headers:h});}
-    if(request.method==='PUT' && photo){const type=(request.headers.get('content-type')||'').toLowerCase();if(!['image/jpeg','image/png','image/webp','image/heic','image/heif'].includes(type))return response({error:'Format non pris en charge'},415);const length=Number(request.headers.get('content-length'));if(length>25*1024*1024)return response({error:'Photo supérieure à 25 Mo'},413);const bytes=await request.arrayBuffer();if(!bytes.byteLength||bytes.byteLength>25*1024*1024)return response({error:'Photo vide ou supérieure à 25 Mo'},413);if(!validPhoto(bytes,type))return response({error:'Ce fichier ne semble pas être une photo valide'},415);if(!env.FIBRE_PHOTOS_BACKUP)return response({error:'Sauvegarde de secours indisponible'},503);const name=(url.searchParams.get('name')||'Photo').slice(0,120).replace(/[^a-zA-Z0-9._ -]/g,'_');const options={httpMetadata:{contentType:type},customMetadata:{name}};await env.FIBRE_PHOTOS_BACKUP.put(key,bytes,options);await env.FIBRE_PHOTOS.put(key,bytes,options);return response({saved:true});}
+    if(request.method==='PUT' && photo){
+      const type=(request.headers.get('content-type')||'').toLowerCase();
+      if(!['image/jpeg','image/png','image/webp','image/heic','image/heif'].includes(type))return response({error:'Format non pris en charge'},415);
+      if(Number(request.headers.get('content-length'))>25*1024*1024)return response({error:'Photo supérieure à 25 Mo'},413);
+      const bytes=await request.arrayBuffer();
+      if(!bytes.byteLength||bytes.byteLength>25*1024*1024)return response({error:'Photo vide ou supérieure à 25 Mo'},413);
+      if(!validPhoto(bytes,type))return response({error:'Ce fichier ne semble pas être une photo valide'},415);
+      if(!env.FIBRE_PHOTOS_BACKUP)return response({error:'Sauvegarde de secours indisponible'},503);
+      // The initial upload date MUST survive offline retries and partial two-bucket writes.
+      const [oldPrimary,oldBackup]=await Promise.all([
+        env.FIBRE_PHOTOS.head?.(key),
+        env.FIBRE_PHOTOS_BACKUP.head?.(key)
+      ]);
+      const candidates=[oldPrimary?.customMetadata?.sourceUploadedAt,oldBackup?.customMetadata?.sourceUploadedAt,oldPrimary?.uploaded,oldBackup?.uploaded]
+        .map(value=>new Date(value).getTime()).filter(Number.isFinite);
+      const firstUpload=new Date(candidates.length?Math.min(...candidates):Date.now()).toISOString();
+      const name=(url.searchParams.get('name')||oldPrimary?.customMetadata?.name||oldBackup?.customMetadata?.name||'Photo').slice(0,120).replace(/[^a-zA-Z0-9._ -]/g,'_');
+      const digest=new Uint8Array(await crypto.subtle.digest('SHA-256',bytes));
+      const sha256=Array.from(digest,b=>b.toString(16).padStart(2,'0')).join('');
+      const options={httpMetadata:{contentType:type},customMetadata:{name,sourceUploadedAt:firstUpload,sha256}};
+      await env.FIBRE_PHOTOS_BACKUP.put(key,bytes,options);
+      await env.FIBRE_PHOTOS.put(key,bytes,options);
+      return response({saved:true,backupSaved:true,expiresAt:calendarSixMonths(new Date(firstUpload)).toISOString()});
+    }
     if(request.method==='DELETE' && photo){if(!env.FIBRE_PHOTOS_BACKUP)return response({error:'Sauvegarde de secours indisponible'},503);await env.FIBRE_PHOTOS_BACKUP.delete(key);await env.FIBRE_PHOTOS.delete(key);return response({deleted:true});}
     return response({error:'Méthode invalide'},405);
   }catch(error){return response({error:'Opération impossible, réessaie.'},500)}

@@ -6,7 +6,7 @@ function mount(){
   if(byId('photosTest'))return;
   const wrap=document.createElement('section');
   wrap.id='photosTest';wrap.hidden=true;
-  wrap.innerHTML='<h3>📸 Photos du dossier</h3><p>Version test : photos séparées du site principal · fichiers originaux · 25 Mo maximum par photo</p><label class="btn-ghost photo-add">＋ Ajouter des photos<input id="photoFiles" type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif" multiple hidden></label><button type="button" class="btn-ghost photo-all" id="photoDownloadAll" hidden>⬇️ Télécharger toutes les photos</button><p id="photoStatus" role="status" aria-live="polite"></p><div id="photoList"></div><dialog id="photoViewer" aria-label="Visionneuse de photos"><button type="button" aria-label="Fermer la visionneuse" id="photoClose">×</button><div class="photo-viewer-stage"><button type="button" class="photo-nav" id="photoPrev" aria-label="Photo précédente">‹</button><img alt="Photo de l’intervention"><button type="button" class="photo-nav" id="photoNext" aria-label="Photo suivante">›</button></div><div id="photoCounter" aria-live="polite"></div><a id="photoDownload" class="btn-ghost" download>Télécharger cette photo</a></dialog>';
+  wrap.innerHTML='<h3>📸 Photos du dossier</h3><p>Test : 2 copies R2 · qualité originale · conservation 6 mois · 25 Mo maximum</p><label class="btn-ghost photo-add">＋ Ajouter des photos<input id="photoFiles" type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif" multiple hidden></label><button type="button" class="btn-ghost photo-all" id="photoDownloadAll" hidden>⬇️ Télécharger toutes les photos</button><p id="photoStatus" role="status" aria-live="polite"></p><div id="photoList"></div><dialog id="photoViewer" aria-label="Visionneuse de photos"><button type="button" aria-label="Fermer la visionneuse" id="photoClose">×</button><div class="photo-viewer-stage"><button type="button" class="photo-nav" id="photoPrev" aria-label="Photo précédente">‹</button><img alt="Photo de l’intervention"><button type="button" class="photo-nav" id="photoNext" aria-label="Photo suivante">›</button></div><div id="photoCounter" aria-live="polite"></div><a id="photoDownload" class="btn-ghost" download>Télécharger cette photo</a></dialog>';
   byId('m-save-btn').parentNode.before(wrap);
   const dlg=byId('photoViewer');
   byId('photoClose').onclick=()=>dlg.close();
@@ -56,12 +56,30 @@ function render(files){
   if(!gallery.length){list.textContent='Aucune photo pour ce dossier.';return}
   gallery.forEach((file,i)=>{
     const el=document.createElement('div');el.className='photo-row';
-    const name=document.createElement('span');name.textContent=file.name||'Photo '+(i+1);
+    const detail=document.createElement('span');detail.className='photo-detail';
+    const name=document.createElement('strong');name.textContent=file.name||'Photo '+(i+1);
+    detail.append(name);
+    if(file.backupState){
+      const info=document.createElement('small');info.className='photo-backup-status';
+      const labels={verified:'✓ Original et secours vérifiés',stored:'✓ Copie de secours présente',missing:'⚠ Copie de secours absente',mismatch:'⚠ Copies différentes',unavailable:'⚠ Secours temporairement indisponible'};
+      info.textContent=labels[file.backupState]||'Sauvegarde de secours à vérifier';
+      if(file.backupState==='missing'||file.backupState==='mismatch'||file.backupState==='unavailable')info.classList.add('photo-backup-warning');
+      detail.append(info);
+    }
+    if(file.expiresAt){
+      const date=new Date(file.expiresAt);
+      if(Number.isFinite(date.getTime())){
+        const expiry=document.createElement('small');
+        expiry.className='photo-expiry';
+        expiry.textContent='Expiration : '+date.toLocaleDateString('fr-FR');
+        detail.append(expiry);
+      }
+    }
     const view=document.createElement('button');view.type='button';view.className='btn-ghost';
     view.textContent='Voir';view.dataset.view=file.id;view.dataset.name=file.name;
     const del=document.createElement('button');del.type='button';del.className='btn-ghost';
     del.textContent='Supprimer';del.dataset.remove=file.id;
-    el.append(name,view,del);list.append(el);
+    el.append(detail,view,del);list.append(el);
   });
 }
 async function refresh(id){const r=await api({intervention:id});if(id===current)render((await r.json()).files)}

@@ -17,3 +17,11 @@
 #photoViewer #photoDownload{display:inline-block;margin:2px auto;max-width:90%;padding:9px 14px}
 #photoViewer #photoClose{z-index:3;top:calc(5px + env(safe-area-inset-top,0px));right:calc(10px + env(safe-area-inset-right,0px));min-width:44px;min-height:44px;cursor:pointer}
 @media(max-width:430px){#photosTest .photo-all{margin:8px 0 0;display:flex;width:100%}#photoViewer .photo-nav{width:36px;height:48px;font-size:34px}}
+
+/* Preview-only R2 health and original six-month retention in photo history. */
+#photosTest .photo-row .photo-detail{display:flex;flex:1;min-width:0;flex-direction:column;gap:3px;overflow:hidden;white-space:normal}
+#photosTest .photo-row .photo-detail strong{font-size:12px;overflow-wrap:anywhere;font-weight:600}
+#photosTest .photo-backup-status,#photosTest .photo-expiry{display:block;font-size:10px;line-height:1.4;color:var(--ink-muted,#aab4c2)}
+#photosTest .photo-backup-status:not(.photo-backup-warning){color:#6cd8ac}
+#photosTest .photo-backup-warning{color:#ffbc6b}
+@media(max-width:420px){#photosTest .photo-row{gap:5px}#photosTest .photo-row button{font-size:11px;padding:7px 8px}}

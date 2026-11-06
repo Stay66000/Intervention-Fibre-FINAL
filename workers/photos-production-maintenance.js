@@ -114,4 +114,57 @@ export async function inventoryAndBackfill(env,{copy=false,maxObjects=30,skipObj
   }
   return summary;
 }
-export default {async scheduled(_event,env,context){context.waitUntil(clean(env))}};
+// The scheduled job performs a non-destructive inventory and copies at most
+// six missing originals per run before allowing ANY automatic expiry.
+// Legacy uploads are kept under test-photos/ until their six-month deadline.
+const VALID_KEY=/^(?:photos|test-photos)\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+export async function auditAndBackfill(env,{maxCopies=6}={}){
+  if(!env.FIBRE_PHOTOS||!env.FIBRE_PHOTOS_BACKUP)throw Error('Both R2 bindings required');
+  const report={scanned:0,verified:0,missing:0,copied:0,mismatch:0,complete:false};
+  for(const prefix of PREFIXES){
+    const primary=await listAll(env.FIBRE_PHOTOS,prefix),backups=await listAll(env.FIBRE_PHOTOS_BACKUP,prefix);
+    const backupByKey=new Map(backups.map(x=>[x.key,x]));
+    for(const item of primary){
+      if(!VALID_KEY.test(item.key))continue;
+      report.scanned++;
+      const backup=backupByKey.get(item.key);
+      if(backup){
+        const digestEqual=item.customMetadata?.sha256&&backup.customMetadata?.sha256===item.customMetadata.sha256;
+        const etagEqual=item.etag&&backup.etag&&item.etag===backup.etag;
+        if(item.size===backup.size&&(digestEqual||etagEqual)){report.verified++;continue}
+        // Never overwrite a conflicting backup: manual inspection required.
+        report.mismatch++;continue;
+      }
+      report.missing++;
+      if(report.copied>=maxCopies)continue;
+      const original=await env.FIBRE_PHOTOS.get(item.key);
+      if(!original)continue; // Deletion raced the inventory; don't restore a removed object.
+      const bytes=await original.arrayBuffer();
+      const proof=await sha(bytes),check=await env.FIBRE_PHOTOS.head(item.key);
+      if(!check||item.etag&&check.etag!==item.etag)continue;
+      const created=item.customMetadata?.sourceUploadedAt||item.uploaded?.toISOString?.();
+      if(!created||!Number.isFinite(new Date(created).getTime()))continue;
+      await env.FIBRE_PHOTOS_BACKUP.put(item.key,bytes,{
+        httpMetadata:original.httpMetadata,
+        customMetadata:{...original.customMetadata,sha256:proof,sourceUploadedAt:created}
+      });
+      const saved=await env.FIBRE_PHOTOS_BACKUP.get(item.key);
+      if(!saved||await sha(await saved.arrayBuffer())!==proof)throw Error('Backup SHA-256 verification failed');
+      report.copied++;report.verified++;
+    }
+  }
+  // A copied item is now verified, but none with missing or mismatched data may expire.
+  report.complete=report.mismatch===0&&report.verified===report.scanned;
+  return report;
+}
+async function productionCycle(env){
+  if(env.PHOTO_PRODUCTION_BACKFILL_ENABLED!=='true')return {skipped:true};
+  const backup=await auditAndBackfill(env,{maxCopies:6});
+  const after=await clean({
+    ...env,
+    PHOTO_PRODUCTION_BACKFILL_COMPLETE:backup.complete?'true':'false'
+  });
+  console.log(JSON.stringify({event:'photo_maintenance',scanned:backup.scanned,verified:backup.verified,missing:backup.missing,copied:backup.copied,mismatch:backup.mismatch,complete:backup.complete,cleanup:after}));
+  return {backup,cleanup:after};
+}
+export default {async scheduled(_event,env,context){context.waitUntil(productionCycle(env))}};

@@ -8,6 +8,7 @@
   const CONFIG='config';
   let flushing=false;
   let legacySave=null;
+  let queueStatusShown=false;
 
   const $id=id=>document.getElementById(id);
   function notify(msg){try{if(typeof toast==='function')return toast(msg)}catch{}console.info('[FIBRE OPS OFFLINE]',msg)}
@@ -95,6 +96,7 @@
     const operatorData=typeof mergeSupplementOperatorData==='function'?mergeSupplementOperatorData({},supplement):{};
     operatorData.offline_event_id=id;
     const payload={
+      id,
       user_id:user.id,
       company_id:isCompanyTechSafe()?currentCompanySafe():null,
       team_id:hasTeamSafe()&&typeof team!=='undefined'?team?.id||null:null,
@@ -141,10 +143,14 @@
     const retained=typeof form!=='undefined'?{...form}:null;
     const item=await buildQueuedIntervention(continueEntry);
     if(!item)return false;
+    if(window.FibrePhotos?.hasPending?.()&&!window.FibrePhotos?.offlineSelection)throw new Error('Impossible de conserver les photos sur cet appareil');
+    const photos=window.FibrePhotos?.offlineSelection?.()||[];
+    item.photos=photos;
     await putQueue(item);
+    if(photos.length)window.FibrePhotos.offlineQueued(photos);
     resetEntryAfterQueue(continueEntry,retained);
-    try{window.FibreExperience?.entryStatus('Hors ligne · intervention enregistrée sur cet appareil et en attente de synchro.','success')}catch{}
-    notify('📡 Hors ligne · intervention mise en attente');
+    try{window.FibreExperience?.entryStatus('Hors ligne · intervention et photos conservées sur cet appareil, en attente de synchronisation.','success')}catch{}
+    notify('📡 Hors ligne · intervention et photos mises en attente');
     await refreshUi();
     return true;
   }
@@ -158,16 +164,37 @@
     if(!items.length){await refreshUi();return}
     flushing=true;
     setBadge('syncing',`${items.length} à synchroniser`);
-    let done=0,failed=0;
+    let done=0,failed=0,lastFailure='';
     try{
       for(const item of items){
         try{
           if(user?.id!==accountId)break;
+          const photoProduction=!!item.photos?.length && !!(await window.FibrePhotos?.refreshMode?.());
           const {error}=await sb.from('interventions').insert(item.payload);
+          let interventionId=item.payload.id;
           if(error){
             if((error.code||error.details?.code)!=='23505')throw error;
-            const existing=await sb.from('interventions').select('id').eq('client_event_id',item.id).eq('user_id',accountId).maybeSingle();
-            if(existing.error||!existing.data)throw error;
+            const existing=await sb.rpc(photoProduction?'photo_find_my_intervention':'photo_test_find_my_intervention',{p_event_id:item.id,p_intervention_id:item.payload.id||null});
+            if(existing.error)throw new Error('Vérification du dossier impossible : '+human(existing.error));
+            if(!existing.data)throw new Error('Le dossier déjà créé ne peut pas être confirmé pour ce compte.');
+            interventionId=existing.data;
+          }
+          if(item.payload.id&&!item.testRegistered&&!photoProduction){
+            if(!interventionId||interventionId!==item.payload.id||typeof sb.rpc!=='function')throw new Error('Impossible de confirmer le dossier de test');
+            const registration=await sb.rpc('photo_test_register_intervention',{p_intervention_id:interventionId});
+            if(registration.error||registration.data!==true)throw new Error('Dossier de test non enregistré');
+            item.testRegistered=true;
+            await putQueue(item);
+          }
+          if(item.photos?.length){
+            if(!interventionId||interventionId!==item.payload.id)throw new Error('Impossible de confirmer le dossier des photos');
+            if(!window.FibrePhotos?.uploadQueued)throw new Error('Module photo indisponible');
+            while(item.photos.length){
+              if(user?.id!==accountId)throw new Error('La session a changé');
+              await window.FibrePhotos.uploadQueued(interventionId,item.photos[0],accountId);
+              item.photos.shift();
+              await putQueue(item);
+            }
           }
           await deleteQueue(item.id);
           done++;
@@ -175,6 +202,7 @@
           failed++;
           item.attempts=Number(item.attempts||0)+1;
           item.lastError=human(error);
+          lastFailure=item.lastError;
           await putQueue(item);
           console.warn('[FIBRE OPS OFFLINE] sync failed',item.id,error);
           if(/fetch|network|connexion|offline/i.test(item.lastError))break;
@@ -182,8 +210,8 @@
       }
       if(done){
         try{await loadAll();renderAll()}catch(error){console.warn('[FIBRE OPS OFFLINE] refresh after sync',error)}
-        notify(`✅ ${done} intervention${done>1?'s':''} hors ligne synchronisée${done>1?'s':''}`);
-      }else if(manual&&failed){notify('Synchronisation impossible pour le moment')}
+        notify(failed?`✅ ${done} synchronisée(s). Encore en attente : ${lastFailure}`:`✅ ${done} intervention${done>1?'s':''} hors ligne synchronisée${done>1?'s':''}`);
+      }else if(manual&&failed){notify('Synchronisation en attente : '+lastFailure)}
     }finally{
       flushing=false;
       await refreshUi();
@@ -228,21 +256,25 @@
   }
   async function refreshUi(){
     ensureUi();
-    const count=(await allQueue()).length;
+    const accountId=typeof user!=='undefined'?user?.id:null;
+    const waiting=(await allQueue()).filter(item=>accountId&&item.payload?.user_id===accountId);
+    const count=waiting.length;
     const title=$id('offlineQueueTitle'),text=$id('offlineQueueText'),sync=$id('offlineQueueSync'),badge=$id('offlineHeaderBadge');
     if(isOffline()){
       if(title)title.textContent='📡 Hors ligne';
-      if(text)text.textContent=count?`${count} intervention${count>1?'s':''} en attente sur cet appareil. Les nouvelles saisies restent disponibles.`:'Les nouvelles interventions seront conservées sur cet appareil puis synchronisées automatiquement.';
+      if(text)text.textContent=count?`${count} intervention${count>1?'s':''} et leurs éventuelles photos en attente sur cet appareil.`:'Les nouvelles interventions et photos seront conservées sur cet appareil puis synchronisées à la reconnexion.';
       if(sync)sync.style.display='none';
       setBadge('offline',count?`${count} en attente`:'hors ligne');
       return;
     }
     if(count){
+      if(typeof updateStatus==='function'){updateStatus('En attente',true);queueStatusShown=true}
       if(title)title.textContent='↻ Synchronisation en attente';
-      if(text)text.textContent=`${count} intervention${count>1?'s':''} locale${count>1?'s':''} à envoyer vers Supabase.`;
+      if(text)text.textContent=waiting[0].lastError?`En attente : ${waiting[0].lastError}`:`${count} intervention${count>1?'s':''} et leurs éventuelles photos en attente de synchronisation.`;
       if(sync){sync.style.display='inline-flex';sync.textContent='Synchroniser maintenant'}
       setBadge('syncing',`${count} en attente`);
     }else{
+      if(queueStatusShown&&typeof updateStatus==='function'){updateStatus('Synchronisé');queueStatusShown=false}
       if(title)title.textContent='☁️ En ligne';
       if(text)text.textContent='Les interventions sont envoyées directement à FIBRE OPS. En cas de coupure, elles seront mises en attente automatiquement.';
       if(sync)sync.style.display='none';
@@ -255,7 +287,6 @@
     legacySave=saveIntervention;
     const wrapped=async function(continueEntry=false){
       if(isOffline()){
-        if(window.FibrePhotos?.hasPending()){window.FibrePhotos.offlineBlocked();notify('Photos non envoyées : reconnecte-toi avant d’enregistrer.');return false}
         try{return await queueCurrent(continueEntry)}catch(error){notify('Erreur hors ligne : '+human(error));return false}
       }
       if((await allQueue()).length)flushQueue(false);

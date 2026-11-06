@@ -76,7 +76,7 @@ test('failed secondary write cannot confirm storage or overwrite the primary',as
   await scenario(async({primary,backup,call})=>{
     backup.put=async()=>{throw Error('secondary unavailable')};
     const response=await call('PUT',PHOTO,jpeg);
-    assert.equal(response.status,500);
+    assert.equal(response.status,503);
     assert.equal(primary.files.size,0);
   });
 });

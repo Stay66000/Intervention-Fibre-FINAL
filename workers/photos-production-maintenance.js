@@ -45,14 +45,24 @@ async function callJobs(env,done){
 }
 async function retentionSweep(env,now){
   let removed=0;
-  for(const bucket of [env.FIBRE_PHOTOS,env.FIBRE_PHOTOS_BACKUP]){
-    for(const prefix of PREFIXES){
-      const objects=await listAll(bucket,prefix);
-      const expired=objects.filter(o=>{
-        const original=o.customMetadata?.sourceUploadedAt||o.uploaded;
-        return expiresAt(original)<=now;
-      }).map(o=>o.key);
-      await deleteKeys(bucket,expired);removed+=expired.length;
+  for(const prefix of PREFIXES){
+    const originals=await listAll(env.FIBRE_PHOTOS,prefix);
+    const backups=new Map((await listAll(env.FIBRE_PHOTOS_BACKUP,prefix)).map(x=>[x.key,x]));
+    // Never delete without a matching secondary copy and a valid intervention/photo UUID.
+    for(const original of originals){
+      if(removed>=10)return removed;
+      const copy=backups.get(original.key);
+      if(!VALID_KEY.test(original.key)||!copy||original.size!==copy.size)continue;
+      const sameHash=original.customMetadata?.sha256&&copy.customMetadata?.sha256===original.customMetadata.sha256;
+      const sameETag=original.etag&&copy.etag&&original.etag===copy.etag;
+      if(!sameHash&&!sameETag)continue;
+      const first=original.customMetadata?.sourceUploadedAt||original.uploaded;
+      if(!first||!Number.isFinite(new Date(first).getTime()))continue;
+      if(expiresAt(first)>now)continue;
+      // The backup goes first. Failure leaves the primary available to retry safely.
+      await env.FIBRE_PHOTOS_BACKUP.delete(original.key);
+      await env.FIBRE_PHOTOS.delete(original.key);
+      removed++;
     }
   }
   return removed;

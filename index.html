@@ -2083,11 +2083,6 @@ body.is-offline .sync-pill{border-color:color-mix(in srgb,var(--danger) 45%,var(
           <div><span id="invPrevTerms">7 jours</span><br>Pas d'escompte en cas de paiement anticipé.</div>
         </div>
 
-        <div class="invoice-legal">
-          <div id="invPrevPenalty">Tout retard de paiement entraînera, de plein droit et sans mise en demeure préalable, l’application de pénalités de retard calculées sur la base de 3 fois le taux d’intérêt légal à compter du jour suivant la date d’échéance figurant sur la facture.</div>
-          <div id="invPrevRecovery">Une indemnité forfaitaire pour frais de recouvrement d'un montant de 40 € sera exigible.</div>
-        </div>
-
         <div class="invoice-footer">
           <b id="invPrevFooterBusiness">Ma société</b>
           <span id="invPrevFooterAddress"></span><br>
@@ -4432,8 +4427,9 @@ function billingResetInvoiceForm(render=true){
   $('billingInvoiceDue').value=d.due;
   $('billingInvoiceMonth').value=d.month;
   $('billingInvoiceAmount').value='';
-  $('billingIssueInvoice').disabled=false;
-  $('billingSaveDraft').disabled=false;
+  for(const id of ['billingInvoiceClient','billingInvoiceDate','billingInvoiceDue','billingInvoiceMonth','billingInvoiceAmount','billingSaveDraft','billingIssueInvoice']){
+    if($(id))$(id).disabled=!billingCanEdit();
+  }
   if(render)billingRenderPreview();
 }
 function billingDraftFromForm(){
@@ -4512,8 +4508,6 @@ function billingRenderPreview(source=null){
   $('invPrevNet').textContent=billingMoney(amount);
   $('invPrevVat').textContent=row.vat_note||'';
   $('invPrevTerms').textContent=`${Number(row.payment_terms_days||7)} jours`;
-  $('invPrevPenalty').textContent=row.late_penalty_text||'';
-  $('invPrevRecovery').textContent=`Une indemnité forfaitaire pour frais de recouvrement d'un montant de ${billingMoney(Number(row.recovery_fee??40))} sera exigible.`;
   $('invPrevFooterBusiness').textContent=seller.business_name||'Ma société';
   $('invPrevFooterAddress').textContent=sellerFooterAddress?` - ${sellerFooterAddress}`:'';
   $('invPrevFooterSiret').textContent=seller.siret?`Numéro de SIRET: ${seller.siret}`:'';

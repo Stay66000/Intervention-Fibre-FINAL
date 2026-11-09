@@ -4432,9 +4432,8 @@ function billingResetInvoiceForm(render=true){
   $('billingInvoiceDue').value=d.due;
   $('billingInvoiceMonth').value=d.month;
   $('billingInvoiceAmount').value='';
-  for(const id of ['billingInvoiceClient','billingInvoiceDate','billingInvoiceDue','billingInvoiceMonth','billingInvoiceAmount','billingSaveDraft','billingIssueInvoice']){
-    if($(id))$(id).disabled=!billingCanEdit();
-  }
+  $('billingIssueInvoice').disabled=false;
+  $('billingSaveDraft').disabled=false;
   if(render)billingRenderPreview();
 }
 function billingDraftFromForm(){

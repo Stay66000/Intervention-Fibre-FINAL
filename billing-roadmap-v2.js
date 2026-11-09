@@ -38,12 +38,12 @@
     try{
       if(typeof billingResetInvoiceForm==='function')billingResetInvoiceForm(false);
       if($id('billingInvoiceMonth'))$id('billingInvoiceMonth').value=month;
-      if($id('billingInvoiceAmount'))$id('billingInvoiceAmount').value=Number(amount).toFixed(2);
+      if($id('billingInvoiceAmount'))$id('billingInvoiceAmount').value='';
       if(typeof invoiceClients!=='undefined'&&invoiceClients.length===1&&$id('billingInvoiceClient'))$id('billingInvoiceClient').value=invoiceClients[0].id;
       if(typeof billingShowPane==='function')billingShowPane('invoices');
       if(typeof billingRenderPreview==='function')billingRenderPreview();
-      $id('billingInvoiceClient')?.focus();
-      notify(`✅ Facture préremplie depuis ${source} · ${money2(amount)}`);
+      $id('billingInvoiceAmount')?.focus();
+      notify('Renseigne le montant à facturer');
     }catch(error){notify('Préremplissage impossible : '+(error?.message||error))}
   }
 

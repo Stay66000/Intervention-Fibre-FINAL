@@ -31,7 +31,7 @@ export async function onRequest(context) {
         element.append('<script nonce="'+nonce+'" src="/settings-final.js?v=4"></script>', { html: true });
         element.append('<link rel="stylesheet" href="/documents-v2.css?v=4"><script nonce="'+nonce+'" src="/documents-v2.js?v=4"></script>', { html: true });
         element.append('<script nonce="'+nonce+'" src="/company-v2.js?v=1"></script>', { html: true });
-        element.append('<script nonce="'+nonce+'" src="/company-v2-runtime-fix.js?v=1"></script>', { html: true });
+        element.append('<script nonce="'+nonce+'" src="/company-v2-runtime-fix.js?v=2"></script>', { html: true });
         element.append('<script nonce="'+nonce+'" src="/capture-v2.js?v=6"></script>', { html: true });
         element.append('<link rel="stylesheet" href="/photos-test.css?v=6"><script nonce="'+nonce+'" src="/photos-test.js?v=14"></script>', { html: true });
         element.append('<script nonce="'+nonce+'" src="/photo-admin-preview.js?v=2"></script>', { html: true });

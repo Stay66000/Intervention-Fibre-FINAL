@@ -82,6 +82,46 @@ test('reconciliation excludes absent failed interventions but displays failures 
   assert.equal(f.run('billingReconCompareData().errors.length'),0);
  }finally{f.close()}
 });
+test('an unmatched statement row can prepare a new intervention without inventing its date',async()=>{
+ const f=await fixture();try{
+  f.run(`$('billingReconMonth').value=iso().slice(0,7);billingReconRenderOwnSummary();$('billingReconOperator').value='ORANGE';
+    billingReconRaw={headers:['Référence','Montant','Typologie'],rows:[['9876543210','123.45','Aérien']],mapping:{ref:0,amount:1,type:2,status:-1,operator:-1}};billingReconPopulateMapping();billingReconRenderResult(billingReconCompareData())`);
+  f.w.document.querySelector('[data-recon-action="open"]').click();
+  f.w.document.querySelector('[data-recon-action="add"]').click();
+  assert.equal(f.run("$('f-num').value"),'9876543210');
+  assert.equal(f.run("$('f-date').value"),'');
+  assert.equal(f.run('form.operator'),'orange');
+  assert.equal(f.run('form.typeId'),'type-a');
+  assert.equal(f.w.document.querySelector('.view.active').id,'view-saisie');
+ }finally{f.close()}
+});
+test('saving an intervention prepared from a statement refreshes the same comparison',async()=>{
+ const f=await fixture();try{
+  f.run(`$('billingReconMonth').value=iso().slice(0,7);billingReconRenderOwnSummary();$('billingReconOperator').value='ORANGE';
+    billingReconRaw={headers:['Référence','Montant','Typologie'],rows:[['9876543210','123.45','Aérien']],mapping:{ref:0,amount:1,type:2,status:-1,operator:-1}};billingReconPopulateMapping();billingReconRenderResult(billingReconCompareData());
+    document.querySelector('[data-recon-action="open"]').click();document.querySelector('[data-recon-action="add"]').click();$('f-date').value=iso();
+    window.submitted=null;supabase.from=()=>({insert:async payload=>{window.submitted=payload;return {error:null}}});
+    loadAll=async()=>{interventions.push({...interventions[0],id:'created',num:window.submitted.reference,date:window.submitted.intervention_date})}`);
+  await f.run('saveIntervention(false)');
+  assert.equal(f.run('window.submitted.reference'),'9876543210');
+  assert.equal(f.run('billingReconResult.extras.length'),0);
+  assert.equal(f.run('billingReconResult.errors.length'),1); // the original intervention is still absent
+  assert.equal(f.w.document.querySelector('.view.active').id,'view-facturation');
+ }finally{f.close()}
+});
+test('an unmatched statement row can correct a selected intervention and refresh the comparison',async()=>{
+ const f=await fixture();try{
+  f.run(`$('billingReconMonth').value=iso().slice(0,7);billingReconRenderOwnSummary();$('billingReconOperator').value='ORANGE';
+    billingReconRaw={headers:['Référence','Montant'],rows:[['9876543210','123.45']],mapping:{ref:0,amount:1,type:-1,status:-1,operator:-1}};billingReconPopulateMapping();billingReconRenderResult(billingReconCompareData())`);
+  const card=f.w.document.querySelector('[data-recon-extra]');card.querySelector('[data-recon-action="open"]').click();
+  card.querySelector('[data-recon-existing]').value='row-a';card.querySelector('[data-recon-action="edit"]').click();
+  assert.equal(f.run("$('m-num').value"),'9876543210');
+  assert.equal(f.run('interventions[0].num'),'1234567890');
+  f.run("interventions[0].num='9876543210';billingReconFinish()");
+  assert.equal(f.run('billingReconResult.extras.length'),0);
+  assert.equal(f.run('billingReconResult.errors.length'),0);
+ }finally{f.close()}
+});
 test('a manually selected intervention date survives interface changes and a successful save',async()=>{
  const f=await fixture();try{
   f.w.fetch=async()=>({ok:true});

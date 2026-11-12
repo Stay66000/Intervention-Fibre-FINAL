@@ -1485,6 +1485,7 @@ body.company-prices-hidden #dashPersonalShareStat{display:none!important}
 .recon-extra-title{font-weight:800;margin:14px 0 7px}
 .recon-extra-list{display:grid;gap:6px}
 .recon-extra-row{padding:8px 10px;border:1px solid color-mix(in srgb,var(--warning,#d6a22e) 55%,var(--line));border-radius:9px;background:var(--surface-alt);font-size:11px}
+.recon-extra-head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}.recon-extra-actions{display:grid;gap:8px;margin-top:10px}.recon-extra-actions[hidden]{display:none}.recon-extra-actions select{width:100%;min-height:44px}.recon-extra-actions button{min-height:44px}
 @media(max-width:850px){
   .recon-mapping-grid{grid-template-columns:1fr 1fr}
   .recon-summary{grid-template-columns:1fr 1fr}
@@ -1618,6 +1619,7 @@ body.is-offline .sync-pill{border-color:color-mix(in srgb,var(--danger) 45%,var(
 <div class="view-title">Nouvelle intervention</div>
 <div class="view-copy">Renseigne l’essentiel, vérifie le montant, puis enregistre directement.</div>
 </div><div class="experience-actions experience-subnav"><button class="btn-ghost" id="entryUseDefaults" type="button">Utiliser mes préférences</button><button class="btn-ghost" id="entrySaveDefaults" type="button">Mémoriser ces choix</button></div>
+<div id="reconEntryHint" class="quick-note" hidden></div>
 <div class="card">
 <div class="section-card-title"><span class="icon"><svg fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24"><rect height="4" rx="1" width="8" x="8" y="3"></rect><path d="M16 5h2a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h2"></path><path d="M9 13h6M9 17h4"></path></svg></span><span>Détails de l’intervention</span></div>
 <div class="field">
@@ -3734,7 +3736,7 @@ function preview(){
 }
 function daily(){const date=$('f-date').value;const l=interventions.filter(e=>e.date===date);$('dailyTotalDate').textContent=date?fr(date):'--/--/----';$('dailyTotalAmount').textContent=companyPricesHidden()?'—':money(sum(l))}
 
-let interventionSaving=false,interventionSubmission=null;
+let interventionSaving=false,interventionSubmission=null,billingReconPending=null;
 async function saveIntervention(continueEntry=false){
   if(interventionSaving)return;
   const date=$('f-date').value,reference=$('f-num').value.trim(),address=$('f-addr').value.trim(),notes=$('f-comment').value.trim(),t=selectedType();
@@ -3786,11 +3788,13 @@ async function saveIntervention(continueEntry=false){
   localStorage.removeItem(draftKey());
 
   // The write has succeeded; a read failure must never invite duplicate submission.
-  try{await loadAll()}catch(error){toast('Intervention enregistrée. Actualisation à réessayer.');console.warn('[Refresh after confirmed save]',error)}
+  let refreshed=false;
+  try{await loadAll();refreshed=true}catch(error){toast('Intervention enregistrée. Actualisation à réessayer.');console.warn('[Refresh after confirmed save]',error)}
   if(continueEntry){Object.assign(form,retainedChoices);populateOperatorUI();setSeg('f-statut',form.result);setSeg('f-work-mode',form.workMode);toggleSoloFields()}
   preview();renderAll();
   if(continueEntry)saveDraft();
   window.FibreExperience?.entryStatus(photosSaved?'Enregistrée dans FIBRE OPS. '+(continueEntry?'Prête pour la suivante.':''):'Intervention enregistrée, mais photos non sauvegardées : réessaie ci-dessus.',photosSaved?'success':'error');
+  if(refreshed&&billingReconPending?.mode==='add'&&billingReconNormalizeRef(reference)===billingReconPending.ref)billingReconFinish();
   toast(photosSaved?(hasTeam() ? `✅ Intervention ${form.workMode} enregistrée` : '✅ Intervention enregistrée'):'⚠️ Intervention enregistrée, photos en attente');
   if(continueEntry)$('f-num').focus();
   }catch(error){
@@ -3916,6 +3920,7 @@ $('m-save-btn').onclick=async()=>{
   $('detailModal').classList.remove('active');
   await loadAll();
   renderAll();
+  if(billingReconPending?.mode==='edit'&&billingReconPending.id===editId)billingReconFinish();
   toast('✅ Informations mises à jour · montant historique inchangé');
 };$('m-del-btn').onclick=async()=>{
   const item=interventions.find(x=>x.id===editId);
@@ -4907,7 +4912,6 @@ function billingReconCompareData(){
 
   const ours=billingReconOwnRows();
   if(!company.length)throw new Error('Aucune ligne exploitable : vérifie la colonne Référence et le fichier importé');
-  if(!ours.length)throw new Error('Aucune intervention FIBRE OPS pour ce mois et cet opérateur');
   const results=ours.map(o=>{
     const ref=billingReconNormalizeRef(o.reference);
     const pool=byRef.get(ref)||[];
@@ -4980,9 +4984,50 @@ function billingReconRenderResult(result){
   </table>`;
 
   $('billingReconExtraWrap').style.display=extras.length?'block':'none';
-  $('billingReconExtra').innerHTML=extras.map(r=>`<div class="recon-extra-row"><b>${esc(r.reference||r.ref)}</b> · ${esc(r.typology||'Typologie inconnue')} · ${r.amount===null?'montant non détecté':billingMoney(r.amount)}${r.apie?' · Complément APIE (PSER2)':''}${r.statusText?' · '+esc(r.statusText):''}</div>`).join('');
+  $('billingReconExtra').innerHTML=extras.map(r=>`<div class="recon-extra-row" data-recon-extra="${r.index}"><div class="recon-extra-head"><span><b>${esc(r.reference||r.ref)}</b> · ${esc(r.typology||'Typologie inconnue')} · ${r.amount===null?'montant non détecté':billingMoney(r.amount)}${r.apie?' · Complément APIE (PSER2)':''}${r.statusText?' · '+esc(r.statusText):''}</span><button type="button" class="btn-ghost" data-recon-action="open">Ajouter ou corriger</button></div><div class="recon-extra-actions" hidden><button type="button" class="btn-primary" data-recon-action="add">Ajouter à FIBRE OPS</button><label>Ou choisir une intervention existante<select data-recon-existing><option value="">Choisir une intervention…</option>${billingReconOwnRows().map(o=>`<option value="${esc(o.id)}">${esc(o.date)} · ${esc(o.reference||'Sans référence')} · ${esc(o.typology||'')}</option>`).join('')}</select></label><button type="button" class="btn-ghost" data-recon-action="edit">Corriger sa référence</button></div></div>`).join('');
   $('billingReconExport').disabled=false;
 }
+function billingReconFinish(){
+  const pending=billingReconPending;billingReconPending=null;
+  $('reconEntryHint').hidden=true;
+  if(!pending||pending.userId!==user?.id||pending.raw!==billingReconRaw||pending.month!==billingReconMonthValue())return;
+  try{
+    navigateView('facturation');
+    billingReconRenderResult(billingReconCompareData());
+  }catch(error){toast('Intervention enregistrée. Relance la comparaison : '+(error?.message||error))}
+}
+$('billingReconExtra').addEventListener('click',event=>{
+  const button=event.target.closest('[data-recon-action]'),card=event.target.closest('[data-recon-extra]');
+  if(!button||!card||!billingReconResult)return;
+  const row=billingReconResult.extras.find(r=>String(r.index)===card.dataset.reconExtra);
+  if(!row)return;
+  if(button.dataset.reconAction==='open'){card.querySelector('.recon-extra-actions').hidden=false;return}
+  const context={userId:user.id,month:billingReconMonthValue(),raw:billingReconRaw,ref:row.ref};
+  if(button.dataset.reconAction==='edit'){
+    const id=card.querySelector('[data-recon-existing]').value;
+    const item=billingReconOwnRows().find(o=>String(o.id)===id);
+    if(!item)return toast('Choisis l’intervention à corriger');
+    billingReconPending={...context,mode:'edit',id};
+    openEdit(id);$('m-num').value=row.reference;$('m-num').focus();
+    return toast('Vérifie la référence puis enregistre. Le montant historique reste inchangé.');
+  }
+  if(button.dataset.reconAction==='add'){
+    const selected=$('billingReconOperator')?.value||billingReconNormalizeOperator(row.operator);
+    const op=activeOps().find(x=>billingReconNormalizeOperator(opLabel(x))===selected);
+    if(!op)return toast('Choisis un opérateur actif pour ajouter cette intervention');
+    if(($('f-num').value||$('f-addr').value||$('f-comment').value||form.typeId||$('f-supp-enabled').checked)&&!confirm('Remplacer la saisie en cours par cette intervention ?'))return;
+    const matched=types.filter(t=>t.active&&t.operator===op&&billingReconNormalizeTypology(t.name)===billingReconNormalizeTypology(row.typology));
+    billingReconPending={...context,mode:'add'};
+    $('reconEntryHint').textContent=`Récap ${billingReconMonthValue()} · ${row.reference} · ${row.typology||'typologie à vérifier'} · ${row.amount===null?'montant non reconnu':billingMoney(row.amount)}${row.apie?' · complément APIE à vérifier':''}. Choisis la date exacte et vérifie le montant et le mode de travail.`;
+    $('reconEntryHint').hidden=false;
+    form.operator=op;form.typeId=matched.length===1?matched[0].id:'';form.result=row.status==='failure'?'Échec':'Réussite';
+    $('f-num').value=row.reference;$('f-addr').value='';$('f-comment').value='';clearSupplementInputs('f');
+    $('f-date').value='';$('f-date').dispatchEvent(new Event('input',{bubbles:true}));
+    populateOperatorUI();setSeg('f-op',op);setSeg('f-statut',form.result);preview();saveDraft();navigateView('saisie');
+    $('f-date').focus();
+    return toast('Choisis la date et vérifie la typologie, le montant et le mode de travail avant d’enregistrer.');
+  }
+});
 async function billingReconExportResult(){
   const result=billingReconResult;
   if(!result)return toast('Lance d’abord la comparaison');
@@ -5049,18 +5094,24 @@ $('billingHistoryBtn').onclick=billingOpenView;
 
 
 $('billingReconMonth').onchange=()=>{
+  billingReconPending=null;
+  $('reconEntryHint').hidden=true;
   billingReconRaw=null;
   billingReconResult=null;
   $('billingReconFile').value='';
   billingReconLoadSaved();
 };
 $('billingReconOperator').onchange=()=>{
+  billingReconPending=null;
+  $('reconEntryHint').hidden=true;
   billingReconResult=null;$('billingReconExport').disabled=true;
   $('billingReconSummary').innerHTML='';$('billingReconTable').innerHTML='';$('billingReconExtraWrap').style.display='none';
   $('billingReconResultText').textContent='Relance la comparaison pour cet opérateur.';
   billingReconRenderOwnSummary();
 };
 $('billingReconFile').onchange=async e=>{
+  billingReconPending=null;
+  $('reconEntryHint').hidden=true;
   const file=e.target.files?.[0];
   if(!file)return;
   try{
@@ -5092,6 +5143,7 @@ $('billingReconExport').onclick=billingReconExportResult;
 $('billingReconClear').onclick=async()=>{
   const month=billingReconMonthValue();
   if($('billingReconOperator').value){
+    billingReconPending=null;$('reconEntryHint').hidden=true;
     billingReconRaw=null;billingReconResult=null;$('billingReconFile').value='';$('billingReconMapping').style.display='none';
     $('billingReconFileInfo').textContent='Aucun récap société importé.';$('billingReconSummary').innerHTML='';$('billingReconTable').innerHTML='';$('billingReconExtraWrap').style.display='none';$('billingReconExport').disabled=true;
     $('billingReconResultText').textContent='Importe un fichier société puis lance la comparaison.';return;

@@ -53,7 +53,9 @@
         if(error)throw error;
         window.FibreExperience?.databaseSaved();
         document.getElementById('detailModal')?.classList.remove('active');
-        await loadAll();renderAll();notify('✅ Informations mises à jour');
+        await loadAll();renderAll();
+        if(typeof billingReconPending!=='undefined'&&billingReconPending?.mode==='edit'&&billingReconPending.id===editId&&typeof billingReconFinish==='function')billingReconFinish();
+        notify('✅ Informations mises à jour');
       }catch(error){notify('Erreur : '+human(error))}
       finally{btn.disabled=false}
     };

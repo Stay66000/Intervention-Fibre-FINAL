@@ -2971,7 +2971,22 @@ function p2(n){return String(n).padStart(2,'0')}
 function iso(v=new Date()){const d=v instanceof Date?v:new Date(v);return d.getFullYear()+'-'+p2(d.getMonth()+1)+'-'+p2(d.getDate())}
 function fr(s){return s?`${s.slice(8)}/${s.slice(5,7)}/${s.slice(0,4)}`:''}
 function money(n){return (Number(n)||0).toLocaleString('fr-FR',{minimumFractionDigits:2,maximumFractionDigits:2})+' €'}
-function sum(list,key='montant'){return list.reduce((a,x)=>a+(Number(x[key])||0),0)}
+function orangeTotalDiscount(){
+  const rule=settings?.preferences?.orange_total_discount;
+  const rate=Number(rule?.percent);
+  return rule?.team_id&&rule.team_id===team?.id&&Number.isFinite(rate)&&rate>=0&&rate<=100?rate/100:0;
+}
+function totalWithOrangeDiscount(list,getAmount=x=>x.montant){
+  const rate=orangeTotalDiscount();let orange=0,other=0;
+  for(const row of list){
+    const value=Number(getAmount(row))||0;
+    if(rate&&row?.op==='orange'&&row?.teamId===team?.id&&!row?.companyId)orange+=value;
+    else other+=value;
+  }
+  if(!orange)return other;
+  return Math.round((other+orange*(1-rate)+Number.EPSILON)*100)/100;
+}
+function sum(list,key='montant'){return totalWithOrangeDiscount(list,x=>x[key])}
 function toast(m){const el=$('toast');if(!el)return;el.textContent=m;el.classList.add('show');clearTimeout(toast.t);toast.t=setTimeout(()=>el.classList.remove('show'),2600)}
 function ym(){return `${view.getFullYear()}-${p2(view.getMonth()+1)}`}
 function opLabel(op){return OPS[op]||op||'—'}
@@ -4099,11 +4114,11 @@ function renderDashboard(){
   $('dashTodayAmount').textContent=hiddenPrices?String(todayList.length):money(todayCA);
   $('dashTodaySub').textContent=todayList.length?`${todayList.length} intervention${todayList.length>1?'s':''} dont ${okToday} réussie${okToday>1?'s':''}`:'Aucune intervention';
   $('dashGoalLabel').textContent=money(goal);$('dashGoalSub').textContent=todayCA>=goal?'Objectif atteint':pct+' % de l’objectif';
-  $('dashMonthAmount').textContent=hiddenPrices?String(month.length):money(sum(month));$('dashMonthSub').textContent=`${month.length} intervention${month.length>1?'s':''}`;
+  $('dashMonthAmount').textContent=hiddenPrices?String(month.length):money(sum(month));$('dashMonthSub').textContent=`${month.length} intervention${month.length>1?'s':''}${orangeTotalDiscount()?' · total Orange −'+(orangeTotalDiscount()*100)+' %':''}`;
   $('dashFuelAmount').textContent=money(sum(fuelMonth));$('dashFuelSub').textContent=fuelMonth.length?`${fuelMonth.length} plein${fuelMonth.length>1?'s':''}`:'Aucun plein';
   $('dashMarginAmount').textContent=hiddenPrices?'—':money(sum(month)-sum(fuelMonth));
   if(hasTeam()&&!hiddenPrices){
-    const myCA=month.reduce((n,e)=>n+personalPart(e,user.id),0),myFuel=myFuelAmount(fuelMonth,user.id);
+    const myCA=totalWithOrangeDiscount(month,e=>personalPart(e,user.id)),myFuel=myFuelAmount(fuelMonth,user.id);
     $('dashPersonalShare').textContent=money(myCA-myFuel);
   }
   $('dashRate').textContent=s.pct+'%';$('dashRateBar').style.width=s.pct+'%';$('dashRateSub').textContent=`${s.ok} sur ${s.total} réussie${s.ok>1?'s':''}`;
@@ -4579,6 +4594,7 @@ function billingReconOwnRows(){
     typology:e.typo||'',
     operator:opLabel(e.op),
     operator_raw:e.op||'',
+    op:e.op||'',teamId:e.teamId||null,companyId:e.companyId||null,
     status:e.statut||'',
     // Le relevé du donneur d’ordre porte sur l’intervention entière ; le
     // partage entre binômes concerne la rémunération personnelle, pas ce contrôle.
@@ -4595,7 +4611,7 @@ function billingReconRenderOwnSummary(){
   if(choices.has(selected))select.value=selected;
   const rows=billingReconOwnRows();
   $('billingReconOwnCount').textContent=`${rows.length} intervention${rows.length>1?'s':''}`;
-  $('billingReconOwnTotal').textContent=companyPricesHidden()?'Prix masqués':billingMoney(rows.reduce((s,r)=>s+r.amount,0));
+  $('billingReconOwnTotal').textContent=companyPricesHidden()?'Prix masqués':billingMoney(totalWithOrangeDiscount(rows,r=>r.amount));
 }
 function billingReconCleanText(v){
   if(v===null||v===undefined)return '';
@@ -4944,7 +4960,7 @@ function billingReconCompareData(){
   }).filter(Boolean);
 
   const extras=company.filter(x=>!x.used);
-  const oursTotal=results.reduce((s,r)=>s+Number(r.ours.amount||0),0);
+  const oursTotal=totalWithOrangeDiscount(results.map(r=>r.ours),r=>r.amount);
   const companyTotal=company.reduce((s,r)=>s+(Number(r.amount)||0),0);
   const errors=results.filter(r=>!r.ok);
 
@@ -4962,6 +4978,7 @@ function billingReconRenderResult(result){
   $('billingReconResultText').textContent=errors.length||extras.length
     ? `${errors.length} ligne${errors.length>1?'s':''} FIBRE OPS à vérifier${extras.length?` · ${extras.length} ligne${extras.length>1?'s':''} en plus côté société`:''}.`
     : 'Les deux récapitulatifs correspondent sur les colonnes contrôlées.';
+  if(orangeTotalDiscount())$('billingReconResultText').textContent+=` Total FIBRE OPS : réduction Orange de ${orangeTotalDiscount()*100} % incluse. Montants par ligne et total société : bruts.`;
 
   $('billingReconSummary').innerHTML=`
     <div class="recon-summary-card"><small>FIBRE OPS</small><b>${billingMoney(oursTotal)}</b></div>
@@ -5378,7 +5395,7 @@ $('exportXlsx').onclick=()=>{
     cols.push({header:'Adresse',key:'a',width:46},{header:'Commentaire',key:'c',width:34});ws.columns=cols;
     const h=ws.getRow(1);h.eachCell(c=>{c.font={bold:true,color:{argb:'FFFFFFFF'}};c.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FF2F5597'}};c.alignment={horizontal:'center'}});
     l.forEach(e=>{const row={d:e.date,n:e.num,o:opLabel(e.op),t:e.typo,s:e.statut,mode:hasTeam()?e.workMode:'Personnel',solo:e.workMode==='Solo'?memberName(e.soloUserId):'',a:e.addr,c:e.comment};if(!hidePrices){row.gross=e.montant;row.mine=personalPart(e,user.id)}const r=ws.addRow(row);if(!hidePrices){r.getCell('gross').numFmt='#,##0.00 "€"';r.getCell('mine').numFmt='#,##0.00 "€"'}});
-    if(!hidePrices){const total=l.reduce((n,e)=>n+personalPart(e,user.id),0),tr=ws.addRow({mode:'TOTAL PERSONNEL',mine:total});tr.getCell('mine').numFmt='#,##0.00 "€"';tr.font={bold:true}}
+    if(!hidePrices){const total=totalWithOrangeDiscount(l,e=>personalPart(e,user.id)),tr=ws.addRow({mode:'TOTAL PERSONNEL',mine:total});tr.getCell('mine').numFmt='#,##0.00 "€"';tr.font={bold:true}}
     wb.xlsx.writeBuffer().then(buf=>{const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}));a.download=`Interventions_${profile.first_name||'Technicien'}_${p2(view.getMonth()+1)}_${view.getFullYear()}.xlsx`;document.body.appendChild(a);a.click();a.remove()});
   };
   ensureExcelJs(go);

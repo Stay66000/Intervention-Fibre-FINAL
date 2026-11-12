@@ -9,7 +9,7 @@
   function currentMonth(){const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`}
   function personal(e){try{return Number(personalPart(e,user.id)||0)}catch{return Number(e?.amount||0)}}
   function rowsForMonth(month){return (typeof interventions!=='undefined'?interventions:[]).filter(e=>String(e.date||'').slice(0,7)===month&&!e.readOnlyHistory).map(e=>({e,amount:personal(e)}))}
-  function totalForMonth(month){return rowsForMonth(month).reduce((s,r)=>s+r.amount,0)}
+  function totalForMonth(month){const rows=rowsForMonth(month);return typeof totalWithOrangeDiscount==='function'?totalWithOrangeDiscount(rows.map(r=>r.e),personal):rows.reduce((s,r)=>s+r.amount,0)}
 
   function mountQuickInvoice(){
     const pane=$id('billingPane-invoices');if(!pane||$id('billingQuickV2'))return;
@@ -30,7 +30,7 @@
   function renderQuick(){
     const month=$id('billingQuickMonth')?.value||currentMonth(),rows=rowsForMonth(month);
     if($id('billingQuickCount'))$id('billingQuickCount').textContent=String(rows.length);
-    if($id('billingQuickTotal'))$id('billingQuickTotal').textContent=money2(rows.reduce((s,r)=>s+r.amount,0));
+    if($id('billingQuickTotal'))$id('billingQuickTotal').textContent=money2(totalForMonth(month));
     if($id('billingQuickRecon'))$id('billingQuickRecon').disabled=!(typeof billingReconResult!=='undefined'&&billingReconResult);
   }
   function prefillInvoice(amount,month,source){
@@ -74,6 +74,11 @@
       result.missingValue=missingValue;
       result.underpaidValue=underpaidValue;
       result.overpaid=overpaid;
+      result.orangeDiscount=typeof orangeTotalDiscount==='function'&&orangeTotalDiscount()>0;
+      if(result.orangeDiscount){
+        result.claimable=Math.max(0,Number(result.oursTotal)-Number(result.companyTotal));
+        result.overpaid=Math.max(0,Number(result.companyTotal)-Number(result.oursTotal));
+      }
       result.errors=result.results.filter(r=>!r.ok);
       return result;
     };
@@ -101,7 +106,7 @@
 
     let panel=$id('billingReconV2Panel');
     if(!panel){panel=document.createElement('div');panel.id='billingReconV2Panel';panel.className='recon-v2-panel';summary.insertAdjacentElement('afterend',panel)}
-    panel.innerHTML=`<div class="recon-v2-claim"><div><small>Écart favorable à vérifier / réclamer</small><b>${money2(result.claimable||0)}</b><span>Absentes : ${money2(result.missingValue||0)} · Sous-payées : ${money2(result.underpaidValue||0)}</span></div><div><small>Écart dans l’autre sens</small><b>${money2(result.overpaid||0)}</b><span>À contrôler avant facturation.</span></div></div>
+    panel.innerHTML=`<div class="recon-v2-claim"><div><small>Écart favorable à vérifier / réclamer</small><b>${money2(result.claimable||0)}</b><span>${result.orangeDiscount?'Écart net après réduction Orange.':`Absentes : ${money2(result.missingValue||0)} · Sous-payées : ${money2(result.underpaidValue||0)}`}</span></div><div><small>Écart dans l’autre sens</small><b>${money2(result.overpaid||0)}</b><span>À contrôler avant facturation.</span></div></div>
       <div class="recon-v2-actions"><button id="reconV2InvoiceOurs" class="btn-primary" type="button">Créer la facture FIBRE OPS (${money2(result.oursTotal)})</button><button id="reconV2InvoiceCompany" class="btn-ghost" type="button">Préremplir avec le récap société (${money2(result.companyTotal)})</button><button id="reconV2Copy" class="btn-ghost" type="button">Copier le résumé</button></div>`;
     $id('reconV2InvoiceOurs').onclick=()=>prefillInvoice(Number(result.oursTotal||0),billingReconMonthValue(),'comparaison FIBRE OPS');
     $id('reconV2InvoiceCompany').onclick=()=>prefillInvoice(Number(result.companyTotal||0),billingReconMonthValue(),'récap société');

@@ -49,6 +49,23 @@ test('reconciliation compares the full pair price without changing personal payo
   assert.equal(f.run('billingReconCompareData().errors.length'),0);
  }finally{f.close()}
 });
+test('Orange reduction applies once to team totals including complements but never changes line prices or SFR',async()=>{
+ const f=await fixture();try{
+  f.run(`team={id:'team-a'};settings.preferences.orange_total_discount={team_id:'team-a',percent:20};
+    interventions=[{...interventions[0],id:'orange',teamId:'team-a',workMode:'Binôme',montant:215.60,num:'1111111111'},
+      {...interventions[0],id:'sfr',teamId:'team-a',op:'sfr',workMode:'Binôme',montant:130,num:'2222222222'}];
+    $('billingReconMonth').value=iso().slice(0,7);billingReconRenderOwnSummary();
+    billingReconRaw={headers:['Référence','Montant'],rows:[['1111111111','215.60'],['2222222222','130']],mapping:{ref:0,amount:1,type:-1,status:-1,operator:-1}};billingReconPopulateMapping();`);
+  assert.equal(f.run('sum(interventions)'),302.48);
+  assert.equal(f.run('totalWithOrangeDiscount(interventions,e=>personalPart(e,user.id))'),151.24);
+  assert.equal(f.run('interventions[0].montant'),215.60);
+  assert.equal(f.run('billingReconCompareData().oursTotal'),302.48);
+  assert.equal(f.run('billingReconCompareData().companyTotal'),345.60);
+  assert.equal(f.run('billingReconCompareData().errors.length'),0);
+  f.run("team={id:'other-team'}");
+  assert.equal(f.run('sum(interventions)'),345.6);
+ }finally{f.close()}
+});
 test('Orange article codes determine the typology and unknown combinations remain flagged',async()=>{
  const f=await fixture();try{
   assert.equal(f.run("billingReconOrangeArticleType('1.0 LSOUP | 1.0 LSOU2')"),'Souterrain');

@@ -49,6 +49,26 @@ test('reconciliation compares the full pair price without changing personal payo
   assert.equal(f.run('billingReconCompareData().errors.length'),0);
  }finally{f.close()}
 });
+test('Orange article codes determine the typology and unknown combinations remain flagged',async()=>{
+ const f=await fixture();try{
+  assert.equal(f.run("billingReconOrangeArticleType('1.0 LSOUP | 1.0 LSOU2')"),'Souterrain');
+  assert.equal(f.run("billingReconOrangeArticleType('SAVA 1')"),'SAV');
+  assert.equal(f.run("billingReconOrangeArticleType('LSA2 | LSAFP')"),'Aérien');
+  assert.equal(f.run("billingReconOrangeArticleType('LSIMP | LSIM2')"),'Immeuble');
+  assert.equal(f.run("billingReconOrangeHasApie('LSOUP | PSER2 | LSOU2')"),true);
+  assert.equal(f.run("billingReconOrangeHasApie('XPSER2')"),false);
+  assert.match(f.run("billingReconOrangeArticleType('LSOUP')"),/À vérifier/);
+  assert.match(f.run("billingReconOrangeArticleType('LSA2 LSAFP SAVA1')"),/À vérifier/);
+  f.run("$('billingReconMonth').value=iso().slice(0,7);billingReconRenderOwnSummary();$('billingReconOperator').value='ORANGE';interventions[0].typo='Appartement'");
+  const data=await f.run(`billingReconReadFile({name:'test.csv',text:async()=> 'Référence;Liste des articles;Montant\\n1234567890;LSIMP LSIM2;123,45'})`);
+  f.w.testData=data;f.run('billingReconRaw=window.testData;billingReconPopulateMapping()');
+  assert.equal(f.run('billingReconCompareData().errors.length'),0);
+  f.run("billingReconRaw.rows[0][1]='LSIMP LSIM2 PSER2';billingReconRenderResult(billingReconCompareData())");
+  assert.match(f.w.document.getElementById('billingReconTable').textContent,/Complément APIE \(PSER2\)/);
+  f.run("billingReconRaw.rows[0][billingReconRaw.mapping.type]='À vérifier : codes Orange non reconnus ou ambigus'");
+  assert.match(f.run('billingReconCompareData().errors[0].issues.join()'),/Typologie/);
+ }finally{f.close()}
+});
 test('a manually selected intervention date survives interface changes and a successful save',async()=>{
  const f=await fixture();try{
   f.w.fetch=async()=>({ok:true});

@@ -4625,6 +4625,22 @@ function billingReconNormalizeOperator(v){
   if(s.includes('FREE'))return 'FREE';
   return s;
 }
+function billingReconOrangeArticleType(value){
+  const tokens=new Set((billingReconCleanText(value).toUpperCase().replace(/\bSAVA\s+1\b/g,'SAVA1').match(/[A-Z0-9]+/g)||[]));
+  const matches=[];
+  if(tokens.has('LSOUP')&&tokens.has('LSOU2'))matches.push('Souterrain');
+  if(tokens.has('SAVA1'))matches.push('SAV');
+  if(tokens.has('LSAFP')&&tokens.has('LSA2'))matches.push('Aérien');
+  if(tokens.has('LSIM2')&&tokens.has('LSIMP'))matches.push('Immeuble');
+  return matches.length===1?matches[0]:'À vérifier : codes Orange non reconnus ou ambigus';
+}
+function billingReconOrangeHasApie(value){
+  return (billingReconCleanText(value).toUpperCase().match(/[A-Z0-9]+/g)||[]).includes('PSER2');
+}
+function billingReconNormalizeTypology(value){
+  const type=billingReconNormalizeText(value);
+  return type==='APPARTEMENT'||type==='IMMEUBLEAPPARTEMENT'?'IMMEUBLE':type;
+}
 function billingReconParseAmount(v){
   if(typeof v==='number'&&Number.isFinite(v))return v;
   let s=billingReconCleanText(v).replace(/\u00a0/g,' ').trim();
@@ -4788,6 +4804,14 @@ async function billingReconReadFile(file){
     if(best>=0)mapping.ref=best;else if(nd>=0)mapping.ref=nd;
     mapping.type=-1;mapping.status=-1;mapping.operator=-1;
   }
+  if($('billingReconOperator')?.value==='ORANGE'){
+    const articles=headers.findIndex(h=>billingReconNormalizeText(h).includes('ARTICLE'));
+    if(articles>=0){
+      mapping.type=headers.length;
+      headers.push('Typologie déduite des articles Orange');
+      dataRows=dataRows.map(row=>{const copy=Array.from({length:headers.length-1},(_,i)=>row[i]??'');copy.push(billingReconOrangeArticleType(row[articles]));return copy});
+    }
+  }
   return {filename:file.name,headers,rows:dataRows,mapping};
 }
 async function billingReconSaveImported(){
@@ -4848,6 +4872,7 @@ function billingReconCompareData(){
   const map=billingReconCurrentMapping();
   if(map.ref===null||map.amount===null)throw new Error('Sélectionne au minimum les colonnes Référence et Montant');
   if(map.ref===map.amount)throw new Error('Choisis deux colonnes différentes pour la référence et le montant');
+  const orangeArticles=$('billingReconOperator')?.value==='ORANGE'?(billingReconRaw.headers||[]).findIndex(h=>billingReconNormalizeText(h).includes('ARTICLE')):-1;
 
   const company=(billingReconRaw.rows||[]).map((r,index)=>{
     const rawReference=billingReconCleanText(r[map.ref]);
@@ -4857,6 +4882,7 @@ function billingReconCompareData(){
       reference:rawReference,
       ref,
       typology:map.type===null?'':billingReconCleanText(r[map.type]),
+      apie:orangeArticles>=0&&billingReconOrangeHasApie(r[orangeArticles]),
       operator:map.operator===null?'':billingReconCleanText(r[map.operator]),
       amount:billingReconParseAmount(r[map.amount]),
       statusText:map.status===null?'':billingReconCleanText(r[map.status]),
@@ -4896,7 +4922,7 @@ function billingReconCompareData(){
       else if(Math.abs(Number(o.amount)-Number(c.amount))>0.009){
         issues.push(`Montant : FIBRE OPS ${billingMoney(o.amount)} / société ${billingMoney(c.amount)}`);
       }
-      if(map.type!==null&&c.typology&&billingReconNormalizeText(o.typology)!==billingReconNormalizeText(c.typology)){
+      if(map.type!==null&&c.typology&&billingReconNormalizeTypology(o.typology)!==billingReconNormalizeTypology(c.typology)){
         issues.push(`Typologie : ${o.typology} / ${c.typology}`);
       }
       if(map.operator!==null&&c.operator&&billingReconNormalizeOperator(o.operator)!==billingReconNormalizeOperator(c.operator)){
@@ -4943,13 +4969,13 @@ function billingReconRenderResult(result){
       <td>${esc(r.ours.operator||'—')}</td>
       <td>${esc(r.ours.status||'—')}</td>
       <td class="recon-amount">${billingMoney(r.ours.amount)}</td>
-      <td class="recon-amount">${r.company&&r.company.amount!==null?billingMoney(r.company.amount):'—'}</td>
+      <td class="recon-amount">${r.company&&r.company.amount!==null?billingMoney(r.company.amount):'—'}${r.company?.apie?'<br><small>Complément APIE (PSER2)</small>':''}</td>
       <td>${r.ok?'<span class="recon-ok">OK</span>':`<div class="recon-diff">${r.issues.map(esc).join('<br>')}</div>`}</td>
     </tr>`).join('')}</tbody>
   </table>`;
 
   $('billingReconExtraWrap').style.display=extras.length?'block':'none';
-  $('billingReconExtra').innerHTML=extras.map(r=>`<div class="recon-extra-row"><b>${esc(r.reference||r.ref)}</b> · ${esc(r.typology||'Typologie inconnue')} · ${r.amount===null?'montant non détecté':billingMoney(r.amount)}${r.statusText?' · '+esc(r.statusText):''}</div>`).join('');
+  $('billingReconExtra').innerHTML=extras.map(r=>`<div class="recon-extra-row"><b>${esc(r.reference||r.ref)}</b> · ${esc(r.typology||'Typologie inconnue')} · ${r.amount===null?'montant non détecté':billingMoney(r.amount)}${r.apie?' · Complément APIE (PSER2)':''}${r.statusText?' · '+esc(r.statusText):''}</div>`).join('');
   $('billingReconExport').disabled=false;
 }
 async function billingReconExportResult(){
@@ -4972,7 +4998,7 @@ async function billingReconExportResult(){
   result.results.forEach(r=>{
     const row=ws.addRow({
       ref:r.ours.reference,type:r.ours.typology,op:r.ours.operator,status:r.ours.status,
-      ours:Number(r.ours.amount)||0,company:r.company?.amount??null,issues:r.issues.join(' | ')||'OK'
+      ours:Number(r.ours.amount)||0,company:r.company?.amount??null,issues:[...r.issues,...(r.company?.apie?['Complément APIE (PSER2)']:[])].join(' | ')||'OK'
     });
     row.getCell('ours').numFmt='#,##0.00 "€"';
     if(r.company?.amount!==null&&r.company?.amount!==undefined)row.getCell('company').numFmt='#,##0.00 "€"';
@@ -4986,7 +5012,7 @@ async function billingReconExportResult(){
     extra.columns=[{header:'Référence',key:'ref',width:20},{header:'Typologie',key:'type',width:24},{header:'Opérateur',key:'op',width:18},{header:'Montant',key:'amount',width:16},{header:'Statut / note',key:'status',width:50}];
     extra.getRow(1).eachCell(c=>{c.font={bold:true,color:{argb:'FFFFFFFF'}};c.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FF2F5597'}}});
     result.extras.forEach(r=>{
-      const row=extra.addRow({ref:r.reference,type:r.typology,op:r.operator,amount:r.amount,status:r.statusText});
+      const row=extra.addRow({ref:r.reference,type:r.typology,op:r.operator,amount:r.amount,status:[r.statusText,r.apie?'Complément APIE (PSER2)':''].filter(Boolean).join(' · ')});
       if(r.amount!==null)row.getCell('amount').numFmt='#,##0.00 "€"';
     });
   }

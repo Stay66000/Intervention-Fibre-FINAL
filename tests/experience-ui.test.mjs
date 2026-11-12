@@ -62,6 +62,8 @@ test('Orange reduction applies once to team totals including complements but nev
   assert.equal(f.run('billingReconCompareData().oursTotal'),302.48);
   assert.equal(f.run('billingReconCompareData().companyTotal'),345.60);
   assert.equal(f.run('billingReconCompareData().errors.length'),0);
+  f.run('billingReconRenderResult(billingReconCompareData())');
+  assert.match(f.w.document.getElementById('billingReconResultText').textContent,/totaux présentent un écart/);
   f.run("team={id:'other-team'}");
   assert.equal(f.run('sum(interventions)'),345.6);
  }finally{f.close()}

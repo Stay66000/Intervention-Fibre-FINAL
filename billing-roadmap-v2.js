@@ -74,7 +74,7 @@
       result.missingValue=missingValue;
       result.underpaidValue=underpaidValue;
       result.overpaid=overpaid;
-      result.orangeDiscount=typeof orangeTotalDiscount==='function'&&orangeTotalDiscount()>0;
+      result.orangeDiscount=typeof orangeTotalDiscount==='function'&&orangeTotalDiscount()>0&&result.results.some(r=>r.ours?.op==='orange'&&r.ours?.teamId===team?.id&&!r.ours?.companyId);
       if(result.orangeDiscount){
         result.claimable=Math.max(0,Number(result.oursTotal)-Number(result.companyTotal));
         result.overpaid=Math.max(0,Number(result.companyTotal)-Number(result.oursTotal));

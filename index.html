@@ -4977,8 +4977,8 @@ function billingReconRenderResult(result){
 
   $('billingReconResultText').textContent=errors.length||extras.length
     ? `${errors.length} ligne${errors.length>1?'s':''} FIBRE OPS à vérifier${extras.length?` · ${extras.length} ligne${extras.length>1?'s':''} en plus côté société`:''}.`
-    : 'Les deux récapitulatifs correspondent sur les colonnes contrôlées.';
-  if(orangeTotalDiscount())$('billingReconResultText').textContent+=` Total FIBRE OPS : réduction Orange de ${orangeTotalDiscount()*100} % incluse. Montants par ligne et total société : bruts.`;
+    : Math.abs(difference)>0.009?'Les lignes correspondent ; les totaux présentent un écart à vérifier.':'Les deux récapitulatifs correspondent sur les colonnes contrôlées.';
+  if(orangeTotalDiscount()&&results.some(r=>r.ours.op==='orange'&&r.ours.teamId===team?.id&&!r.ours.companyId))$('billingReconResultText').textContent+=` Total FIBRE OPS : réduction Orange de ${orangeTotalDiscount()*100} % incluse. Montants par ligne et total société : bruts.`;
 
   $('billingReconSummary').innerHTML=`
     <div class="recon-summary-card"><small>FIBRE OPS</small><b>${billingMoney(oursTotal)}</b></div>

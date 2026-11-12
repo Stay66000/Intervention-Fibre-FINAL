@@ -1915,6 +1915,7 @@ body.is-offline .sync-pill{border-color:color-mix(in srgb,var(--danger) 45%,var(
           <label for="billingReconMonth">Mois à contrôler</label>
           <input id="billingReconMonth" type="month">
         </div>
+        <div class="field"><label for="billingReconOperator">Opérateur à comparer</label><select id="billingReconOperator"><option value="">Tous les opérateurs</option></select></div>
         <div class="recon-own-card">
           <small>Notre récap FIBRE OPS</small>
           <b id="billingReconOwnCount">0 intervention</b>
@@ -1925,15 +1926,16 @@ body.is-offline .sync-pill{border-color:color-mix(in srgb,var(--danger) 45%,var(
       <div class="recon-upload">
         <div>
           <b>1 · Importer le récap société</b>
-          <small>Formats conseillés : Excel .xlsx ou CSV. La référence intervention sert de clé de comparaison.</small>
+          <small>PDF avec texte, Excel .xlsx ou CSV. La référence intervention sert de clé de comparaison. Les totaux et retenues sont à vérifier séparément.</small>
         </div>
         <label class="btn-primary recon-file-btn">
           Choisir le fichier
-          <input id="billingReconFile" type="file" accept=".xlsx,.csv,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">
+          <input id="billingReconFile" type="file" accept=".pdf,application/pdf,.xlsx,.csv,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">
         </label>
       </div>
 
       <div id="billingReconFileInfo" class="recon-file-info">Aucun récap société importé.</div>
+      <div class="field-hint">Avec un opérateur sélectionné, le fichier reste disponible pendant cette session : importe l’autre fichier pour comparer un autre opérateur. Vérifie les colonnes détectées avant de comparer.</div>
 
       <div id="billingReconMapping" class="recon-mapping" style="display:none">
         <div class="recon-mapping-title">2 · Vérifier les colonnes détectées</div>
@@ -4564,6 +4566,8 @@ function billingReconOwnRows(){
   if(hasTeam()){
     rows=rows.filter(e=>e.workMode==='Binôme'||(e.workMode==='Solo'&&e.soloUserId===user.id)||(e.workMode==='Personal'&&e.userId===user.id));
   }
+  const selected=$('billingReconOperator')?.value||'';
+  if(selected)rows=rows.filter(e=>billingReconNormalizeOperator(opLabel(e.op))===selected);
   return rows.map(e=>({
     id:e.id,
     reference:e.num||'',
@@ -4577,6 +4581,11 @@ function billingReconOwnRows(){
 }
 function billingReconRenderOwnSummary(){
   if(!$('billingReconMonth'))return;
+  const select=$('billingReconOperator'), selected=select.value;
+  const choices=new Map();
+  interventions.filter(e=>String(e.date||'').slice(0,7)===billingReconMonthValue()&&!e.readOnlyHistory).forEach(e=>{const label=opLabel(e.op),key=billingReconNormalizeOperator(label);if(key)choices.set(key,label)});
+  select.innerHTML='<option value="">Tous les opérateurs</option>'+[...choices].map(([key,label])=>`<option value="${esc(key)}">${esc(label)}</option>`).join('');
+  if(choices.has(selected))select.value=selected;
   const rows=billingReconOwnRows();
   $('billingReconOwnCount').textContent=`${rows.length} intervention${rows.length>1?'s':''}`;
   $('billingReconOwnTotal').textContent=companyPricesHidden()?'Prix masqués':billingMoney(rows.reduce((s,r)=>s+r.amount,0));
@@ -4617,9 +4626,10 @@ function billingReconNormalizeOperator(v){
 function billingReconParseAmount(v){
   if(typeof v==='number'&&Number.isFinite(v))return v;
   let s=billingReconCleanText(v).replace(/\u00a0/g,' ').trim();
-  if(!s||/^[-–—]\s*€?$/.test(s))return 0;
+  if(!s||/^[-–—]\s*€?$/.test(s))return null;
   s=s.replace(/[€EUR]/gi,'').replace(/\s/g,'').replace(',','.');
   s=s.replace(/[^0-9.+-]/g,'');
+  if(!/\d/.test(s))return null;
   const n=Number(s);
   return Number.isFinite(n)?n:null;
 }
@@ -4652,14 +4662,14 @@ function billingReconCsvParse(textValue){
 }
 function billingReconHeaderScore(row){
   const textRow=(row||[]).map(billingReconNormalizeText);
-  const patterns=[/REF|REFERENCE|JETON|NUMERO/,/TYPOLOGIE|TYPE|PRESTATION|DESCRIPTION/,/TARIF|MONTANT|PRIX|PAYE/,/STATUT|CONTROLE|RESULTAT|OKNOK/,/OPERATEUR/];
+  const patterns=[/REF|REFERENCE|JETON|NUMERO|ND/,/TYPOLOGIE|TYPE|PRESTATION|DESCRIPTION/,/TARIF|MONTANT|PRIX|PAYE|REMUNERATION/,/STATUT|CONTROLE|RESULTAT|OKNOK/,/OPERATEUR/];
   return patterns.reduce((s,p)=>s+(textRow.some(x=>p.test(x))?1:0),0);
 }
 function billingReconGuessMapping(headers,rows){
   const hs=headers.map(billingReconNormalizeText);
   const find=(regex)=>hs.findIndex(x=>regex.test(x));
   let ref=find(/REF|REFERENCE|JETON|NUMERO|^NO$/);
-  let amount=find(/TARIF|MONTANT|PRIX|PAYE|TOTAL/);
+  let amount=find(/TARIF|MONTANT|PRIX|PAYE|TOTAL|REMUNERATION/);
   let type=find(/TYPOLOGIE|TYPE|PRESTATION|DESCRIPTION/);
   let status=find(/STATUT|CONTROLE|RESULTAT|OKNOK/);
   let operator=find(/OPERATEUR/);
@@ -4692,8 +4702,8 @@ function billingReconPopulateMapping(){
   const headers=billingReconRaw.headers||[];
   const optional='<option value="">— Non utilisé —</option>';
   const opts=headers.map((h,i)=>`<option value="${i}">${esc(h||('Colonne '+String.fromCharCode(65+i)))}</option>`).join('');
-  $('billingReconMapRef').innerHTML=opts;
-  $('billingReconMapAmount').innerHTML=opts;
+  $('billingReconMapRef').innerHTML='<option value="">— À sélectionner —</option>'+opts;
+  $('billingReconMapAmount').innerHTML='<option value="">— À sélectionner —</option>'+opts;
   $('billingReconMapType').innerHTML=optional+opts;
   $('billingReconMapStatus').innerHTML=optional+opts;
   $('billingReconMapOperator').innerHTML=optional+opts;
@@ -4727,7 +4737,11 @@ async function billingReconExcelReady(){
 async function billingReconReadFile(file){
   const lower=file.name.toLowerCase();
   let rows=[];
-  if(lower.endsWith('.csv')){
+  if(lower.endsWith('.pdf')){
+    if(!$('billingReconOperator')?.value)throw new Error('Choisis d’abord le mois et l’opérateur du PDF');
+    const {readPdfTable}=await import('./reconciliation-pdf.mjs');
+    rows=await readPdfTable(await file.arrayBuffer());
+  }else if(lower.endsWith('.csv')){
     rows=billingReconCsvParse(await file.text());
   }else if(lower.endsWith('.xlsx')){
     await billingReconExcelReady();
@@ -4742,7 +4756,7 @@ async function billingReconReadFile(file){
       if(out.some(v=>String(v).trim()!==''))rows.push(out);
     });
   }else{
-    throw new Error('Format non supporté. Utilise un fichier .xlsx ou .csv');
+    throw new Error('Format non supporté. Utilise un fichier PDF, .xlsx ou .csv');
   }
   if(!rows.length)throw new Error('Le fichier est vide');
 
@@ -4763,10 +4777,22 @@ async function billingReconReadFile(file){
     headers=Array.from({length:maxCols},(_,i)=>`Colonne ${String.fromCharCode(65+i)}`);
     dataRows=rows.filter(r=>r.some(v=>billingReconCleanText(v)!==''));
   }
-  return {filename:file.name,headers,rows:dataRows,mapping:billingReconGuessMapping(headers,dataRows)};
+  const mapping=billingReconGuessMapping(headers,dataRows);
+  if(lower.endsWith('.pdf')){
+    const nd=headers.findIndex(h=>billingReconNormalizeText(h)==='ND');
+    const ownRefs=new Set(billingReconOwnRows().map(r=>billingReconNormalizeRef(r.reference)).filter(Boolean));
+    let best=-1,score=0;
+    headers.forEach((h,i)=>{const n=dataRows.filter(r=>ownRefs.has(billingReconNormalizeRef(r[i]))).length;if(n>score){score=n;best=i}});
+    if(best>=0)mapping.ref=best;else if(nd>=0)mapping.ref=nd;
+    mapping.type=-1;mapping.status=-1;mapping.operator=-1;
+  }
+  return {filename:file.name,headers,rows:dataRows,mapping};
 }
 async function billingReconSaveImported(){
   if(!billingReconRaw)return;
+  // Existing server storage permits one file per month. Keep operator-specific imports
+  // in memory so an Orange file cannot silently overwrite an SFR file.
+  if($('billingReconOperator')?.value)return;
   const month=billingReconMonthValue();
   const mapping=billingReconCurrentMapping();
   billingReconRaw.mapping=mapping;
@@ -4819,6 +4845,7 @@ function billingReconCompareData(){
   if(!billingReconRaw)throw new Error('Importe d’abord le récap envoyé par la société');
   const map=billingReconCurrentMapping();
   if(map.ref===null||map.amount===null)throw new Error('Sélectionne au minimum les colonnes Référence et Montant');
+  if(map.ref===map.amount)throw new Error('Choisis deux colonnes différentes pour la référence et le montant');
 
   const company=(billingReconRaw.rows||[]).map((r,index)=>{
     const rawReference=billingReconCleanText(r[map.ref]);
@@ -4839,6 +4866,8 @@ function billingReconCompareData(){
     // Évite les lignes parasites du type "3", "Total", etc.
     // Les références métier vues dans les récaps sont nettement plus longues.
     if(!r.ref || r.ref.length<6)return false;
+    const selected=$('billingReconOperator')?.value;
+    if(selected && map.operator!==null && r.operator && billingReconNormalizeOperator(r.operator)!==selected)return false;
     return true;
   });
 
@@ -4849,6 +4878,8 @@ function billingReconCompareData(){
   });
 
   const ours=billingReconOwnRows();
+  if(!company.length)throw new Error('Aucune ligne exploitable : vérifie la colonne Référence et le fichier importé');
+  if(!ours.length)throw new Error('Aucune intervention FIBRE OPS pour ce mois et cet opérateur');
   const results=ours.map(o=>{
     const ref=billingReconNormalizeRef(o.reference);
     const pool=byRef.get(ref)||[];
@@ -4859,7 +4890,8 @@ function billingReconCompareData(){
       issues.push('Absente du récap société');
     }else{
       c.used=true;
-      if(c.amount!==null&&Math.abs(Number(o.amount)-Number(c.amount))>0.009){
+      if(c.amount===null){issues.push('Montant société non reconnu');}
+      else if(Math.abs(Number(o.amount)-Number(c.amount))>0.009){
         issues.push(`Montant : FIBRE OPS ${billingMoney(o.amount)} / société ${billingMoney(c.amount)}`);
       }
       if(map.type!==null&&c.typology&&billingReconNormalizeText(o.typology)!==billingReconNormalizeText(c.typology)){
@@ -4989,6 +5021,12 @@ $('billingReconMonth').onchange=()=>{
   $('billingReconFile').value='';
   billingReconLoadSaved();
 };
+$('billingReconOperator').onchange=()=>{
+  billingReconResult=null;$('billingReconExport').disabled=true;
+  $('billingReconSummary').innerHTML='';$('billingReconTable').innerHTML='';$('billingReconExtraWrap').style.display='none';
+  $('billingReconResultText').textContent='Relance la comparaison pour cet opérateur.';
+  billingReconRenderOwnSummary();
+};
 $('billingReconFile').onchange=async e=>{
   const file=e.target.files?.[0];
   if(!file)return;
@@ -5020,6 +5058,11 @@ $('billingReconCompare').onclick=async()=>{
 $('billingReconExport').onclick=billingReconExportResult;
 $('billingReconClear').onclick=async()=>{
   const month=billingReconMonthValue();
+  if($('billingReconOperator').value){
+    billingReconRaw=null;billingReconResult=null;$('billingReconFile').value='';$('billingReconMapping').style.display='none';
+    $('billingReconFileInfo').textContent='Aucun récap société importé.';$('billingReconSummary').innerHTML='';$('billingReconTable').innerHTML='';$('billingReconExtraWrap').style.display='none';$('billingReconExport').disabled=true;
+    $('billingReconResultText').textContent='Importe un fichier société puis lance la comparaison.';return;
+  }
   if(billingReconRaw&&!confirm('Effacer le récap société sauvegardé pour ce mois ?'))return;
   const {error}=await supabase.rpc('invoice_delete_reconciliation',{p_month:month+'-01'});
   if(error)return toast('Erreur : '+error.message);

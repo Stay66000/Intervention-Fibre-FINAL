@@ -28,6 +28,17 @@ async function fixture({hidden=false}={}){
   const click=id=>w.document.getElementById(id).click();
   return {dom,w,run,click,close:()=>dom.window.close()};
 }
+test('reconciliation filters the operator and reports an unreadable amount',async()=>{
+  const f=await fixture();try{
+    f.run(`interventions.push({...interventions[0],id:'sfr-row',op:'sfr',num:'9876543210'});$('billingReconMonth').value=iso().slice(0,7);billingReconRenderOwnSummary();$('billingReconOperator').value='ORANGE';billingReconRenderOwnSummary();
+      billingReconRaw={headers:['Référence','Montant'],rows:[['1234567890','inconnu']],mapping:{ref:0,amount:1,type:-1,status:-1,operator:-1}};billingReconPopulateMapping();`);
+    assert.equal(f.run('billingReconOwnRows().length'),1);
+    assert.equal(f.run('billingReconCompareData().errors.length'),1);
+    assert.match(f.run('billingReconCompareData().errors[0].issues.join()'),/Montant société non reconnu/);
+    f.run("$('billingReconOperator').value='SFR';billingReconRenderOwnSummary()");
+    assert.equal(f.run('billingReconOwnRows()[0].reference'),'9876543210');
+  }finally{f.close()}
+});
 test('joining a team keeps personal history labelled correctly across cards, dashboard and editors',async()=>{
  const f=await fixture();try{
   f.run(`team={id:'team-a'};teamMembers=[{id:user.id,first_name:'Brendan'},{id:'account-b',first_name:'Partner'}];

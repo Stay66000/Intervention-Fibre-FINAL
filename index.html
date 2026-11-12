@@ -4575,7 +4575,9 @@ function billingReconOwnRows(){
     operator:opLabel(e.op),
     operator_raw:e.op||'',
     status:e.statut||'',
-    amount:Number(personalPart(e,user.id))||0,
+    // Le relevé du donneur d’ordre porte sur l’intervention entière ; le
+    // partage entre binômes concerne la rémunération personnelle, pas ce contrôle.
+    amount:Number(e.montant)||0,
     date:e.date||''
   }));
 }

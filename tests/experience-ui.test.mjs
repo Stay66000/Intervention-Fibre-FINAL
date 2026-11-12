@@ -39,6 +39,16 @@ test('reconciliation filters the operator and reports an unreadable amount',asyn
     assert.equal(f.run('billingReconOwnRows()[0].reference'),'9876543210');
   }finally{f.close()}
 });
+test('reconciliation compares the full pair price without changing personal payout',async()=>{
+ const f=await fixture();try{
+  f.run(`team={id:'team-a'};teamMembers=[{id:user.id},{id:'account-b'}];interventions=[{...interventions[0],workMode:'Binôme',teamId:'team-a',montant:160}];
+    $('billingReconMonth').value=iso().slice(0,7);billingReconRenderOwnSummary();
+    billingReconRaw={headers:['Référence','Montant'],rows:[['1234567890','160']],mapping:{ref:0,amount:1,type:-1,status:-1,operator:-1}};billingReconPopulateMapping();`);
+  assert.equal(f.run('personalPart(interventions[0])'),80);
+  assert.equal(f.run('billingReconCompareData().oursTotal'),160);
+  assert.equal(f.run('billingReconCompareData().errors.length'),0);
+ }finally{f.close()}
+});
 test('a manually selected intervention date survives interface changes and a successful save',async()=>{
  const f=await fixture();try{
   f.w.fetch=async()=>({ok:true});

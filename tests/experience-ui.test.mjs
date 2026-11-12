@@ -52,6 +52,7 @@ test('reconciliation compares the full pair price without changing personal payo
 test('Orange article codes determine the typology and unknown combinations remain flagged',async()=>{
  const f=await fixture();try{
   assert.equal(f.run("billingReconOrangeArticleType('1.0 LSOUP | 1.0 LSOU2')"),'Souterrain');
+  assert.equal(f.run("billingReconOrangeArticleType('1.0 LSOU1 | 1.0 LSOUP')"),'Souterrain');
   assert.equal(f.run("billingReconOrangeArticleType('SAVA 1')"),'SAV');
   assert.equal(f.run("billingReconOrangeArticleType('LSA2 | LSAFP')"),'Aérien');
   assert.equal(f.run("billingReconOrangeArticleType('LSIMP | LSIM2')"),'Immeuble');
@@ -67,6 +68,18 @@ test('Orange article codes determine the typology and unknown combinations remai
   assert.match(f.w.document.getElementById('billingReconTable').textContent,/Complément APIE \(PSER2\)/);
   f.run("billingReconRaw.rows[0][billingReconRaw.mapping.type]='À vérifier : codes Orange non reconnus ou ambigus'");
   assert.match(f.run('billingReconCompareData().errors[0].issues.join()'),/Typologie/);
+ }finally{f.close()}
+});
+test('reconciliation excludes absent failed interventions but displays failures present in the statement',async()=>{
+ const f=await fixture();try{
+  f.run(`interventions=[{...interventions[0],id:'ok',num:'1111111111',montant:100},
+   {...interventions[0],id:'missing-failure',num:'2222222222',statut:'Échec',montant:15},
+   {...interventions[0],id:'listed-failure',num:'3333333333',statut:'Échec',montant:25}];
+   $('billingReconMonth').value=iso().slice(0,7);billingReconRenderOwnSummary();
+   billingReconRaw={headers:['Référence','Montant'],rows:[['1111111111','100'],['3333333333','25']],mapping:{ref:0,amount:1,type:-1,status:-1,operator:-1}};billingReconPopulateMapping();`);
+  assert.deepEqual(Array.from(f.run('billingReconCompareData().results.map(r=>r.ours.reference)')),['1111111111','3333333333']);
+  assert.equal(f.run('billingReconCompareData().oursTotal'),125);
+  assert.equal(f.run('billingReconCompareData().errors.length'),0);
  }finally{f.close()}
 });
 test('a manually selected intervention date survives interface changes and a successful save',async()=>{

@@ -4628,7 +4628,7 @@ function billingReconNormalizeOperator(v){
 function billingReconOrangeArticleType(value){
   const tokens=new Set((billingReconCleanText(value).toUpperCase().replace(/\bSAVA\s+1\b/g,'SAVA1').match(/[A-Z0-9]+/g)||[]));
   const matches=[];
-  if(tokens.has('LSOUP')&&tokens.has('LSOU2'))matches.push('Souterrain');
+  if(tokens.has('LSOU1')||(tokens.has('LSOUP')&&tokens.has('LSOU2')))matches.push('Souterrain');
   if(tokens.has('SAVA1'))matches.push('SAV');
   if(tokens.has('LSAFP')&&tokens.has('LSA2'))matches.push('Aérien');
   if(tokens.has('LSIM2')&&tokens.has('LSIMP'))matches.push('Immeuble');
@@ -4912,6 +4912,9 @@ function billingReconCompareData(){
     const ref=billingReconNormalizeRef(o.reference);
     const pool=byRef.get(ref)||[];
     const c=pool.find(x=>!x.used)||null;
+    // Les donneurs d'ordre ne mentionnent pas systématiquement les échecs.
+    // Ne les montrer que lorsqu'une ligne correspondante existe dans le relevé.
+    if(!c&&billingReconStatus(o.status)==='failure')return null;
     const issues=[];
     if(!ref)issues.push('Référence FIBRE OPS vide');
     if(!c){
@@ -4934,10 +4937,10 @@ function billingReconCompareData(){
       }
     }
     return {ours:o,company:c,issues,ok:issues.length===0};
-  });
+  }).filter(Boolean);
 
   const extras=company.filter(x=>!x.used);
-  const oursTotal=ours.reduce((s,r)=>s+Number(r.amount||0),0);
+  const oursTotal=results.reduce((s,r)=>s+Number(r.ours.amount||0),0);
   const companyTotal=company.reduce((s,r)=>s+(Number(r.amount)||0),0);
   const errors=results.filter(r=>!r.ok);
 
@@ -4946,6 +4949,8 @@ function billingReconCompareData(){
 function billingReconRenderResult(result){
   billingReconResult=result;
   const {results,extras,oursTotal,companyTotal,errors}=result;
+  $('billingReconOwnCount').textContent=`${results.length} intervention${results.length>1?'s':''} comparée${results.length>1?'s':''}`;
+  $('billingReconOwnTotal').textContent=companyPricesHidden()?'Prix masqués':billingMoney(oursTotal);
   const missing=results.filter(r=>r.issues.some(x=>x.includes('Absente'))).length;
   const amountErrors=results.filter(r=>r.issues.some(x=>x.startsWith('Montant'))).length;
   const difference=companyTotal-oursTotal;

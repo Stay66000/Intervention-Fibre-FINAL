@@ -6241,7 +6241,7 @@ function restoreDraft(){
   if(!user)return;
   try{
     const d=JSON.parse(localStorage.getItem(draftKey())||'null');if(!d)return;
-    $('f-date').value=d.date||iso();$('f-num').value=d.num||'';$('f-addr').value=d.addr||'';$('f-comment').value=d.comment||'';
+    $('f-date').value=d.date||iso();if(d.date)$('f-date').dispatchEvent(new Event('fibre:date-restored'));$('f-num').value=d.num||'';$('f-addr').value=d.addr||'';$('f-comment').value=d.comment||'';
     if(activeOps().includes(d.operator))form.operator=d.operator;form.result=d.result||'Réussite';form.typeId=d.typeId||'';
     if(hasTeam()){form.workMode=d.workMode==='Solo'?'Solo':'Binôme';form.soloUserId=teamMembers.some(m=>m.id===d.soloUserId)?d.soloUserId:user.id}else{form.workMode='Personal';form.soloUserId=user.id}
     if(d.supplement?.enabled){$('f-supp-enabled').checked=true;$('f-supp-amount').value=d.supplement.amount||'';$('f-supp-comment').value=d.supplement.comment||'Complément d’intervention'}else clearSupplementInputs('f');
@@ -6375,7 +6375,7 @@ updateInstallAppUI();
     if(document.hidden)return;
     const today=iso();
     if(today===lastDay)return;
-    ['f-date','fuel-date'].forEach(id=>{const el=$(id);if(el&&el.value===lastDay)el.value=today});
+    ['fuel-date'].forEach(id=>{const el=$(id);if(el&&el.value===lastDay)el.value=today});
     lastDay=today;
     if(user&&!$('appShell').classList.contains('app-hidden')){try{renderAll()}catch(e){}}
   });

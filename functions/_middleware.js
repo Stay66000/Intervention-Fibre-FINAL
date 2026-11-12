@@ -25,7 +25,7 @@ export async function onRequest(context) {
     } })
     .on('body', { element(element) {
       if (!standalone) {
-        element.append('<script nonce="'+nonce+'" src="/fibre-compliance.js?v=3"></script>', { html: true });
+        element.append('<script nonce="'+nonce+'" src="/fibre-compliance.js?v=4"></script>', { html: true });
         element.append('<script nonce="'+nonce+'" src="/supabase-compat.js?v=2"></script>', { html: true });
         element.append('<script nonce="'+nonce+'" src="/google-backup.js?v=2"></script>', { html: true });
         element.append('<script nonce="'+nonce+'" src="/settings-final.js?v=4"></script>', { html: true });

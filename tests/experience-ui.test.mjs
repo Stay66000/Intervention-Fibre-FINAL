@@ -39,6 +39,19 @@ test('reconciliation filters the operator and reports an unreadable amount',asyn
     assert.equal(f.run('billingReconOwnRows()[0].reference'),'9876543210');
   }finally{f.close()}
 });
+test('a manually selected intervention date survives interface changes and a successful save',async()=>{
+ const f=await fixture();try{
+  f.w.fetch=async()=>({ok:true});
+  f.run(read('fibre-compliance.js'));
+  if(f.w.document.readyState==='loading')f.w.document.dispatchEvent(new f.w.Event('DOMContentLoaded'));
+  f.run("$('f-date').value='2025-01-15';$('f-date').dispatchEvent(new Event('input',{bubbles:true}));document.body.appendChild(document.createElement('div'))");
+  await new Promise(resolve=>setTimeout(resolve,60));
+  assert.equal(f.run("$('f-date').value"),'2025-01-15');
+  await f.w.fetch('https://example.supabase.co/rest/v1/interventions',{method:'POST'});
+  await new Promise(resolve=>setTimeout(resolve,450));
+  assert.equal(f.run("$('f-date').value"),'2025-01-15');
+ }finally{f.close()}
+});
 test('joining a team keeps personal history labelled correctly across cards, dashboard and editors',async()=>{
  const f=await fixture();try{
   f.run(`team={id:'team-a'};teamMembers=[{id:user.id,first_name:'Brendan'},{id:'account-b',first_name:'Partner'}];

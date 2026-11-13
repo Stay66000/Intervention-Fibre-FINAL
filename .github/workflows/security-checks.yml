@@ -47,6 +47,7 @@ jobs:
           psql -v ON_ERROR_STOP=1 -f tests/orange-tier-check.sql
           psql -v ON_ERROR_STOP=1 -c 'CREATE DATABASE account_activity_test'
           PGDATABASE=account_activity_test psql -v ON_ERROR_STOP=1 -f tests/platform-account-activity.sql
+          PGDATABASE=account_activity_test psql -v ON_ERROR_STOP=1 -f tests/platform-last-intervention.sql
           psql -v ON_ERROR_STOP=1 -c 'CREATE DATABASE orange_activation_test'
           PGDATABASE=orange_activation_test psql -v ON_ERROR_STOP=1 -f tests/orange-tier-setup.sql
           PGDATABASE=orange_activation_test psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261113175508_orange_team_tier_pricing.sql

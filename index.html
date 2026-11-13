@@ -2966,6 +2966,7 @@ const OP_COLORS={orange:'#ff8a1f',sfr:'#ef4444',bouygues:'#38bdf8',free:'#e8569b
 const MONTHS=['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
 const ACCENTS={blue:'#4f8cff',orange:'#ff8a1f',green:'#3ccf8e',purple:'#a678ff',red:'#ff6b6b'};
 let user=null,profile=null,settings=null,companyContext=null,companyWorkStatus=null,team=null,teamMembers=[],pendingTeamInvite=null,operators=[],types=[],interventions=[],fuel=[],view=new Date(),form={operator:'',typeId:'',result:'Réussite',workMode:'Personal',soloUserId:null},editId=null,fuelEditId=null,onboardStep=1,betaCompanies=[],companyMembers=[],companyOperators=[],companyTypes=[],companyTariffs=[],companyTeams=[],companyBusinessInterventions=[],companyBusinessFuel=[],companyPaymentDetails=[],companyPendingInvites=[],teamTariffFlow=null,myCompanyInvites=[],invoiceProfile=null,invoiceClients=[],invoiceRows=[],invoiceEditingId=null,invoicePreviewRow=null,billingReconRaw=null,billingReconResult=null,billingReconLoadingMonth=null;
+let orangeTierConfig=null,orangeTierSelectedMonth='';
 
 function esc(s){return String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;')}
 function p2(n){return String(n).padStart(2,'0')}
@@ -3019,6 +3020,28 @@ function personalPart(e,uid=user?.id){
   return e.userId===uid?(Number(e.montant)||0):0;
 }
 function myFuelAmount(list=fuel,uid=user?.id){return sum(list.filter(f=>(f.paidByUserId||f.userId)===uid))}
+function orangeTierForDate(date){
+  if(!orangeTierConfig||orangeTierConfig.userId!==user?.id||orangeTierConfig.teamId!==team?.id||!/^\d{4}-\d{2}-\d{2}$/.test(String(date||'')))return null;
+  const override=Number(orangeTierConfig.overrides?.[date.slice(0,7)]);
+  if([1,2,3].includes(override))return override;
+  return [...(orangeTierConfig.schedule||[])].filter(x=>x.from<=date).sort((a,b)=>b.from.localeCompare(a.from))[0]?.tier??null;
+}
+function orangeTierRate(name,date){
+  const tier=orangeTierForDate(date),key=String(name||'').trim().normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
+  const value=orangeTierConfig?.prices?.[key]?.[String(tier)];
+  if(value===undefined||value===null)return null;
+  const amount=Number(value);return Number.isFinite(amount)&&amount>=0?amount:null;
+}
+async function loadOrangeTierConfig(){
+  if(!user?.id||!team?.id||currentCompanyId()||typeof supabase?.rpc!=='function'){orangeTierConfig=null;return false}
+  const expectedUser=user.id,expectedTeam=team.id;
+  if(orangeTierConfig&&(orangeTierConfig.userId!==expectedUser||orangeTierConfig.teamId!==expectedTeam)){orangeTierConfig=null;orangeTierSelectedMonth=''}
+  try{const {data,error}=await supabase.rpc('my_orange_team_tiers',{p_team_id:expectedTeam});
+    if(error)return false;
+    if(user?.id===expectedUser&&team?.id===expectedTeam)orangeTierConfig=data?{...data,userId:expectedUser,teamId:expectedTeam}:null;
+    return true;
+  }catch(error){console.warn('Tarifs Orange indisponibles',error);return false}
+}
 
 function draftKey(){return user?`fibreops_draft_${user.id}`:'fibreops_draft_guest'}
 
@@ -3353,6 +3376,7 @@ async function rejectMyCompanyInvite(code){
 
 async function enterApp(){
   await loadTeamContext();
+  await loadOrangeTierConfig();
   await loadAll();
   await loadMyCompanyInvites();
   applyDisplaySettings();
@@ -3674,6 +3698,12 @@ function clearSupplementInputs(prefix='f'){
   $(prefix+'-supp-enabled').checked=false;$(prefix+'-supp-amount').value='';$(prefix+'-supp-comment').value='';
   syncSupplementCard(prefix);
 }
+function syncEditTierSupplement(){
+  const item=interventions.find(x=>x.id===editId);
+  if(!item||item.op!=='orange'||item.companyId||item.teamId!==team?.id||!$('m-supp-enabled').checked||$('m-supp-comment').value.trim().toLowerCase()!=='apie')return;
+  const amount=orangeTierRate('apie',$('m-date').value);
+  if(amount!==null)$('m-supp-amount').value=amount.toFixed(2);
+}
 function supplementHistoryChip(e){
   const amount=Number(e?.supplementAmount||0);if(!(amount>0))return'';
   const label=e?.supplementComment||'Complément';
@@ -3692,12 +3722,16 @@ function bindSupplementInputs(prefix='f'){
     syncSupplementCard(prefix);if(prefix==='f'){preview();saveDraft()}
   });
   amount?.addEventListener('input',()=>{if(prefix==='f'){preview();saveDraft()}});
-  comment?.addEventListener('input',()=>{if(prefix==='f')saveDraft()});
+  comment?.addEventListener('input',()=>{if(prefix==='f'){preview();saveDraft()}else syncEditTierSupplement()});
   apie?.addEventListener('click',()=>{
     enabled.checked=true;comment.value='APIE';syncSupplementCard(prefix);amount?.focus();if(prefix==='f'){preview();saveDraft()}
   });
 }
 bindSupplementInputs('f');bindSupplementInputs('m');
+$('f-date').addEventListener('input',preview);
+$('f-date').addEventListener('change',preview);
+$('m-date').addEventListener('input',syncEditTierSupplement);
+$('m-date').addEventListener('change',syncEditTierSupplement);
 /* FIBRE OPS INTERVENTION SUPPLEMENTS END */
 
 function preview(){
@@ -3710,7 +3744,15 @@ function preview(){
     daily();
     return;
   }
-  const tariffBase=form.result==='Échec'?0:(Number(t?.amount)||0);
+  if(form.operator==='orange'&&!currentCompanyId()&&team?.id&&settings?.preferences?.orange_tier_team_id===team.id&&!orangeTierConfig){
+    $('previewLabel').textContent='Tarif du palier indisponible';
+    if($('previewDetail'))$('previewDetail').textContent='Le tarif sera confirmé lors de la synchronisation.';
+    $('f-preview').textContent='—';daily();return;
+  }
+  const tierRate=form.operator==='orange'&&!currentCompanyId()?orangeTierRate(t?.name,$('f-date').value):null;
+  const apieRate=form.operator==='orange'&&!currentCompanyId()?orangeTierRate('apie',$('f-date').value):null;
+  if(apieRate!==null&&$('f-supp-enabled').checked&&$('f-supp-comment').value.trim().toLowerCase()==='apie')$('f-supp-amount').value=apieRate.toFixed(2);
+  const tariffBase=form.result==='Échec'?0:(tierRate??(Number(t?.amount)||0));
   const supplement=readInterventionSupplement('f');
   const base=tariffBase+(supplement.amount>0?supplement.amount:0);
   let amount=base;
@@ -3742,6 +3784,7 @@ function preview(){
       : '';
   }
 
+  if(tierRate!==null)detail+=` Palier ${orangeTierForDate($('f-date').value)}.`;
   if(supplement.amount>0){
     const extra=`Complément ${money(supplement.amount)}${supplement.comment?' · '+supplement.comment:''}`;
     detail=detail?`${detail} · ${extra}`:extra;
@@ -4090,8 +4133,39 @@ function renderTariffs(){
     return;
   }
 
-  root.innerHTML=operators.map(o=>{const ts=types.filter(t=>t.operator===o.operator),active=o.active;return `<div class="tariff-operator" data-op="${o.operator}"><div class="tariff-head"><div><b style="color:${opColor(o.operator)}">${esc(opLabel(o.operator))}</b><div class="field-hint">${active?'Actif · disponible pour les nouvelles saisies':'Désactivé · historique conservé'}</div></div><button type="button" class="btn-ghost" data-toggle-operator="${o.operator}">${active?'Désactiver':'Réactiver'}</button></div>${ts.map(t=>`<div class="tariff-row" data-type="${t.id}"><input class="tr-name" value="${esc(t.name)}" ${t.active?'':'disabled'}><input class="tr-amount" type="number" min="0" step="0.01" value="${Number(t.amount).toFixed(2)}" ${t.active?'':'disabled'}><button type="button" class="btn-ghost" data-type-action="${t.id}">${t.active?'Sauver':'Réactiver'}</button><button type="button" class="btn-ghost" style="color:var(--danger)" data-type-delete="${t.id}">Supprimer</button></div>`).join('')}<div class="tariff-add"><input data-add-name placeholder="Nouvelle typologie"><input data-add-amount type="number" min="0" step="0.01" placeholder="0,00"><button type="button" class="btn-primary" data-add-type="${o.operator}">+</button></div></div>`}).join('')||'<div class="empty">Aucun opérateur configuré.</div>';
+  const tierMonth=orangeTierSelectedMonth||iso().slice(0,7),currentTier=orangeTierForDate(tierMonth+'-01');
+  const tierControl=orangeTierConfig?`<div class="card"><h3>Paliers Orange</h3><p>Choisis le mois à modifier. Seul ce mois sera recalculé ; les 20 % restent appliqués au total Orange.</p><div class="field"><label for="orangeTierMonth">Mois</label><input id="orangeTierMonth" type="month" value="${tierMonth}"></div><div class="field"><label for="orangeTierSelect">Palier</label><select id="orangeTierSelect"><option value="">Choisir un palier…</option>${[1,2,3].map(n=>`<option value="${n}" ${n===currentTier?'selected':''}>Palier ${n}</option>`).join('')}</select></div><button class="btn-primary" type="button" data-orange-tier-save>Appliquer à ce mois</button></div>`:'';
+  root.innerHTML=tierControl+operators.map(o=>{
+    const ts=types.filter(t=>t.operator===o.operator),active=o.active;
+    const tier=o.operator==='orange'?orangeTierForDate(iso()):null;
+    const rows=ts.map(t=>{
+      const price=o.operator==='orange'?orangeTierRate(t.name,iso()):null;
+      const locked=price!==null&&t.active;
+      return `<div class="tariff-row" data-type="${t.id}"><input class="tr-name" value="${esc(t.name)}" ${t.active?'':'disabled'} ${locked?'readonly':''}><input class="tr-amount" type="number" min="0" step="0.01" value="${Number(price??t.amount).toFixed(2)}" ${t.active?'':'disabled'} ${locked?'readonly':''}><button type="button" class="btn-ghost" data-type-action="${t.id}" ${locked?'disabled title="Tarif calculé par palier"':''}>${t.active?'Sauver':'Réactiver'}</button><button type="button" class="btn-ghost" style="color:var(--danger)" data-type-delete="${t.id}">Supprimer</button></div>`;
+    }).join('');
+    return `<div class="tariff-operator" data-op="${o.operator}"><div class="tariff-head"><div><b style="color:${opColor(o.operator)}">${esc(opLabel(o.operator))}</b><div class="field-hint">${tier?`Palier ${tier} · tarifs appliqués automatiquement selon la date`:(active?'Actif · disponible pour les nouvelles saisies':'Désactivé · historique conservé')}</div></div><button type="button" class="btn-ghost" data-toggle-operator="${o.operator}">${active?'Désactiver':'Réactiver'}</button></div>${rows}<div class="tariff-add"><input data-add-name placeholder="Nouvelle typologie"><input data-add-amount type="number" min="0" step="0.01" placeholder="0,00"><button type="button" class="btn-primary" data-add-type="${o.operator}">+</button></div></div>`;
+  }).join('')||'<div class="empty">Aucun opérateur configuré.</div>';
 }
+$('tariffRows').addEventListener('change',e=>{
+  if(e.target.id!=='orangeTierMonth')return;
+  const month=e.target.value,tier=orangeTierForDate(month+'-01');orangeTierSelectedMonth=month;
+  $('orangeTierSelect').value=tier?String(tier):'';
+});
+$('tariffRows').addEventListener('click',async e=>{
+  const btn=e.target.closest('[data-orange-tier-save]');if(!btn)return;
+  const month=$('orangeTierMonth').value,tier=Number($('orangeTierSelect').value),expectedUser=user?.id,expectedTeam=team?.id;
+  if(!/^\d{4}-\d{2}$/.test(month)||![1,2,3].includes(tier)||!expectedTeam)return toast('Choisis un mois et un palier valides');
+  btn.disabled=true;
+  try{
+    const {data,error}=await supabase.rpc('set_my_orange_team_tier',{p_team_id:expectedTeam,p_month:month+'-01',p_tier:tier});
+    if(error)throw error;
+    if(user?.id!==expectedUser||team?.id!==expectedTeam)return;
+    if(!await loadOrangeTierConfig())return toast('Palier enregistré. Actualise pour voir les tarifs.');
+    try{await loadAll();renderAll()}catch(error){return toast('Palier enregistré. Actualise pour voir les montants recalculés.')}
+    toast(`Palier ${tier} appliqué à ${month} · ${Number(data?.updated||0)} intervention(s) recalculée(s)`);
+  }catch(error){toast('Impossible de modifier le palier : '+(error?.message||error))}
+  finally{btn.disabled=false}
+});
 $('addOperatorBtn').onclick=async()=>{if(isCompanyTechnician())return toast('Les opérateurs sont gérés par ton patron.');
   const op=$('addOperatorSelect').value;if(!op)return;const existing=operators.find(o=>o.operator===op);let r;
   if(existing){
@@ -4651,15 +4725,18 @@ function billingReconNormalizeOperator(v){
 function billingReconOrangeArticleType(value){
   const tokens=new Set((billingReconCleanText(value).toUpperCase().replace(/\bSAVA\s+1\b/g,'SAVA1').match(/[A-Z0-9]+/g)||[]));
   const matches=[];
-  if(tokens.has('LSOU1')||(tokens.has('LSOUP')&&tokens.has('LSOU2')))matches.push('Souterrain');
-  if(tokens.has('SAVA1'))matches.push('SAV');
-  if(tokens.has('LSAFP')&&tokens.has('LSA2'))matches.push('Aérien');
-  if(tokens.has('LSIM2')&&tokens.has('LSIMP'))matches.push('Immeuble');
+  if(['LSOU1','LSOU2','LSOU3'].some(x=>tokens.has(x)))matches.push('Souterrain');
+  if(['SAVA1','SAVA2','SAVA3'].some(x=>tokens.has(x)))matches.push('SAV');
+  if(['LSA1','LSA2','LSA3'].some(x=>tokens.has(x)))matches.push('Aérien');
+  if(['LSIM1','LSIM2','LSIM3'].some(x=>tokens.has(x)))matches.push('Immeuble');
+  if(['PLPF1','PLPF2','PLPF3'].some(x=>tokens.has(x)))matches.push('PLP');
+  if(['PLPS','PLPS2','PLPS3'].some(x=>tokens.has(x)))matches.push('PLP sans client');
   return matches.length===1?matches[0]:'À vérifier : codes Orange non reconnus ou ambigus';
 }
-function billingReconOrangeHasApie(value){
-  return (billingReconCleanText(value).toUpperCase().match(/[A-Z0-9]+/g)||[]).includes('PSER2');
+function billingReconOrangeApieCode(value){
+  return (billingReconCleanText(value).toUpperCase().match(/[A-Z0-9]+/g)||[]).find(x=>['PSER1','PSER2','PSER3'].includes(x))||'';
 }
+function billingReconOrangeHasApie(value){return !!billingReconOrangeApieCode(value)}
 function billingReconNormalizeTypology(value){
   const type=billingReconNormalizeText(value);
   return type==='APPARTEMENT'||type==='IMMEUBLEAPPARTEMENT'?'IMMEUBLE':type;
@@ -4906,6 +4983,7 @@ function billingReconCompareData(){
       ref,
       typology:map.type===null?'':billingReconCleanText(r[map.type]),
       apie:orangeArticles>=0&&billingReconOrangeHasApie(r[orangeArticles]),
+      apieCode:orangeArticles>=0?billingReconOrangeApieCode(r[orangeArticles]):'',
       operator:map.operator===null?'':billingReconCleanText(r[map.operator]),
       amount:billingReconParseAmount(r[map.amount]),
       statusText:map.status===null?'':billingReconCleanText(r[map.status]),
@@ -4997,13 +5075,13 @@ function billingReconRenderResult(result){
       <td>${esc(r.ours.operator||'—')}</td>
       <td>${esc(r.ours.status||'—')}</td>
       <td class="recon-amount">${billingMoney(r.ours.amount)}</td>
-      <td class="recon-amount">${r.company&&r.company.amount!==null?billingMoney(r.company.amount):'—'}${r.company?.apie?'<br><small>Complément APIE (PSER2)</small>':''}</td>
+      <td class="recon-amount">${r.company&&r.company.amount!==null?billingMoney(r.company.amount):'—'}${r.company?.apie?`<br><small>Complément APIE (${esc(r.company.apieCode)})</small>`:''}</td>
       <td>${r.ok?'<span class="recon-ok">OK</span>':`<div class="recon-diff">${r.issues.map(esc).join('<br>')}</div>`}</td>
     </tr>`).join('')}</tbody>
   </table>`;
 
   $('billingReconExtraWrap').style.display=extras.length?'block':'none';
-  $('billingReconExtra').innerHTML=extras.map(r=>`<div class="recon-extra-row" data-recon-extra="${r.index}"><div class="recon-extra-head"><span><b>${esc(r.reference||r.ref)}</b> · ${esc(r.typology||'Typologie inconnue')} · ${r.amount===null?'montant non détecté':billingMoney(r.amount)}${r.apie?' · Complément APIE (PSER2)':''}${r.statusText?' · '+esc(r.statusText):''}</span><button type="button" class="btn-ghost" data-recon-action="open">Ajouter ou corriger</button></div><div class="recon-extra-actions" hidden><button type="button" class="btn-primary" data-recon-action="add">Ajouter à FIBRE OPS</button><label>Ou choisir une intervention existante<select data-recon-existing><option value="">Choisir une intervention…</option>${billingReconOwnRows().map(o=>`<option value="${esc(o.id)}">${esc(o.date)} · ${esc(o.reference||'Sans référence')} · ${esc(o.typology||'')}</option>`).join('')}</select></label><button type="button" class="btn-ghost" data-recon-action="edit">Corriger sa référence</button></div></div>`).join('');
+  $('billingReconExtra').innerHTML=extras.map(r=>`<div class="recon-extra-row" data-recon-extra="${r.index}"><div class="recon-extra-head"><span><b>${esc(r.reference||r.ref)}</b> · ${esc(r.typology||'Typologie inconnue')} · ${r.amount===null?'montant non détecté':billingMoney(r.amount)}${r.apie?' · Complément APIE ('+esc(r.apieCode)+')':''}${r.statusText?' · '+esc(r.statusText):''}</span><button type="button" class="btn-ghost" data-recon-action="open">Ajouter ou corriger</button></div><div class="recon-extra-actions" hidden><button type="button" class="btn-primary" data-recon-action="add">Ajouter à FIBRE OPS</button><label>Ou choisir une intervention existante<select data-recon-existing><option value="">Choisir une intervention…</option>${billingReconOwnRows().map(o=>`<option value="${esc(o.id)}">${esc(o.date)} · ${esc(o.reference||'Sans référence')} · ${esc(o.typology||'')}</option>`).join('')}</select></label><button type="button" class="btn-ghost" data-recon-action="edit">Corriger sa référence</button></div></div>`).join('');
   $('billingReconExport').disabled=false;
 }
 function billingReconFinish(){
@@ -5067,7 +5145,7 @@ async function billingReconExportResult(){
   result.results.forEach(r=>{
     const row=ws.addRow({
       ref:r.ours.reference,type:r.ours.typology,op:r.ours.operator,status:r.ours.status,
-      ours:Number(r.ours.amount)||0,company:r.company?.amount??null,issues:[...r.issues,...(r.company?.apie?['Complément APIE (PSER2)']:[])].join(' | ')||'OK'
+      ours:Number(r.ours.amount)||0,company:r.company?.amount??null,issues:[...r.issues,...(r.company?.apie?[`Complément APIE (${r.company.apieCode})`]:[])].join(' | ')||'OK'
     });
     row.getCell('ours').numFmt='#,##0.00 "€"';
     if(r.company?.amount!==null&&r.company?.amount!==undefined)row.getCell('company').numFmt='#,##0.00 "€"';
@@ -5081,7 +5159,7 @@ async function billingReconExportResult(){
     extra.columns=[{header:'Référence',key:'ref',width:20},{header:'Typologie',key:'type',width:24},{header:'Opérateur',key:'op',width:18},{header:'Montant',key:'amount',width:16},{header:'Statut / note',key:'status',width:50}];
     extra.getRow(1).eachCell(c=>{c.font={bold:true,color:{argb:'FFFFFFFF'}};c.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FF2F5597'}}});
     result.extras.forEach(r=>{
-      const row=extra.addRow({ref:r.reference,type:r.typology,op:r.operator,amount:r.amount,status:[r.statusText,r.apie?'Complément APIE (PSER2)':''].filter(Boolean).join(' · ')});
+      const row=extra.addRow({ref:r.reference,type:r.typology,op:r.operator,amount:r.amount,status:[r.statusText,r.apie?`Complément APIE (${r.apieCode})`:''].filter(Boolean).join(' · ')});
       if(r.amount!==null)row.getCell('amount').numFmt='#,##0.00 "€"';
     });
   }
@@ -5384,6 +5462,7 @@ function navigateView(name){
   document.querySelectorAll('.view').forEach(section=>section.classList.toggle('active',section.id==='view-'+name));
   window.scrollTo(0,0);
   if(name==='dashboard')renderDashboard();if(name==='historique')renderHist();if(name==='carburant')renderFuel();if(name==='tarifs')renderTariffs();if(name==='saisie'){preview();daily()}
+  if(orangeTierConfig&&['saisie','tarifs'].includes(name))void loadOrangeTierConfig().then(ok=>{if(ok){if(name==='saisie')preview();else renderTariffs()}});
   window.FibreExperience?.viewChanged(name);
 }
 document.querySelector('.tabbar')?.addEventListener('click',e=>{const button=e.target.closest('button[data-view]');if(button)navigateView(button.dataset.view)});
@@ -6501,6 +6580,8 @@ if(supabase){
     if(event==='SIGNED_OUT'){
       user=null;
       profile=null;
+      orangeTierConfig=null;
+      orangeTierSelectedMonth='';
       $('appShell').classList.add('app-hidden');
       $('authGate').classList.remove('app-hidden');
     }
@@ -6537,7 +6618,7 @@ if(supabase){
 <!-- FIBRE OPS SAVED SUPPLEMENTS START -->
 <script src="./experience-core.js?v=1"></script>
 <script src="./experience.js?v=3"></script>
-<script src="./supplement-presets.js?v=2"></script>
+<script src="./supplement-presets.js?v=3"></script>
 <!-- FIBRE OPS SAVED SUPPLEMENTS END -->
 <!-- FIBRE OPS TUTORIAL START -->
 <script src="./fibre-tutorial.js?v=1"></script>

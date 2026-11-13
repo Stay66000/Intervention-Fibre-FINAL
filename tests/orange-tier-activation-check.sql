@@ -8,4 +8,5 @@ do $$ begin
  if (select applied_amount from public.interventions where id='00000000-0000-0000-0000-000000000006')<>150 then raise exception 'Ancienne période modifiée'; end if;
  if (select preferences->>'orange_tier_team_id' from public.user_settings where user_id='aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa')<>'11111111-1111-1111-1111-111111111111' then raise exception 'Préférence absente'; end if;
  if (select preferences->>'keep' from public.user_settings where user_id='aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa')<>'true' then raise exception 'Autre préférence perdue'; end if;
+ if (select preferences #>> '{orange_total_discount,percent}' from public.user_settings where user_id='aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa')<>'20' then raise exception 'Réduction Orange modifiée'; end if;
 end $$;

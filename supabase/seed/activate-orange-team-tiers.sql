@@ -14,6 +14,7 @@ begin
   select count(*) into active_count from public.team_members m where m.team_id=s.team_id and m.status='active' and m.ended_at is null;
   if active_count<>2 then raise exception 'Le binôme doit contenir exactement deux membres actifs'; end if;
   if (select count(*) from public.profiles p join public.user_settings us on us.user_id=p.id where p.id in(s.user_1,s.user_2) and p.active)<>2 then raise exception 'Profils ou réglages introuvables'; end if;
+  if (select count(*) from public.user_settings us where us.user_id in(s.user_1,s.user_2) and us.preferences #>> '{orange_total_discount,team_id}'=s.team_id::text and us.preferences #>> '{orange_total_discount,percent}'='20')<>2 then raise exception 'La réduction Orange à 20 %% doit être configurée pour les deux comptes'; end if;
   if exists(select 1 from private.orange_team_tier_config c where c.team_id=s.team_id) then raise exception 'Paliers déjà configurés : activation annulée'; end if;
 end $$;
 insert into private.orange_team_tier_config(team_id,allowed_users,schedule,prices)

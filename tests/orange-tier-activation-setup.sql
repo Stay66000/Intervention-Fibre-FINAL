@@ -1,7 +1,9 @@
 \set ON_ERROR_STOP on
 insert into public.teams(id) values ('11111111-1111-1111-1111-111111111111');
 insert into public.profiles values ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',true),('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb',true);
-insert into public.user_settings values ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa','{"keep":true}'),('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb','{}');
+insert into public.user_settings values
+ ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa','{"keep":true,"orange_total_discount":{"team_id":"11111111-1111-1111-1111-111111111111","percent":20}}'),
+ ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb','{"orange_total_discount":{"team_id":"11111111-1111-1111-1111-111111111111","percent":20}}');
 insert into public.team_members values
  ('11111111-1111-1111-1111-111111111111','aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa','active',null),
  ('11111111-1111-1111-1111-111111111111','bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb','active',null);

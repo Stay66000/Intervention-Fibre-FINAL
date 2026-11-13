@@ -55,3 +55,4 @@ jobs:
             echo 'Une deuxième activation aurait dû être refusée' >&2
             exit 1
           fi
+          PGDATABASE=orange_activation_test psql -v ON_ERROR_STOP=1 -f tests/orange-tier-activation-check.sql

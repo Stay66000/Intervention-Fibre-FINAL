@@ -16,12 +16,17 @@ begin
   if (select count(*) from public.profiles p join public.user_settings us on us.user_id=p.id where p.id in(s.user_1,s.user_2) and p.active)<>2 then raise exception 'Profils ou réglages introuvables'; end if;
   if (select count(*) from public.user_settings us where us.user_id in(s.user_1,s.user_2) and us.preferences #>> '{orange_total_discount,team_id}'=s.team_id::text and us.preferences #>> '{orange_total_discount,percent}'='20')<>2 then raise exception 'La réduction Orange à 20 %% doit être configurée pour les deux comptes'; end if;
   if exists(select 1 from private.orange_team_tier_config c where c.team_id=s.team_id) then raise exception 'Paliers déjà configurés : activation annulée'; end if;
+  if exists(select 1 from public.intervention_supplement_types x where x.team_id=s.team_id and x.operator='orange' and lower(trim(x.name))='etcfo' and (x.amount<>32.40 or not x.active)) then raise exception 'Un complément ETCFO différent existe déjà : vérifier avant activation'; end if;
 end $$;
 insert into private.orange_team_tier_config(team_id,allowed_users,schedule,prices)
 select s.team_id,array[s.user_1,s.user_2],
  '[{"from":"2026-09-01","tier":2},{"from":"2026-10-01","tier":1}]'::jsonb,
  '{"aerien":{"1":200,"2":180,"3":120},"souterrain":{"1":140,"2":126,"3":84},"immeuble":{"1":68,"2":61,"3":40.8},"sav":{"1":45,"2":40.5,"3":27},"plp":{"1":45,"2":40.5,"3":27},"plp sans client":{"1":15,"2":13.5,"3":9},"apie":{"1":47,"2":42.3,"3":28.2}}'::jsonb
 from tier_activation_scope s;
+-- Keep the existing Pré visite intervention type and add a separate fixed-price preset.
+insert into public.intervention_supplement_types(user_id,team_id,operator,name,amount,active,sort_order)
+select s.user_1,s.team_id,'orange','ETCFO',32.40,true,0 from tier_activation_scope s
+where not exists(select 1 from public.intervention_supplement_types x where x.team_id=s.team_id and x.operator='orange' and lower(trim(x.name))='etcfo');
 update public.user_settings us set preferences=jsonb_set(coalesce(us.preferences,'{}'::jsonb),'{orange_tier_team_id}',to_jsonb(s.team_id::text),true)
 from tier_activation_scope s where us.user_id in(s.user_1,s.user_2);
 -- Fire the tier trigger only for the agreed team and mapped successful rows.

@@ -75,7 +75,13 @@ test('Orange article codes determine the typology and unknown combinations remai
   assert.equal(f.run("billingReconOrangeArticleType('SAVA 1')"),'SAV');
   assert.equal(f.run("billingReconOrangeArticleType('LSA2 | LSAFP')"),'Aérien');
   assert.equal(f.run("billingReconOrangeArticleType('LSIMP | LSIM2')"),'Immeuble');
+  assert.equal(f.run("billingReconOrangeArticleType('LSA1')"),'Aérien');
+  assert.equal(f.run("billingReconOrangeArticleType('LSOU3')"),'Souterrain');
+  assert.equal(f.run("billingReconOrangeArticleType('SAVA2')"),'SAV');
+  assert.equal(f.run("billingReconOrangeArticleType('PLPF3')"),'PLP');
+  assert.equal(f.run("billingReconOrangeArticleType('PLPS')"),'PLP sans client');
   assert.equal(f.run("billingReconOrangeHasApie('LSOUP | PSER2 | LSOU2')"),true);
+  assert.equal(f.run("billingReconOrangeApieCode('PSER1')"),'PSER1');
   assert.equal(f.run("billingReconOrangeHasApie('XPSER2')"),false);
   assert.match(f.run("billingReconOrangeArticleType('LSOUP')"),/À vérifier/);
   assert.match(f.run("billingReconOrangeArticleType('LSA2 LSAFP SAVA1')"),/À vérifier/);
@@ -87,6 +93,74 @@ test('Orange article codes determine the typology and unknown combinations remai
   assert.match(f.w.document.getElementById('billingReconTable').textContent,/Complément APIE \(PSER2\)/);
   f.run("billingReconRaw.rows[0][billingReconRaw.mapping.type]='À vérifier : codes Orange non reconnus ou ambigus'");
   assert.match(f.run('billingReconCompareData().errors[0].issues.join()'),/Typologie/);
+ }finally{f.close()}
+});
+test('Orange tier preview follows intervention date and keeps other accounts and operators unchanged',async()=>{
+ const f=await fixture();try{
+  f.run(`team={id:'team-a'};orangeTierConfig={userId:user.id,teamId:team.id,schedule:[{from:'2026-09-01',tier:2},{from:'2026-10-01',tier:1}],prices:{aerien:{'1':200,'2':180},apie:{'1':47,'2':42.3}}};
+    form.operator='orange';form.typeId='type-a';form.workMode='Binôme';populateOperatorUI();$('f-date').value='2026-09-15';preview();`);
+  assert.match(f.w.document.getElementById('previewDetail').textContent,/180,00.*Palier 2/);
+  f.run("$('f-supp-enabled').checked=true;$('f-supp-comment').value='APIE';preview()");
+  assert.equal(f.run("Number($('f-supp-amount').value)"),42.3);
+  f.run("$('f-date').value='2026-10-01';$('f-date').dispatchEvent(new Event('input'))");
+  assert.equal(f.run("Number($('f-supp-amount').value)"),47);
+  assert.match(f.w.document.getElementById('previewDetail').textContent,/247,00.*Palier 1/);
+  f.run("user={id:'unrelated-user'};preview()");
+  assert.doesNotMatch(f.w.document.getElementById('previewDetail').textContent,/Palier/);
+  f.run("user={id:'account-a'};team={id:'different-team'};preview()");
+  assert.doesNotMatch(f.w.document.getElementById('previewDetail').textContent,/Palier/);
+  f.run("orangeTierConfig=null;preview()");
+  assert.doesNotMatch(f.w.document.getElementById('previewDetail').textContent,/Palier/);
+ }finally{f.close()}
+});
+test('two supplements survive save, edit and tier changes without changing ETCFO',async()=>{
+ const f=await fixture();try{
+  f.run(`team={id:'team-a'};orangeTierConfig={userId:user.id,teamId:team.id,schedule:[{from:'2026-09-01',tier:2},{from:'2026-10-01',tier:1}],prices:{aerien:{'1':200,'2':180},apie:{'1':47,'2':42.3}}};
+   form.operator='orange';form.typeId='type-a';form.workMode='Binôme';populateOperatorUI();$('f-date').value='2026-09-15';$('f-supp-enabled').checked=true;
+   $('f-supp-amount').value='32.40';$('f-supp-comment').value='ETCFO';$('f-supp-amount-2').value='35.60';$('f-supp-comment-2').value='APIE';preview();`);
+  assert.equal(f.run("readInterventionSupplement('f').amount"),74.7);
+  assert.equal(f.run("Number($('f-supp-amount-2').value)"),42.3);
+  assert.equal(f.run("mergeSupplementOperatorData({},readInterventionSupplement('f')).supplement.items.length"),2);
+  f.run("window.savedSupplement=mergeSupplementOperatorData({},readInterventionSupplement('f')).supplement;clearSupplementInputs('f');$('f-supp-enabled').checked=true;restoreSupplementItems('f',window.savedSupplement);$('f-date').value='2026-10-15';preview()");
+  assert.equal(f.run("Number($('f-supp-amount').value)"),32.4);
+  assert.equal(f.run("Number($('f-supp-amount-2').value)"),47);
+  assert.equal(f.run("readInterventionSupplement('f').amount"),79.4);
+  f.run("interventions[0].operatorData={supplement:window.savedSupplement};interventions[0].supplementAmount=74.7;interventions[0].supplementComment='ETCFO + APIE';setSupplementInputs('m',interventions[0])");
+  assert.equal(f.run("$('m-supp-comment').value"),'ETCFO');
+  assert.equal(f.run("$('m-supp-comment-2').value"),'APIE');
+  f.run("$('m-supp-amount').value='';$('m-supp-comment').value='';");
+  assert.equal(f.run("readInterventionSupplement('m').items.length"),1);
+ }finally{f.close()}
+});
+test('preset buttons add APIE and ETCFO together without overwriting either',async()=>{
+ const f=await fixture();try{
+  f.run(`team={id:'team-a'};form.operator='orange';
+   const presetData=[{id:'apie',team_id:'team-a',operator:'orange',name:'APIE',amount:47,active:true},{id:'etcfo',team_id:'team-a',operator:'orange',name:'ETCFO',amount:32.4,active:true}];
+   supabase.from=table=>{const value=table==='intervention_supplement_types'?presetData:[{team_id:'team-a',operator:'orange',supplements_enabled:true}];
+    const q={select:()=>q,order:()=>q,eq:()=>q,is:()=>q,then:resolve=>resolve({data:value,error:null})};return q};`);
+  f.run(read('supplement-presets.js'));
+  await f.run('FibreSupplementPresets.reload()');
+  f.w.document.querySelector('[data-use-supp="apie"][data-prefix="f"]').click();
+  f.w.document.querySelector('[data-use-supp="etcfo"][data-prefix="f"]').click();
+  assert.equal(f.run("$('f-supp-comment').value"),'APIE');
+  assert.equal(f.run("$('f-supp-comment-2').value"),'ETCFO');
+  assert.equal(f.run("readInterventionSupplement('f').amount"),79.4);
+ }finally{f.close()}
+});
+test('the Orange tariff control changes only the selected month and refreshes the team data',async()=>{
+ const f=await fixture();try{
+  f.run(`team={id:'team-a'};orangeTierConfig={userId:user.id,teamId:team.id,schedule:[{from:'2026-09-01',tier:2},{from:'2026-10-01',tier:1}],prices:{aerien:{'1':200,'2':180,'3':120},apie:{'1':47,'2':42.3,'3':28.2}},overrides:{}};
+    window.savedTier=null;supabase.rpc=async(name,args)=>{if(name==='set_my_orange_team_tier'){window.savedTier=args;return {data:{updated:2},error:null}}if(name==='my_orange_team_tiers')return {data:{schedule:orangeTierConfig.schedule,prices:orangeTierConfig.prices,overrides:{'2026-10':3}},error:null};return {data:null,error:null}};
+    loadAll=async()=>{};renderAll=()=>renderTariffs();renderTariffs();$('orangeTierMonth').value='2026-10';$('orangeTierMonth').dispatchEvent(new Event('change',{bubbles:true}));$('orangeTierSelect').value='3';`);
+  f.w.document.querySelector('[data-orange-tier-save]').click();
+  await new Promise(resolve=>setTimeout(resolve,20));
+  assert.equal(f.run('window.savedTier.p_team_id'),'team-a');
+  assert.equal(f.run('window.savedTier.p_month'),'2026-10-01');
+  assert.equal(f.run('window.savedTier.p_tier'),3);
+  assert.equal(f.run("orangeTierForDate('2026-10-15')"),3);
+  assert.equal(f.run("orangeTierForDate('2026-11-01')"),1);
+  assert.equal(f.run("$('orangeTierMonth').value"),'2026-10');
+  assert.equal(f.run("$('orangeTierSelect').value"),'3');
  }finally{f.close()}
 });
 test('reconciliation excludes absent failed interventions but displays failures present in the statement',async()=>{

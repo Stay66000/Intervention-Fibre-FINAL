@@ -16,3 +16,43 @@ jobs:
           node-version: '24'
       - run: npm ci --ignore-scripts
       - run: npm test
+  orange-tier-postgres:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine@sha256:d3244e8ce3f165ee3c93d9c4a4b1d0fe48b3a89e2287b717fdcbbde92d405065
+        env:
+          POSTGRES_PASSWORD: local-test-only
+        ports:
+          - 5432/tcp
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Tester les paliers et les autorisations PostgreSQL
+        env:
+          PGPASSWORD: local-test-only
+          PGPORT: ${{ job.services.postgres.ports[5432] }}
+          PGHOST: 127.0.0.1
+          PGUSER: postgres
+          PGDATABASE: postgres
+        run: |
+          psql -v ON_ERROR_STOP=1 -f tests/orange-tier-setup.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261113175508_orange_team_tier_pricing.sql
+          psql -v ON_ERROR_STOP=1 -f tests/orange-tier-check.sql
+          psql -v ON_ERROR_STOP=1 -c 'CREATE DATABASE orange_activation_test'
+          PGDATABASE=orange_activation_test psql -v ON_ERROR_STOP=1 -f tests/orange-tier-setup.sql
+          PGDATABASE=orange_activation_test psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261113175508_orange_team_tier_pricing.sql
+          PGDATABASE=orange_activation_test psql -v ON_ERROR_STOP=1 -f tests/orange-tier-activation-setup.sql
+          PGDATABASE=orange_activation_test psql -v team_id=11111111-1111-1111-1111-111111111111 -v user_1=aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa -v user_2=bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb -f supabase/seed/activate-orange-team-tiers.sql
+          PGDATABASE=orange_activation_test psql -v ON_ERROR_STOP=1 -f tests/orange-tier-activation-check.sql
+          if PGDATABASE=orange_activation_test psql -v team_id=11111111-1111-1111-1111-111111111111 -v user_1=aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa -v user_2=bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb -f supabase/seed/activate-orange-team-tiers.sql >/dev/null 2>&1; then
+            echo 'Une deuxième activation aurait dû être refusée' >&2
+            exit 1
+          fi
+          PGDATABASE=orange_activation_test psql -v ON_ERROR_STOP=1 -f tests/orange-tier-activation-check.sql

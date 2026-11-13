@@ -183,6 +183,8 @@
         if(check)check.checked=false;
         if(amount)amount.value='';
         if(comment)comment.value='';
+        const secondAmount=document.getElementById('f-supp-amount-2'),secondComment=document.getElementById('f-supp-comment-2');
+        if(secondAmount)secondAmount.value='';if(secondComment)secondComment.value='';
       }
       return;
     }
@@ -198,8 +200,12 @@
       return;
     }
     const rows=byOperator(op,true);
+    const displayedAmount=x=>{
+      if(op!=='orange'||String(x.name||'').trim().toLowerCase()!=='apie'||typeof orangeTierRate!=='function')return x.amount;
+      return orangeTierRate('apie',document.getElementById(prefix+'-date')?.value)??x.amount;
+    };
     box.innerHTML=rows.length
-      ? rows.map(x=>`<button type="button" class="saved-supp-preset" data-use-supp="${x.id}" data-prefix="${prefix}">${esc(x.name)} <strong>+${moneyText(x.amount)}</strong></button>`).join('')+`<small>Ou saisis un complément personnalisé ci-dessous.</small>`
+      ? rows.map(x=>`<button type="button" class="saved-supp-preset" data-use-supp="${x.id}" data-prefix="${prefix}">${esc(x.name)} <strong>+${moneyText(displayedAmount(x))}</strong></button>`).join('')+`<small>Ou saisis un complément personnalisé ci-dessous.</small>`
       : `<span class="saved-supp-empty">Aucun complément enregistré pour ${esc(opLabel(op||''))}. Tu peux en créer dans Tarifs.</span>`;
     applyOperatorVisibility(prefix);
   }
@@ -214,11 +220,23 @@
     if(!operatorEnabled(op))return;
     const p=currentRows().find(x=>x.id===id&&x.active);if(!p)return;
     const enabled=document.getElementById(prefix+'-supp-enabled');
-    const amount=document.getElementById(prefix+'-supp-amount');
-    const comment=document.getElementById(prefix+'-supp-comment');
-    if(!enabled||!amount||!comment)return;
+    if(!enabled)return;
+    const firstAmount=document.getElementById(prefix+'-supp-amount');
+    const secondAmount=document.getElementById(prefix+'-supp-amount-2');
+    const firstComment=document.getElementById(prefix+'-supp-comment');
+    const secondComment=document.getElementById(prefix+'-supp-comment-2');
+    if(!firstAmount||!secondAmount||!firstComment||!secondComment)return;
+    const name=String(p.name||'').trim().toLowerCase();
+    let suffix='';
+    if(enabled.checked&&Number(firstAmount.value)>0&&firstComment.value.trim().toLowerCase()!==name){
+      if(Number(secondAmount.value)>0&&secondComment.value.trim().toLowerCase()!==name){try{toast('Deux compléments maximum par intervention')}catch{}return;}
+      suffix='-2';
+    }
+    const amount=document.getElementById(prefix+'-supp-amount'+suffix);
+    const comment=document.getElementById(prefix+'-supp-comment'+suffix);
     enabled.checked=true;
-    amount.value=Number(p.amount).toFixed(2);
+    const tierAmount=op==='orange'&&name==='apie'&&typeof orangeTierRate==='function'?orangeTierRate('apie',document.getElementById(prefix+'-date')?.value):null;
+    amount.value=Number(tierAmount??p.amount).toFixed(2);
     comment.value=p.name;
     try{syncSupplementCard(prefix)}catch{}
     applyOperatorVisibility(prefix);

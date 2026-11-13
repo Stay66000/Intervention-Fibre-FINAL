@@ -28,6 +28,132 @@ async function fixture({hidden=false}={}){
   const click=id=>w.document.getElementById(id).click();
   return {dom,w,run,click,close:()=>dom.window.close()};
 }
+test('reconciliation filters the operator and reports an unreadable amount',async()=>{
+  const f=await fixture();try{
+    f.run(`interventions.push({...interventions[0],id:'sfr-row',op:'sfr',num:'9876543210'});$('billingReconMonth').value=iso().slice(0,7);billingReconRenderOwnSummary();$('billingReconOperator').value='ORANGE';billingReconRenderOwnSummary();
+      billingReconRaw={headers:['Référence','Montant'],rows:[['1234567890','inconnu']],mapping:{ref:0,amount:1,type:-1,status:-1,operator:-1}};billingReconPopulateMapping();`);
+    assert.equal(f.run('billingReconOwnRows().length'),1);
+    assert.equal(f.run('billingReconCompareData().errors.length'),1);
+    assert.match(f.run('billingReconCompareData().errors[0].issues.join()'),/Montant société non reconnu/);
+    f.run("$('billingReconOperator').value='SFR';billingReconRenderOwnSummary()");
+    assert.equal(f.run('billingReconOwnRows()[0].reference'),'9876543210');
+  }finally{f.close()}
+});
+test('reconciliation compares the full pair price without changing personal payout',async()=>{
+ const f=await fixture();try{
+  f.run(`team={id:'team-a'};teamMembers=[{id:user.id},{id:'account-b'}];interventions=[{...interventions[0],workMode:'Binôme',teamId:'team-a',montant:160}];
+    $('billingReconMonth').value=iso().slice(0,7);billingReconRenderOwnSummary();
+    billingReconRaw={headers:['Référence','Montant'],rows:[['1234567890','160']],mapping:{ref:0,amount:1,type:-1,status:-1,operator:-1}};billingReconPopulateMapping();`);
+  assert.equal(f.run('personalPart(interventions[0])'),80);
+  assert.equal(f.run('billingReconCompareData().oursTotal'),160);
+  assert.equal(f.run('billingReconCompareData().errors.length'),0);
+ }finally{f.close()}
+});
+test('Orange reduction applies once to team totals including complements but never changes line prices or SFR',async()=>{
+ const f=await fixture();try{
+  f.run(`team={id:'team-a'};settings.preferences.orange_total_discount={team_id:'team-a',percent:20};
+    interventions=[{...interventions[0],id:'orange',teamId:'team-a',workMode:'Binôme',montant:215.60,num:'1111111111'},
+      {...interventions[0],id:'sfr',teamId:'team-a',op:'sfr',workMode:'Binôme',montant:130,num:'2222222222'}];
+    $('billingReconMonth').value=iso().slice(0,7);billingReconRenderOwnSummary();
+    billingReconRaw={headers:['Référence','Montant'],rows:[['1111111111','215.60'],['2222222222','130']],mapping:{ref:0,amount:1,type:-1,status:-1,operator:-1}};billingReconPopulateMapping();`);
+  assert.equal(f.run('sum(interventions)'),302.48);
+  assert.equal(f.run('totalWithOrangeDiscount(interventions,e=>personalPart(e,user.id))'),151.24);
+  assert.equal(f.run('interventions[0].montant'),215.60);
+  assert.equal(f.run('billingReconCompareData().oursTotal'),302.48);
+  assert.equal(f.run('billingReconCompareData().companyTotal'),345.60);
+  assert.equal(f.run('billingReconCompareData().errors.length'),0);
+  f.run('billingReconRenderResult(billingReconCompareData())');
+  assert.match(f.w.document.getElementById('billingReconResultText').textContent,/totaux présentent un écart/);
+  f.run("team={id:'other-team'}");
+  assert.equal(f.run('sum(interventions)'),345.6);
+ }finally{f.close()}
+});
+test('Orange article codes determine the typology and unknown combinations remain flagged',async()=>{
+ const f=await fixture();try{
+  assert.equal(f.run("billingReconOrangeArticleType('1.0 LSOUP | 1.0 LSOU2')"),'Souterrain');
+  assert.equal(f.run("billingReconOrangeArticleType('1.0 LSOU1 | 1.0 LSOUP')"),'Souterrain');
+  assert.equal(f.run("billingReconOrangeArticleType('SAVA 1')"),'SAV');
+  assert.equal(f.run("billingReconOrangeArticleType('LSA2 | LSAFP')"),'Aérien');
+  assert.equal(f.run("billingReconOrangeArticleType('LSIMP | LSIM2')"),'Immeuble');
+  assert.equal(f.run("billingReconOrangeHasApie('LSOUP | PSER2 | LSOU2')"),true);
+  assert.equal(f.run("billingReconOrangeHasApie('XPSER2')"),false);
+  assert.match(f.run("billingReconOrangeArticleType('LSOUP')"),/À vérifier/);
+  assert.match(f.run("billingReconOrangeArticleType('LSA2 LSAFP SAVA1')"),/À vérifier/);
+  f.run("$('billingReconMonth').value=iso().slice(0,7);billingReconRenderOwnSummary();$('billingReconOperator').value='ORANGE';interventions[0].typo='Appartement'");
+  const data=await f.run(`billingReconReadFile({name:'test.csv',text:async()=> 'Référence;Liste des articles;Montant\\n1234567890;LSIMP LSIM2;123,45'})`);
+  f.w.testData=data;f.run('billingReconRaw=window.testData;billingReconPopulateMapping()');
+  assert.equal(f.run('billingReconCompareData().errors.length'),0);
+  f.run("billingReconRaw.rows[0][1]='LSIMP LSIM2 PSER2';billingReconRenderResult(billingReconCompareData())");
+  assert.match(f.w.document.getElementById('billingReconTable').textContent,/Complément APIE \(PSER2\)/);
+  f.run("billingReconRaw.rows[0][billingReconRaw.mapping.type]='À vérifier : codes Orange non reconnus ou ambigus'");
+  assert.match(f.run('billingReconCompareData().errors[0].issues.join()'),/Typologie/);
+ }finally{f.close()}
+});
+test('reconciliation excludes absent failed interventions but displays failures present in the statement',async()=>{
+ const f=await fixture();try{
+  f.run(`interventions=[{...interventions[0],id:'ok',num:'1111111111',montant:100},
+   {...interventions[0],id:'missing-failure',num:'2222222222',statut:'Échec',montant:15},
+   {...interventions[0],id:'listed-failure',num:'3333333333',statut:'Échec',montant:25}];
+   $('billingReconMonth').value=iso().slice(0,7);billingReconRenderOwnSummary();
+   billingReconRaw={headers:['Référence','Montant'],rows:[['1111111111','100'],['3333333333','25']],mapping:{ref:0,amount:1,type:-1,status:-1,operator:-1}};billingReconPopulateMapping();`);
+  assert.deepEqual(Array.from(f.run('billingReconCompareData().results.map(r=>r.ours.reference)')),['1111111111','3333333333']);
+  assert.equal(f.run('billingReconCompareData().oursTotal'),125);
+  assert.equal(f.run('billingReconCompareData().errors.length'),0);
+ }finally{f.close()}
+});
+test('an unmatched statement row can prepare a new intervention without inventing its date',async()=>{
+ const f=await fixture();try{
+  f.run(`$('billingReconMonth').value=iso().slice(0,7);billingReconRenderOwnSummary();$('billingReconOperator').value='ORANGE';
+    billingReconRaw={headers:['Référence','Montant','Typologie'],rows:[['9876543210','123.45','Aérien']],mapping:{ref:0,amount:1,type:2,status:-1,operator:-1}};billingReconPopulateMapping();billingReconRenderResult(billingReconCompareData())`);
+  f.w.document.querySelector('[data-recon-action="open"]').click();
+  f.w.document.querySelector('[data-recon-action="add"]').click();
+  assert.equal(f.run("$('f-num').value"),'9876543210');
+  assert.equal(f.run("$('f-date').value"),'');
+  assert.equal(f.run('form.operator'),'orange');
+  assert.equal(f.run('form.typeId'),'type-a');
+  assert.equal(f.w.document.querySelector('.view.active').id,'view-saisie');
+ }finally{f.close()}
+});
+test('saving an intervention prepared from a statement refreshes the same comparison',async()=>{
+ const f=await fixture();try{
+  f.run(`$('billingReconMonth').value=iso().slice(0,7);billingReconRenderOwnSummary();$('billingReconOperator').value='ORANGE';
+    billingReconRaw={headers:['Référence','Montant','Typologie'],rows:[['9876543210','123.45','Aérien']],mapping:{ref:0,amount:1,type:2,status:-1,operator:-1}};billingReconPopulateMapping();billingReconRenderResult(billingReconCompareData());
+    document.querySelector('[data-recon-action="open"]').click();document.querySelector('[data-recon-action="add"]').click();$('f-date').value=iso();
+    window.submitted=null;supabase.from=()=>({insert:async payload=>{window.submitted=payload;return {error:null}}});
+    loadAll=async()=>{interventions.push({...interventions[0],id:'created',num:window.submitted.reference,date:window.submitted.intervention_date})}`);
+  await f.run('saveIntervention(false)');
+  assert.equal(f.run('window.submitted.reference'),'9876543210');
+  assert.equal(f.run('billingReconResult.extras.length'),0);
+  assert.equal(f.run('billingReconResult.errors.length'),1); // the original intervention is still absent
+  assert.equal(f.w.document.querySelector('.view.active').id,'view-facturation');
+ }finally{f.close()}
+});
+test('an unmatched statement row can correct a selected intervention and refresh the comparison',async()=>{
+ const f=await fixture();try{
+  f.run(`$('billingReconMonth').value=iso().slice(0,7);billingReconRenderOwnSummary();$('billingReconOperator').value='ORANGE';
+    billingReconRaw={headers:['Référence','Montant'],rows:[['9876543210','123.45']],mapping:{ref:0,amount:1,type:-1,status:-1,operator:-1}};billingReconPopulateMapping();billingReconRenderResult(billingReconCompareData())`);
+  const card=f.w.document.querySelector('[data-recon-extra]');card.querySelector('[data-recon-action="open"]').click();
+  card.querySelector('[data-recon-existing]').value='row-a';card.querySelector('[data-recon-action="edit"]').click();
+  assert.equal(f.run("$('m-num').value"),'9876543210');
+  assert.equal(f.run('interventions[0].num'),'1234567890');
+  f.run("interventions[0].num='9876543210';billingReconFinish()");
+  assert.equal(f.run('billingReconResult.extras.length'),0);
+  assert.equal(f.run('billingReconResult.errors.length'),0);
+ }finally{f.close()}
+});
+test('a manually selected intervention date survives interface changes and a successful save',async()=>{
+ const f=await fixture();try{
+  f.w.fetch=async()=>({ok:true});
+  f.run(read('fibre-compliance.js'));
+  if(f.w.document.readyState==='loading')f.w.document.dispatchEvent(new f.w.Event('DOMContentLoaded'));
+  f.run("$('f-date').value='2025-01-15';$('f-date').dispatchEvent(new Event('input',{bubbles:true}));document.body.appendChild(document.createElement('div'))");
+  await new Promise(resolve=>setTimeout(resolve,60));
+  assert.equal(f.run("$('f-date').value"),'2025-01-15');
+  await f.w.fetch('https://example.supabase.co/rest/v1/interventions',{method:'POST'});
+  await new Promise(resolve=>setTimeout(resolve,450));
+  assert.equal(f.run("$('f-date').value"),'2025-01-15');
+ }finally{f.close()}
+});
 test('joining a team keeps personal history labelled correctly across cards, dashboard and editors',async()=>{
  const f=await fixture();try{
   f.run(`team={id:'team-a'};teamMembers=[{id:user.id,first_name:'Brendan'},{id:'account-b',first_name:'Partner'}];

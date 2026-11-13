@@ -8,5 +8,9 @@
   "devDependencies": {
     "fake-indexeddb": "6.2.4",
     "jsdom": "26.1.0"
+  },
+  "dependencies": {
+    "jspdf": "4.2.1",
+    "pdfjs-dist": "4.10.38"
   }
 }

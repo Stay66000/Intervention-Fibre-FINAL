@@ -164,12 +164,6 @@
     lastAutoDate=today;
   }
 
-  function resetDateAfterSuccessfulSave(){
-    dateTouchedByUser=false;
-    lastAutoDate='';
-    setTimeout(()=>syncInterventionDate(true),120);
-  }
-
   function clearCapturePreview(){
     const img=document.getElementById('cap-img');
     const link=document.getElementById('cap-link');
@@ -195,7 +189,7 @@
     const url=typeof input==='string'?input:String(input?.url||input||'');
     const response=await originalFetch(input,init);
     if(isSuccessfulInterventionInsert(url,init,response)){
-      setTimeout(()=>{clearCapturePreview();resetDateAfterSuccessfulSave()},250);
+      setTimeout(clearCapturePreview,250);
     }
     return response;
   };
@@ -206,10 +200,9 @@
       input.dataset.foDateBound='1';
       input.addEventListener('input',markDateManual);
       input.addEventListener('change',e=>{if(e.isTrusted)markDateManual()});
+      input.addEventListener('fibre:date-restored',markDateManual);
+      lastAutoDate=input.value||todayLocal();
     }
-    setTimeout(()=>syncInterventionDate(true),0);
-    setTimeout(()=>{if(!dateTouchedByUser)syncInterventionDate(true)},700);
-    setTimeout(()=>{if(!dateTouchedByUser)syncInterventionDate(true)},1800);
   }
 
   document.addEventListener('visibilitychange',()=>{

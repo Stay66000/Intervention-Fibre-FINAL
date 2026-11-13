@@ -81,7 +81,7 @@
   function calc(){
     const month=selectedMonth();
     const own=(typeof interventions!=='undefined'?interventions:[]).filter(e=>String(e.date||'').slice(0,7)===month&&!e.readOnlyHistory);
-    const produced=own.reduce((sum,e)=>sum+personalAmount(e),0);
+    const produced=typeof totalWithOrangeDiscount==='function'?totalWithOrangeDiscount(own,personalAmount):own.reduce((sum,e)=>sum+personalAmount(e),0);
     const invoices=(typeof invoiceRows!=='undefined'?invoiceRows:[]).filter(i=>String(i.billing_month||i.issue_date||'').slice(0,7)===month&&i.status!=='cancelled');
     const invoiced=invoices.filter(i=>i.status==='issued'||i.status==='paid').reduce((s,i)=>s+Number(i.total_amount||0),0);
     const paidInvoices=(typeof invoiceRows!=='undefined'?invoiceRows:[]).filter(i=>i.status==='paid'&&String(i.paid_at||i.issue_date||'').slice(0,7)===month);

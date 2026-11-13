@@ -5,7 +5,10 @@ do $$ begin
   if not exists(select 1 from pg_roles where rolname='authenticated') then create role authenticated; end if;
 end $$;
 grant usage on schema private to authenticated;
-create table public.teams (id uuid primary key);
+create table public.teams (id uuid primary key,company_id uuid,ended_at timestamptz);
+create table public.profiles (id uuid primary key,active boolean);
+create table public.user_settings (user_id uuid primary key,preferences jsonb);
+create table public.team_members (team_id uuid,user_id uuid,status text,ended_at timestamptz);
 create table public.interventions (id uuid primary key, user_id uuid, team_id uuid, company_id uuid, operator text,
   result text, intervention_date date, intervention_type_name text, applied_amount numeric, operator_data jsonb default '{}');
 create function auth.uid() returns uuid language sql stable as $$ select nullif(current_setting('test.user_id',true),'')::uuid $$;

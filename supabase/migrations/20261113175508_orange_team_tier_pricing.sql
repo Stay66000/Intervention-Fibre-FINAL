@@ -35,7 +35,7 @@ declare
   extra_price numeric;
   extra_amount numeric;
   updated_items jsonb;
-  item jsonb;
+  extra_item jsonb;
   item_amount numeric;
 begin
   if new.company_id is not null or new.team_id is null or new.operator<>'orange'
@@ -58,15 +58,15 @@ begin
     if jsonb_array_length(new.operator_data #> '{supplement,items}') not between 1 and 2 then raise exception 'Un ou deux compléments attendus'; end if;
     updated_items='[]'::jsonb;
     extra_amount=0;
-    for item in select value from jsonb_array_elements(new.operator_data #> '{supplement,items}') loop
-      item_amount=coalesce(nullif(item->>'amount','')::numeric,0);
+    for extra_item in select value from jsonb_array_elements(new.operator_data #> '{supplement,items}') loop
+      item_amount=coalesce(nullif(extra_item->>'amount','')::numeric,0);
       if item_amount<=0 or item_amount>10000 then raise exception 'Montant de complément invalide'; end if;
-      if lower(trim(coalesce(item->>'comment','')))='apie' then
+      if lower(trim(coalesce(extra_item->>'comment','')))='apie' then
         extra_price=nullif(c.prices -> 'apie' ->> tier,'')::numeric;
-        if extra_price is not null then item_amount=extra_price; item=jsonb_set(item,'{amount}',to_jsonb(item_amount),false); end if;
+        if extra_price is not null then item_amount=extra_price; extra_item=jsonb_set(extra_item,'{amount}',to_jsonb(item_amount),false); end if;
       end if;
       extra_amount=extra_amount+item_amount;
-      updated_items=updated_items||jsonb_build_array(item);
+      updated_items=updated_items||jsonb_build_array(extra_item);
     end loop;
     if extra_amount>10000 then raise exception 'Total des compléments trop élevé'; end if;
     if base_price is null then new.applied_amount=greatest(0,coalesce(new.applied_amount,0)-private.intervention_supplement_amount(new.operator_data)+extra_amount); end if;

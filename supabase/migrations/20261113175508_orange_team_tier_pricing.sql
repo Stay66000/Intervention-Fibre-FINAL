@@ -34,6 +34,9 @@ declare
   base_price numeric;
   extra_price numeric;
   extra_amount numeric;
+  updated_items jsonb;
+  item jsonb;
+  item_amount numeric;
 begin
   if new.company_id is not null or new.team_id is null or new.operator<>'orange'
      or lower(coalesce(new.result,'')) not in ('réussite','reussite','success') then return new; end if;
@@ -51,7 +54,25 @@ begin
   category=translate(lower(trim(coalesce(new.intervention_type_name,''))), 'àâäéèêëîïôöùûüç', 'aaaeeeeiioouuuc');
   base_price=nullif(c.prices -> category ->> tier,'')::numeric;
   extra_amount=private.intervention_supplement_amount(new.operator_data);
-  if lower(trim(coalesce(new.operator_data #>> '{supplement,comment}','')))='apie' then
+  if jsonb_typeof(new.operator_data #> '{supplement,items}')='array' then
+    if jsonb_array_length(new.operator_data #> '{supplement,items}') not between 1 and 2 then raise exception 'Un ou deux compléments attendus'; end if;
+    updated_items='[]'::jsonb;
+    extra_amount=0;
+    for item in select value from jsonb_array_elements(new.operator_data #> '{supplement,items}') loop
+      item_amount=coalesce(nullif(item->>'amount','')::numeric,0);
+      if item_amount<=0 or item_amount>10000 then raise exception 'Montant de complément invalide'; end if;
+      if lower(trim(coalesce(item->>'comment','')))='apie' then
+        extra_price=nullif(c.prices -> 'apie' ->> tier,'')::numeric;
+        if extra_price is not null then item_amount=extra_price; item=jsonb_set(item,'{amount}',to_jsonb(item_amount),false); end if;
+      end if;
+      extra_amount=extra_amount+item_amount;
+      updated_items=updated_items||jsonb_build_array(item);
+    end loop;
+    if extra_amount>10000 then raise exception 'Total des compléments trop élevé'; end if;
+    if base_price is null then new.applied_amount=greatest(0,coalesce(new.applied_amount,0)-private.intervention_supplement_amount(new.operator_data)+extra_amount); end if;
+    new.operator_data=jsonb_set(new.operator_data,'{supplement,items}',updated_items,false);
+    new.operator_data=jsonb_set(new.operator_data,'{supplement,amount}',to_jsonb(extra_amount),false);
+  elsif lower(trim(coalesce(new.operator_data #>> '{supplement,comment}','')))='apie' then
     extra_price=nullif(c.prices -> 'apie' ->> tier,'')::numeric;
     if extra_price is not null then
       new.operator_data=jsonb_set(new.operator_data,'{supplement,amount}',to_jsonb(extra_price),false);
@@ -90,7 +111,7 @@ begin
     and lower(coalesce(i.result,'')) in ('réussite','reussite','success')
     and i.intervention_date>=p_month and i.intervention_date<(p_month+interval '1 month')::date
     and (c.prices ? translate(lower(trim(coalesce(i.intervention_type_name,''))), 'àâäéèêëîïôöùûüç', 'aaaeeeeiioouuuc')
-      or (lower(trim(coalesce(i.operator_data #>> '{supplement,comment}','')))='apie' and c.prices ? 'apie'));
+      or (c.prices ? 'apie' and (lower(trim(coalesce(i.operator_data #>> '{supplement,comment}','')))='apie' or (case when jsonb_typeof(i.operator_data #> '{supplement,items}')='array' then exists(select 1 from jsonb_array_elements(i.operator_data #> '{supplement,items}') x where lower(trim(coalesce(x->>'comment','')))='apie') else false end))));
   get diagnostics changed = row_count;
   return jsonb_build_object('month',pg_catalog.to_char(p_month,'YYYY-MM'),'tier',p_tier,'updated',changed);
 end;

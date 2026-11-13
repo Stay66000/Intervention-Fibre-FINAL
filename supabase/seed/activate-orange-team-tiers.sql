@@ -37,7 +37,7 @@ with updated as (
     and i.company_id is null and i.operator='orange' and i.intervention_date>='2026-09-01'
     and lower(coalesce(i.result,'')) in ('réussite','reussite','success')
     and (c.prices ? translate(lower(trim(coalesce(i.intervention_type_name,''))), 'àâäéèêëîïôöùûüç', 'aaaeeeeiioouuuc')
-      or (lower(trim(coalesce(i.operator_data #>> '{supplement,comment}','')))='apie' and c.prices ? 'apie'))
+      or (c.prices ? 'apie' and (lower(trim(coalesce(i.operator_data #>> '{supplement,comment}','')))='apie' or (case when jsonb_typeof(i.operator_data #> '{supplement,items}')='array' then exists(select 1 from jsonb_array_elements(i.operator_data #> '{supplement,items}') x where lower(trim(coalesce(x->>'comment','')))='apie') else false end))))
   returning i.intervention_type_name
 )
 select intervention_type_name,count(*) as interventions_recalculees from updated group by intervention_type_name order by intervention_type_name;

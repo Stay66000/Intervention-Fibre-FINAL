@@ -2036,7 +2036,6 @@ body.is-offline .sync-pill{border-color:color-mix(in srgb,var(--danger) 45%,var(
       <button class="btn-ghost" id="billingMarkPaid" type="button">Marquer payée</button>
       <button class="btn-ghost" id="billingCancelInvoice" type="button">Annuler la facture</button>
       <button class="btn-primary" id="billingDownloadPdf" type="button">⬇️ Télécharger le PDF</button>
-      <button class="btn-ghost" id="billingMailOpen" type="button">✉️ Envoyer avec Gmail</button>
       <button class="btn-primary" id="billingPrintInvoice" type="button">🖨️ Imprimer / PDF</button>
     </div>
 
@@ -2102,19 +2101,6 @@ body.is-offline .sync-pill{border-color:color-mix(in srgb,var(--danger) 45%,var(
         </div>
       </div>
     </div>
-  </div>
-</div>
-
-<div class="modal-overlay billing-modal-overlay" id="billingMailModal" role="dialog" aria-modal="true" aria-labelledby="billingMailTitle">
-  <div class="modal-card">
-    <div class="modal-header"><div class="modal-title" id="billingMailTitle">Envoyer la facture</div><button class="btn-ghost" id="billingMailClose" type="button" aria-label="Fermer">✕</button></div>
-    <p>Connecte le compte Gmail qui enverra la facture. Le PDF sera joint au message.</p>
-    <div class="field"><label for="billingMailFrom">Ton adresse Gmail</label><input id="billingMailFrom" type="email" autocomplete="email"></div>
-    <div class="field"><label for="billingMailTo">Destinataire</label><input id="billingMailTo" type="email"></div>
-    <div class="field"><label for="billingMailSubject">Objet</label><input id="billingMailSubject" type="text" maxlength="160"></div>
-    <div class="field"><label for="billingMailBody">Message</label><textarea id="billingMailBody" rows="5" maxlength="5000"></textarea></div>
-    <p id="billingMailStatus" role="status" aria-live="polite"></p>
-    <button class="btn-primary" id="billingMailSend" type="button">Connecter Gmail et envoyer</button>
   </div>
 </div>
 
@@ -4277,7 +4263,6 @@ async function billingOpenPreview(row=null){
   $('billingCancelInvoice').disabled=!(billingCanEdit()&&row?.id&&['draft','issued'].includes(row.status));
   $('billingPrintInvoice').disabled=!(row?.invoice_number);
   $('billingDownloadPdf').disabled=!(row?.invoice_number);
-  $('billingMailOpen').disabled=!(row?.invoice_number)||row?.status==='cancelled';
 
   $('billingPreviewModal').classList.add('active');
   setTimeout(billingScalePreview,0);

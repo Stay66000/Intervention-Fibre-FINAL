@@ -37,7 +37,6 @@ export async function onRequest(context) {
         element.append('<script nonce="'+nonce+'" src="/photo-admin-preview.js?v=2"></script>', { html: true });
         element.append('<script nonce="'+nonce+'" src="/offline-v2.js?v=10"></script>', { html: true });
         element.append('<script nonce="'+nonce+'" src="/billing-roadmap-v2.js?v=4"></script>', { html: true });
-        element.append('<script nonce="'+nonce+'" src="/invoice-gmail-ui.js?v=1"></script>', { html: true });
         element.append('<script nonce="'+nonce+'" src="/finance-v2.js?v=4"></script>', { html: true });
         element.append('<script nonce="'+nonce+'" src="/roadmap-v2-runtime.js?v=1"></script>', { html: true });
         element.append('<script nonce="'+nonce+'" src="/preview-auth-redirect.js?v=1"></script>', { html: true });

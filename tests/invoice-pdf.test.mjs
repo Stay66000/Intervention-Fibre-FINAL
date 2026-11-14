@@ -14,6 +14,10 @@ test('exports the saved invoice as a legible PDF with French characters',async()
  assert.equal(filename,'Facture-2026-001.pdf');
  const pdf=await getDocument({data:new Uint8Array(doc.output('arraybuffer'))}).promise;
  const text=(await (await pdf.getPage(1)).getTextContent()).items.map(x=>x.str).join(' ');
+ const items=(await (await pdf.getPage(1)).getTextContent()).items;
+ const sellerItem=items.find(x=>x.str.includes('Électricité Test')),clientItem=items.find(x=>x.str.includes('Société Cliente'));
+ assert.ok(sellerItem&&clientItem&&clientItem.transform[4]>sellerItem.transform[4], 'émetteur et client sur deux colonnes');
+ assert.ok(text.includes('Numéro de SIRET: 123456789'), 'pied de page SIRET');
  for(const part of ['2026-001','Électricité Test','Société Cliente','Intervention aérienne','168,60','TVA non applicable','Pénalités de retard'])assert.ok(text.includes(part),`missing ${part}: ${text}`);
  await pdf.destroy();
 });

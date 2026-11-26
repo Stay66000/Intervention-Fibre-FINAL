@@ -2311,6 +2311,8 @@ body.is-offline .sync-pill{border-color:color-mix(in srgb,var(--danger) 45%,var(
 <p id="teamLinkedText">Compte lié.</p>
 <div class="team-members" id="teamMembers"></div>
 <div class="field-hint" style="margin-top:10px">Opérateurs, typologies, tarifs, historique et carburant sont communs. Tes préférences visuelles restent personnelles.</div>
+<div class="field-hint" style="margin-top:12px">Vous vous séparez ? Tu peux terminer le binôme. Les interventions déjà réalisées resteront dans l’historique commun ; les opérateurs et tarifs partagés seront copiés dans chaque espace personnel.</div>
+<button class="btn-ghost" id="separateTeamBtn" type="button" style="width:100%;margin-top:10px;border-color:rgba(255,180,80,.45);color:var(--ink)">Terminer le binôme</button>
 </div>
 <div id="teamUnlinkedBox">
 <p>Lie ton compte à un autre technicien indépendant. Au moment de créer le binôme, vous choisissez quelle grille de tarifs conserver ou vous définissez une nouvelle grille commune.</p>
@@ -6312,6 +6314,27 @@ $('companyTariffTech').onchange=renderCompanyTariffs;
 $('companyTariffList').addEventListener('click',async e=>{const b=e.target.closest('[data-company-rate-save]');if(!b)return;const typeId=b.dataset.companyRateSave,uid=$('companyTariffTech').value,input=$('companyTariffList').querySelector(`[data-rate-type="${typeId}"]`),amount=Number(String(input?.value||'').replace(',','.'));if(!uid||!Number.isFinite(amount)||amount<0)return toast('Entre un tarif technicien valide');b.disabled=true;const {error}=await supabase.rpc('company_set_technician_tariff',{p_type_id:typeId,p_user_id:uid,p_amount:amount});b.disabled=false;if(error)return toast('Erreur : '+error.message);await refreshCompanyAdminTools();toast('Tarif technicien enregistré')});
 
 $('settingsClose').onclick=()=>$('settingsOverlay').classList.remove('active');$('settingsOverlay').onclick=e=>{if(e.target===$('settingsOverlay'))$('settingsOverlay').classList.remove('active')};$('logoutBtn').onclick=async()=>{await supabase.auth.signOut();location.reload()};
+$('separateTeamBtn').onclick=async()=>{
+  if(!hasTeam())return toast('Aucun binôme actif');
+  const partner=partnerMember();
+  const effective=new Date();
+  effective.setDate(effective.getDate()+1);
+  const effectiveDate=[effective.getFullYear(),String(effective.getMonth()+1).padStart(2,'0'),String(effective.getDate()).padStart(2,'0')].join('-');
+  const effectiveLabel=effective.toLocaleDateString('fr-FR');
+  const ok=confirm(`Terminer le binôme avec ${partner?memberName(partner.id):'ton partenaire'} ?\n\nLa séparation sera enregistrée au ${effectiveLabel}. Dès validation, ton compte passera en Solo.\n\nLes interventions historiques resteront conservées et accessibles. Les opérateurs et tarifs communs seront copiés dans les deux espaces personnels. Cette action est irréversible.`);
+  if(!ok)return;
+  const btn=$('separateTeamBtn');
+  btn.disabled=true;
+  btn.textContent='Séparation…';
+  const {error}=await supabase.rpc('separate_my_team',{p_effective_date:effectiveDate});
+  if(error){
+    btn.disabled=false;
+    btn.textContent='Terminer le binôme';
+    return toast('Erreur : '+error.message);
+  }
+  toast('Binôme terminé · ton compte passe en Solo');
+  setTimeout(()=>location.reload(),700);
+};
 $('teamInviteBtn').onclick=async()=>{
   const email=$('teamInviteEmail').value.trim();if(!email)return toast('Entre l’e-mail du binôme');
   $('teamInviteBtn').disabled=true;
